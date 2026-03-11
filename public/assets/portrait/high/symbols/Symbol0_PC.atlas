@@ -1,0 +1,177 @@
+Symbol0_PC.webp
+size:568,568
+filter:Linear,Linear
+pma:false
+Envelop
+bounds:253,66,89,88
+offsets:1,1,91,90
+Letter
+bounds:316,202,84,84
+offsets:1,1,86,86
+Main/Poof_of_Fire_00000
+bounds:85,156,1,1
+Scatter Text/Scatter Text_00030
+bounds:85,156,1,1
+Scatter Text/Scatter Text_00031
+bounds:85,156,1,1
+Scatter Text/Scatter Text_00032
+bounds:85,156,1,1
+Scatter Text/Scatter Text_00033
+bounds:85,156,1,1
+Scatter Text/Scatter Text_00034
+bounds:85,156,1,1
+Main/Poof_of_Fire_00001
+bounds:82,289,8,9
+offsets:51,9,109,171
+Main/Poof_of_Fire_00002
+bounds:87,2,48,43
+offsets:31,0,109,171
+Main/Poof_of_Fire_00003
+bounds:239,3,67,60
+offsets:21,0,109,171
+Main/Poof_of_Fire_00004
+bounds:434,30,71,75
+offsets:20,0,109,171
+Main/Poof_of_Fire_00005
+bounds:239,196,75,90
+offsets:20,0,109,171
+Main/Poof_of_Fire_00006
+bounds:164,187,73,99
+offsets:22,0,109,171
+Main/Poof_of_Fire_00007
+bounds:87,47,77,107
+offsets:17,0,109,171
+Main/Poof_of_Fire_00008
+bounds:243,329,76,116
+offsets:15,0,109,171
+Main/Poof_of_Fire_00009
+bounds:84,443,77,121
+offsets:14,0,109,171
+Main/Poof_of_Fire_00010
+bounds:82,300,74,125
+offsets:15,0,109,171
+Main/Poof_of_Fire_00011
+bounds:2,155,76,131
+offsets:16,0,109,171
+Main/Poof_of_Fire_00012
+bounds:2,288,78,137
+offsets:17,0,109,171
+Main/Poof_of_Fire_00013
+bounds:2,427,80,137
+offsets:16,6,109,171
+Main/Poof_of_Fire_00014
+bounds:158,322,83,119
+offsets:15,20,109,171
+Main/Poof_of_Fire_00015
+bounds:2,24,83,129
+offsets:14,16,109,171
+Main/Poof_of_Fire_00016
+bounds:80,159,82,127
+offsets:13,23,109,171
+Main/Poof_of_Fire_00017
+bounds:163,447,82,117
+offsets:12,38,109,171
+Main/Poof_of_Fire_00018
+bounds:247,457,82,107
+offsets:12,51,109,171
+Main/Poof_of_Fire_00019
+bounds:166,65,85,89
+offsets:10,65,109,171
+Main/Poof_of_Fire_00020
+bounds:460,107,87,80
+offsets:10,72,109,171
+Main/Poof_of_Fire_00021
+bounds:344,71,88,83
+offsets:10,75,109,171
+Scatter
+bounds:460,479,100,41
+Scatter Text/Scatter Text_00000
+bounds:356,438,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00001
+bounds:356,438,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00002
+bounds:356,438,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00003
+bounds:356,438,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00004
+bounds:356,438,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00005
+bounds:356,438,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00006
+bounds:356,438,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00007
+bounds:356,438,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00008
+bounds:356,438,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00009
+bounds:460,437,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00010
+bounds:356,523,100,41
+offsets:6,4,114,55
+Scatter Text/Scatter Text_00011
+bounds:137,3,100,42
+offsets:6,4,114,55
+Scatter Text/Scatter Text_00012
+bounds:308,22,100,42
+offsets:6,4,114,55
+Scatter Text/Scatter Text_00013
+bounds:358,158,100,42
+offsets:6,4,114,55
+Scatter Text/Scatter Text_00014
+bounds:460,522,100,42
+offsets:6,4,114,55
+Scatter Text/Scatter Text_00015
+bounds:356,480,100,41
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00016
+bounds:356,396,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00017
+bounds:460,395,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00018
+bounds:356,354,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00019
+bounds:460,353,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00020
+bounds:356,312,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00021
+bounds:460,311,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00022
+bounds:460,269,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00023
+bounds:460,227,100,40
+offsets:6,5,114,55
+Scatter Text/Scatter Text_00024
+bounds:255,288,99,39
+offsets:7,5,114,55
+Scatter Text/Scatter Text_00025
+bounds:259,156,97,38
+offsets:8,5,114,55
+Scatter Text/Scatter Text_00026
+bounds:460,189,96,36
+offsets:8,6,114,55
+Scatter Text/Scatter Text_00027
+bounds:158,288,95,32
+offsets:8,6,114,55
+Scatter Text/Scatter Text_00028
+bounds:164,156,93,29
+offsets:9,7,114,55
+Scatter Text/Scatter Text_00029
+bounds:80,156,3,1
+offsets:37,29,114,55

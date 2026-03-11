@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<link rel="icon" type="image/png" href="/favicon.png" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	
+	<!-- Resource hints for faster loading -->
+	<!-- Preload critical background image -->
+	<link rel="preload" as="image" href="/assets/portrait/high/background/fullscreen_bg.webp" type="image/webp" />
+	<!-- Fonts are loaded by the game (Boot/Preloader); preloading here triggers "not used within a few seconds" warnings -->
+	<!-- Prefetch DNS for external resources (if any) -->
+	<!-- <link rel="dns-prefetch" href="https://api.example.com" /> -->
+	
+	<link rel="stylesheet" href="/style.css">
+	<title>Grave Threat</title>
+	<link rel="stylesheet" href="/main.scss">
+	<style>
+		body {
+			margin: 0;
+			padding: 0;
+			overflow: hidden;
+		}
+		
+		.background-container {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			z-index: -1;
+			overflow: hidden;
+		}
+		
+		.background-image {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+			object-position: center bottom;
+			border-radius: 0;
+		}
+		
+		#root {
+			position: relative;
+			z-index: 1;
+		}
+
+		/* Add drop shadow under the game view (canvas inside #root) */
+		#root canvas {
+			filter: drop-shadow(0 16px 24px rgba(0, 0, 0, 0.7));
+			border-radius: 8px;      /* or whatever radius you want */
+			overflow: hidden;         /* helps ensure content respects rounding */
+		}
+	</style>
+</head>
+
+<body>
+	<div class="background-container">
+		<img
+			class="background-image"
+			src="/assets/portrait/high/background/fullscreen_bg.webp"
+			alt="Fullscreen background"
+		/>
+	</div>
+	<div id="root"></div>
+	<script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

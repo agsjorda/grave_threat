@@ -1,0 +1,22 @@
+FreeSpin_PC.webp
+size:624,624
+filter:Linear,Linear
+pma:false
+FFreeSpin 1
+bounds:89,499,337,120
+offsets:1,1,340,123
+FMajimboy
+bounds:396,48,223,446
+offsets:0,0,271,447
+FMajimboyArm
+bounds:428,496,84,123
+offsets:0,1,84,125
+FMajimboyArmLense
+bounds:2,519,85,100
+offsets:0,5,87,106
+FYouWon 1
+bounds:2,359,392,138
+offsets:2,2,396,142
+MajimBoyHead
+bounds:2,3,243,354
+offsets:79,12,400,400
