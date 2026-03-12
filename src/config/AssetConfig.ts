@@ -33,9 +33,9 @@ export class AssetConfig {
 
 		return {
 			images: {
-				'BG-Default': `${prefix}/background/NormalGame.webp`,
-				'normal-bg-cover': `${prefix}/background/ControllerNormal_PC.png`,
-				'meter': `${prefix}/background/Meter1.png`,
+				'bg_default': `${prefix}/background/NormalGame.webp`,
+				'normal_bg_cover': `${prefix}/background/ControllerNormal.webp`,
+				'bg_border': `${prefix}/background/bg_border.webp`,
 				'shine': `assets/portrait/high/background/shine.png`,
 				'dijoker_loading': `${prefix}/dijoker_loading/DI JOKER.png`
 			},
@@ -49,8 +49,23 @@ export class AssetConfig {
 	}
 
 	getBonusBackgroundAssets(): AssetGroup {
-		// Same layout and assets as normal game
-		return this.getBackgroundAssets();
+		const prefix = this.getAssetPrefix();
+
+		// Separate bonus background so we can use BonusGame.webp instead of NormalGame.webp.
+		return {
+			images: {
+				'bg_bonus': `${prefix}/bonus_background/BonusGame.webp`,
+				'bonus_bg_cover': `${prefix}/bonus_background/ControllerBonus.webp`,
+				'shine': `assets/portrait/high/background/shine.png`,
+				'dijoker_loading': `${prefix}/dijoker_loading/DI JOKER.png`
+			},
+			spine: {
+				'di_joker': {
+					atlas: `${prefix}/dijoker_loading/DI JOKER.atlas`,
+					json: `${prefix}/dijoker_loading/DI JOKER.json`
+				}
+			}
+		};
 	}
 
 	getHeaderAssets(): AssetGroup {
@@ -58,15 +73,15 @@ export class AssetConfig {
 
 		return {
 			images: {
-				'Header_Scene': `${prefix}/header/Header_Scene.webp`,
-				'Header_SceneFrame': `${prefix}/header/Header_SceneFrame.webp`,
-				'Header_WinBar': `${prefix}/header/Header_WinBar.webp`
+				'header_winbar': `${prefix}/header/Header_WinBar.webp`,
+				'header_logo': `${prefix}/background/HeaderLogo.webp`,
+				'header_border': `${prefix}/header/Header_Border.webp`
 			}
 		};
 	}
 
 	getBonusHeaderAssets(): AssetGroup {
-		// Same layout and assets as normal game (including conveyor top)
+		// Same layout and assets as normal game
 		return this.getHeaderAssets();
 	}
 
@@ -77,7 +92,7 @@ export class AssetConfig {
 		return {
 			images: {
 				'loading_background': `${prefix}/background/LoadingScreen.png`,
-				'header_logo': `${prefix}/background/HeaderLogo.png`,
+				'preload_logo': `${prefix}/background/HeaderLogo.webp`,
 				'button_bg': `${prefix}/loading/button_bg.png`,
 				'button_spin': `${prefix}/loading/button_spin.png`,
 				'loading_frame': `${prefix}/loading/loading-frame.png`,

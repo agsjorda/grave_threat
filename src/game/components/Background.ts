@@ -4,11 +4,8 @@ import { ScreenModeManager } from "../../managers/ScreenModeManager";
 import { gameStateManager } from "../../managers/GameStateManager";
 import { ensureSpineFactory } from "../../utils/SpineGuard";
 import { gameEventManager, GameEventType } from "../../event/EventManager";
-import {
-	GRID_CENTER_Y_RATIO,
-	GRID_CENTER_Y_OFFSET_PX,
-	TIMING_CONFIG,
-} from "../../config/GameConfig";
+import { BG_BORDER_OFFSET_Y, BACKGROUND_COVER_CONFIG } from "../../config/GameConfig";
+import { scaleBottomCoverImage } from "./BackgroundCoverLayout";
 import { startAnimation, stopAnimation } from "../../utils/SpineAnimationHelper";
 
 export class Background {
@@ -17,7 +14,8 @@ export class Background {
 	private networkManager: NetworkManager;
 	private screenModeManager: ScreenModeManager;
 	private normalBgCover: Phaser.GameObjects.Image | null = null;
-	private bgDefault: Phaser.GameObjects.Image | null = null;
+private bgDefault: Phaser.GameObjects.Image | null = null;
+private bgBorder: Phaser.GameObjects.Image | null = null;
 	// ADJUST HERE (Spine background): manual scale multipliers.
 	// These affect the Spine background ONLY (NormalGame_BZ).
 	// The Spine now scales to fit WIDTH (no left/right cropping, same as BG-Default).
@@ -93,16 +91,24 @@ export class Background {
 		this.bgDefault = scene.add.image(
 			scene.scale.width * 0.5,
 			scene.scale.height * 0.5,
-			'BG-Default'
+			'bg_default'
 		).setOrigin(0.5, 0.5);
 		this.bgContainer.add(this.bgDefault);
+
+		// bg_border: border drawn above bg_default but below overlays
+		this.bgBorder = scene.add.image(
+			scene.scale.width * 0.5,
+			scene.scale.height * 0.5,
+			'bg_border'
+		).setOrigin(0.5, 0.5);
+		this.bgContainer.add(this.bgBorder);
 
 		// normal-bg-cover: foreground overlay (controller area). Keep it out of the container
 		// so its depth can reliably sit above symbols/win animations if needed.
 		this.normalBgCover = scene.add.image(
 			scene.scale.width * 0.5,
 			scene.scale.height * 0.5,
-			'normal-bg-cover'
+			'normal_bg_cover'
 		).setOrigin(0.5, 0).setDepth(850);
 
 		// Add shine effect (if needed)
@@ -206,6 +212,16 @@ export class Background {
 			}
 		}
 
+		if (this.bgBorder) {
+			this.bgBorder.setPosition(width * 0.5, height * 0.5 + BG_BORDER_OFFSET_Y);
+			const sourceWidth = this.bgBorder.width;
+			if (sourceWidth > 0) {
+				const multiplier = Phaser.Math.Clamp(this.bgDefaultScaleMultiplier, 0.1, 5);
+				const targetScale = (width / sourceWidth) * multiplier;
+				this.bgBorder.setScale(targetScale);
+			}
+		}
+
 		if (this.normalGameSpine) {
 			this.normalGameSpine.setPosition(width * 0.5, 0);
 			// ADJUST HERE (Spine background): Direct width-based scaling.
@@ -220,17 +236,22 @@ export class Background {
 		if (this.normalBgCover) {
 			// Height adjuster (percentage): change `coverHeightPercentOfScene` above.
 			// this.coverHeightPercentOfScene = 0.45; //adjust normal bg cover height
-			const pct = Phaser.Math.Clamp(this.coverHeightPercentOfScene, 0, 1);
-			const scaleX = this.normalBgCover.width ? (width / this.normalBgCover.width * 1.2) : 1;
-			const scaleY = this.normalBgCover.height ? ((height * pct) / this.normalBgCover.height * 1.15) : 1;
-			this.normalBgCover.setScale(scaleX, scaleY);
+			scaleBottomCoverImage(
+				scene,
+				this.normalBgCover,
+				this.coverHeightPercentOfScene,
+				BACKGROUND_COVER_CONFIG.NORMAL_WIDTH_MULTIPLIER,
+				BACKGROUND_COVER_CONFIG.NORMAL_HEIGHT_MULTIPLIER,
+			);
 
-			const coverHalfHeight = this.normalBgCover.displayHeight * 1;
-			// Bottom-edge aligned positioning:
-			// With origin (0.5, 0.5), bottom edge is at (y + displayHeight/2).
-			// So to align the bottom edge to the bottom of the scene: y = height - displayHeight/2.
-			const y = height - coverHalfHeight - this.coverBottomOffsetPx;
-			this.normalBgCover.setPosition(width * 0.5, y * 1.56);
+			// Align the visual bottom edge of the cover with the bottom of the screen
+			// (taking the image's origin into account). With originY = 0, this is
+			// bottomY = y + displayHeight.
+			const coverHeight = this.normalBgCover.displayHeight;
+			const originY = this.normalBgCover.originY ?? 0;
+			const bottomY = height - this.coverBottomOffsetPx;
+			const y = bottomY - coverHeight * (1 - originY);
+			this.normalBgCover.setPosition(width * 0.5, y);
 		}
 
 	}
@@ -411,8 +432,6 @@ export class Background {
 			}
 			this.normalGameSpine = null;
 		}
-		gameEventManager.off(GameEventType.REELS_START, this.boundPlayConveyor);
-		gameEventManager.off(GameEventType.REELS_STOP, this.boundStopConveyor);
 	}
 
 	/**
@@ -425,9 +444,6 @@ export class Background {
 			if (this.normalGameSpine) {
 				this.normalGameSpine.setVisible(!isBonus);
 				console.log(`[Background] NormalGame_BZ Spine visibility set to: ${!isBonus} (isBonus: ${isBonus})`);
-			}
-			for (const spine of this.conveyorSpines) {
-				if (spine) spine.setVisible(true); // Conveyor visible in both normal and bonus game
 			}
 
 			if (this.normalBgCover) {

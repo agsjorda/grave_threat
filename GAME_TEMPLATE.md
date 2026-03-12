@@ -30,7 +30,7 @@ File: `src/config/GameBranding.ts`
 
 - `src/config/AssetConfig.ts` for key/path mapping
 - `src/config/GameConfig.ts` for layout, grid, tuning, thresholds, animation/depth values
-  Includes `HEADER_CONFIG.HEADER_SCENE_CONTAINER_SCALE_X`, `HEADER_CONFIG.HEADER_SCENE_CONTAINER_SCALE_Y`, `HEADER_CONFIG.HEADER_SCENE_CONTAINER_OFFSET_Y` for header scene container transforms.
+  Includes `HEADER_CONFIG.HEADER_CONTAINER_SCALE_X`, `HEADER_CONFIG.HEADER_CONTAINER_SCALE_Y`, `HEADER_CONFIG.HEADER_CONTAINER_OFFSET_Y` for header layout.
 
 ### Paytables and win rules
 
@@ -92,7 +92,7 @@ Notes:
 | Symbol size/spacing | `src/config/GameConfig.ts` -> `SYMBOL_CONFIG` |
 | Grid position/mask | `src/config/GameConfig.ts` -> `GRID_*` constants |
 | Animation timings | `src/config/GameConfig.ts` -> `TIMING_CONFIG`, `ANIMATION_CONFIG`, and related timing constants |
-| Debug toggles | `src/config/GameConfig.ts` -> `SHOW_*` flags (including `SHOW_HEADER_SCENE_CONTAINER_BORDER`, `SHOW_HEADER_BORDER`) |
+| Debug toggles | `src/config/GameConfig.ts` -> `SHOW_*` flags (including `SHOW_HEADER_BORDER`) |
 
 ### Grid semantics (area -> visual grid)
 

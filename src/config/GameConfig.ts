@@ -37,42 +37,64 @@ export const BONUS_MULTIPLIER_IMAGE_BY_MARK_COUNT: readonly number[] = [1, 2, 4,
 /** Bonus marker logic cap (can exceed current image tiers; UI falls back to text if no matching image exists). */
 export const BONUS_MULTIPLIER_MAX_VALUE: number = 128;
 
-/** Header layout (Header_SceneFrame and Header_WinBar position and scale) */
+/** Header layout (win bar position and scale) */
 export const HEADER_CONFIG = {
-  /** X offset (px) for Header_SceneFrame. Positive = right, negative = left. Use to nudge horizontal center. */
-  SCENE_FRAME_OFFSET_X: 0,
-  /** Y position (px) of the top edge of Header_SceneFrame. 0 = top of screen; positive = frame lower. */
-  SCENE_FRAME_OFFSET_Y: -2,
-  /** Scale multiplier for Header_SceneFrame. 1 = width-fit, < 1 = smaller, > 1 = larger. */
-  SCENE_FRAME_SCALE: 1,
-  /** Header_Scene: X scale multiplier (applied on top of frame scale). 1 = same as frame. */
-  HEADER_SCENE_SCALE_X: .9,
-  /** Header_Scene: Y scale multiplier (applied on top of frame scale). 1 = same as frame. */
-  HEADER_SCENE_SCALE_Y: .9,
-  /** Header_Scene: Y position offset (px) added to frame top. Positive = down, negative = up. */
-  HEADER_SCENE_OFFSET_Y: 0,
-  /** Header scene container: X scale multiplier. 1 = fit screen width, < 1 = narrower, > 1 = wider. */
-  HEADER_SCENE_CONTAINER_SCALE_X: .95,
-  /** Header scene container: Y scale multiplier. 1 = same as frame height, < 1 = shorter, > 1 = taller. */
-  HEADER_SCENE_CONTAINER_SCALE_Y: .9,
-  /** Header scene container: Y offset (px). Positive = down, negative = up. */
-  HEADER_SCENE_CONTAINER_OFFSET_Y: 0,
-  /** Y offset (px) added to Header_WinBar position (below Header_SceneFrame). Positive = down, negative = up. */
-  WIN_BAR_OFFSET_Y: -30,
-  /** Y offset (px) for win bar text (YOU WON / amount). Positive = lower, negative = higher. Applied on top of base position. */
-  WIN_BAR_TEXT_OFFSET_Y: -2,
-  /** Scale multiplier for win bar label text (YOU WON / TOTAL WIN). 1 = default size, < 1 = smaller, > 1 = larger. */
-  WIN_BAR_TEXT_SCALE: .9,
-  /** Scale multiplier for win bar value text (amount e.g. $0.00). 1 = default size, < 1 = smaller, > 1 = larger. */
-  WIN_BAR_TEXT_VALUE_SCALE: .9,
+  /** X offset (px) for header area. Positive = right, negative = left. */
+  HEADER_OFFSET_X: 0,
+  /** Y position (px) of the top edge of header area. 0 = top of screen; positive = lower. */
+  HEADER_OFFSET_Y: -2,
+  /** Scale multiplier for header area width. 1 = width-fit, < 1 = smaller, > 1 = larger. */
+  HEADER_WIDTH_SCALE: 1,
+  /** Header area height as ratio of layout width. height = layoutWidth * this. */
+  HEADER_LAYOUT_ASPECT_RATIO: 0.35,
+  /** Header area container: X scale multiplier. 1 = fit screen width, < 1 = narrower, > 1 = wider. */
+  HEADER_CONTAINER_SCALE_X: 0.95,
+  /** Header area container: Y scale multiplier. < 1 = shorter, > 1 = taller. */
+  HEADER_CONTAINER_SCALE_Y: 0.9,
+  /** Header area container: Y offset (px). Positive = down, negative = up. */
+  HEADER_CONTAINER_OFFSET_Y: 0,
+  /** Header logo: scale multiplier (applied after width-fit). 1 = full width-fit, < 1 = smaller. */
+  HEADER_LOGO_SCALE: 0.4,
+  /** Header logo: Y offset (px) from top of header area. Positive = down, negative = up. */
+  HEADER_LOGO_OFFSET_Y: 0,
+  /** Header border (Header_Border): scale multiplier (applied after width-fit). 1 = full width-fit, < 1 = smaller. */
+  HEADER_BORDER_SCALE: 1,
+  /** Header border: Y offset (px) from top of header area. Positive = down, negative = up. */
+  HEADER_BORDER_OFFSET_Y: 70,
   /** Scale multiplier for Header_WinBar. 1 = width-fit, < 1 = smaller, > 1 = larger. */
-  WIN_BAR_SCALE: 1,
-  /** Confetti VFX: X offset (px) from header frame center. Positive = right, negative = left. */
-  CONFETTI_OFFSET_X: 50,
-  /** Confetti VFX: Y offset (px) from header frame top. Positive = down, negative = up. */
-  CONFETTI_OFFSET_Y: 70,
-  /** Confetti VFX: scale multiplier relative to header frame width-fit. */
-  CONFETTI_SCALE: 0.8,
+  WIN_BAR_SCALE: 0.8,
+  /** Y offset (px) added to Header_WinBar position. Positive = down, negative = up. */
+  WIN_BAR_OFFSET_Y: -10,
+  /** Y offset (px) for win bar text (YOU WON / amount). Positive = lower, negative = higher. Applied on top of base position. */
+  WIN_BAR_TEXT_OFFSET_Y: 6,
+  /** Scale multiplier for win bar label text (YOU WON / TOTAL WIN). 1 = default size, < 1 = smaller, > 1 = larger. */
+  WIN_BAR_TEXT_SCALE: 0.9,
+  /** Scale multiplier for win bar value text (amount e.g. $0.00). 1 = default size, < 1 = smaller, > 1 = larger. */
+  WIN_BAR_TEXT_VALUE_SCALE: 0.9,
+} as const;
+
+/** Additional Y offset (px) applied only to BonusHeader win bar text (on top of WIN_BAR_TEXT_OFFSET_Y). Positive = lower, negative = higher. */
+export const BONUS_HEADER_WIN_BAR_TEXT_OFFSET_Y = 2;
+
+/** Y offset (px) for bg_border in Background.ts. Positive = down, negative = up from screen center. */
+export const BG_BORDER_OFFSET_Y = 180;
+
+/** Bonus cover (bonus_bg_cover): scale multipliers and Y offset for BonusBackground.ts. */
+export const BONUS_BG_COVER_SCALE_X = .85;
+export const BONUS_BG_COVER_SCALE_Y = .8;
+/** Y offset (px) applied after layout for bonus_bg_cover. Positive = down, negative = up. */
+export const BONUS_BG_COVER_OFFSET_Y = 0;
+
+/** Normal and bonus bottom cover (controller overlay) scale multipliers. */
+export const BACKGROUND_COVER_CONFIG = {
+  /** Normal game bottom cover: extra width multiplier applied after fit-to-width. */
+  NORMAL_WIDTH_MULTIPLIER: 1,
+  /** Normal game bottom cover: extra height multiplier applied after height ratio. */
+  NORMAL_HEIGHT_MULTIPLIER: 0.6,
+  /** Bonus game bottom cover: base width multiplier before BONUS_BG_COVER_SCALE_X. */
+  BONUS_WIDTH_MULTIPLIER: 1.2,
+  /** Bonus game bottom cover: base height multiplier before BONUS_BG_COVER_SCALE_Y. */
+  BONUS_HEIGHT_MULTIPLIER: 1.15,
 } as const;
 
 // =============================================================================
@@ -343,12 +365,8 @@ export const WIN_BORDER_LINE_WIDTH = 2;
 export const SHOW_REEL_BORDER: boolean = false;
 /** When true, draw hitboxes for controller buttons. */
 export const SHOW_BUTTON_HITBOXES: boolean = false;
-/** When true, draw a green debug border around Header_SceneFrame to see its size. */
-export const SHOW_HEADER_SCENEFRAME_BORDER: boolean = false;
-/** When true, draw a red debug border around the full header area (scene, frame, win bar, win text). */
+/** When true, draw a red debug border around the full header area (win bar, win text). */
 export const SHOW_HEADER_BORDER: boolean = false;
-/** When true, draw a red debug border around the header confetti VFX bounds. */
-export const SHOW_HEADER_CONFETTI_BORDER: boolean = false;
 /** When true, draw red debug borders for scatter payout section in HelpScreen (scatter image + header/grid/text). */
 export const HELPSCREEN_PAYOUT_SCATTER_DEBUG_LINE: boolean = false;
 

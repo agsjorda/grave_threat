@@ -22,7 +22,7 @@ Follow existing naming patterns unless the user asks for a rename.
 - TypeScript classes/components/types: `PascalCase`
 - Functions/variables/methods: `camelCase`
 - Constants in config files: `UPPER_SNAKE_CASE`
-- Asset keys in `AssetConfig.ts`: keep existing key style and prefixes
+- Asset keys in `AssetConfig.ts`: **snake_case** (example: `bg_default`, `header_winbar`, `header_border`, `bg_bonus`, `normal_bg_cover`)
 - Bonus marker keys: `bonus_multiplier_x{value}`
 - Symbol assets: `Symbol{index}_PC.*` and static `symbol{index}.png`
 

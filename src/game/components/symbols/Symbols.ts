@@ -4135,11 +4135,6 @@ export class Symbols {
       }
     } catch { }
 
-    // Start conveyor only when actual tumble movement begins (after win-symbol animations).
-    if (tumbleActiveColumns.length > 0) {
-      gameEventManager.emit(GameEventType.TUMBLE_COLUMNS_START, { columns: tumbleActiveColumns } as any);
-    }
-
     // Compress each column downwards and compute target indices for remaining symbols
     const symbolTotalHeight = self.displayHeight + self.verticalSpacing;
     const startY = self.slotY - self.totalGridHeight * 0.5;

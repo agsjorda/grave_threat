@@ -3,13 +3,14 @@ import { NetworkManager } from "../../managers/NetworkManager";
 import { ScreenModeManager } from "../../managers/ScreenModeManager";
 import { gameStateManager } from "../../managers/GameStateManager";
 import { gameEventManager, GameEventType } from "../../event/EventManager";
-import { ensureSpineFactory } from "../../utils/SpineGuard";
 import {
-	GRID_CENTER_Y_RATIO,
-	GRID_CENTER_Y_OFFSET_PX,
-	TIMING_CONFIG,
+	BG_BORDER_OFFSET_Y,
+	BONUS_BG_COVER_OFFSET_Y,
+	BONUS_BG_COVER_SCALE_X,
+	BONUS_BG_COVER_SCALE_Y,
+	BACKGROUND_COVER_CONFIG,
 } from "../../config/GameConfig";
-import { startAnimation, stopAnimation } from "../../utils/SpineAnimationHelper";
+import { scaleBottomCoverImage } from "./BackgroundCoverLayout";
 
 export class BonusBackground {
 	private bonusContainer!: Phaser.GameObjects.Container;
@@ -17,6 +18,7 @@ export class BonusBackground {
 	private screenModeManager: ScreenModeManager;
 	private bonusBg: any = null; // Spine animation object
 	private bonusBgCover: Phaser.GameObjects.Image | null = null;
+	private bonusBgBorder: Phaser.GameObjects.Image | null = null;
 	private scene: Scene | null = null;
 
 	// Same layout as normal Background for ControllerNormal_PC (normal-bg-cover)
@@ -58,66 +60,52 @@ export class BonusBackground {
 	}
 
 	private createBonusElements(scene: Scene, assetScale: number): void {
-		const screenConfig = this.screenModeManager.getScreenConfig();
-		
-		if (screenConfig.isPortrait) {
-			this.createPortraitBonusBackground(scene, assetScale);
-		} else {
-			this.createLandscapeBonusBackground(scene, assetScale);
-		}
-
+		// Portrait and landscape currently share the same bonus background layout.
+		this.createCommonBonusBackground(scene, assetScale);
 	}
 
-	private createPortraitBonusBackground(scene: Scene, assetScale: number): void {
-		console.log("[BonusBackground] Creating portrait bonus background layout (same as normal)");
+	private createCommonBonusBackground(scene: Scene, assetScale: number): void {
+		console.log("[BonusBackground] Creating bonus background layout (same as normal)");
 
-		// Static bonus background (same as normal: BG-Default / NormalGame.webp)
-		if (scene.textures.exists('BG-Default')) {
-			this.bonusBg = scene.add.image(
-				scene.scale.width * 0.5,
-				scene.scale.height * 0.5,
-				'BG-Default'
-			).setOrigin(0.5, 0.5).setDepth(0);
+		// Static bonus background: prefer bg_bonus (BonusGame.webp), fall back to bg_default if missing
+		const bonusBgKey = scene.textures.exists("bg_bonus") ? "bg_bonus" : "bg_default";
+		if (scene.textures.exists(bonusBgKey)) {
+			this.bonusBg = scene
+				.add.image(scene.scale.width * 0.5, scene.scale.height * 0.5, bonusBgKey)
+				.setOrigin(0.5, 0.5)
+				.setDepth(0);
 			const scaleX = scene.scale.width / (this.bonusBg.width || 1);
 			const scaleY = scene.scale.height / (this.bonusBg.height || 1);
 			this.bonusBg.setScale(Math.max(scaleX, scaleY));
 			this.bonusContainer.add(this.bonusBg);
 		}
 
-		// Cover overlay - same layout as normal (ControllerNormal_PC / normal-bg-cover)
-		this.bonusBgCover = scene.add.image(
-			scene.scale.width * 0.5,
-			scene.scale.height * 0.5,
-			'normal-bg-cover'
-		).setOrigin(0.5, 0).setDepth(850);
-		this.bonusBgCover.setVisible(false);
-		console.log('[BonusBackground] Created normal-bg-cover (same layout as normal), depth 850, initially hidden');
-	}
-
-	private createLandscapeBonusBackground(scene: Scene, assetScale: number): void {
-		console.log("[BonusBackground] Creating landscape bonus background layout (same as normal)");
-
-		// Static bonus background (same as normal: BG-Default / NormalGame.webp)
-		if (scene.textures.exists('BG-Default')) {
-			this.bonusBg = scene.add.image(
-				scene.scale.width * 0.5,
-				scene.scale.height * 0.5,
-				'BG-Default'
-			).setOrigin(0.5, 0.5).setDepth(0);
-			const scaleX = scene.scale.width / (this.bonusBg.width || 1);
-			const scaleY = scene.scale.height / (this.bonusBg.height || 1);
-			this.bonusBg.setScale(Math.max(scaleX, scaleY));
-			this.bonusContainer.add(this.bonusBg);
+		// Bonus border: same placement logic as bg_border in Background.ts
+		if (scene.textures.exists("bg_border")) {
+			this.bonusBgBorder = scene
+				.add.image(
+					scene.scale.width * 0.5,
+					scene.scale.height * 0.5 + BG_BORDER_OFFSET_Y,
+					"bg_border",
+				)
+				.setOrigin(0.5, 0.5)
+				.setDepth(0);
+			this.bonusContainer.add(this.bonusBgBorder);
 		}
 
-		// Cover overlay - same layout as normal (ControllerNormal_PC / normal-bg-cover)
-		this.bonusBgCover = scene.add.image(
-			scene.scale.width * 0.5,
-			scene.scale.height * 0.5,
-			'normal-bg-cover'
-		).setOrigin(0.5, 0).setDepth(850);
+		// Cover overlay - same layout as normal (ControllerNormal_PC / normal_bg_cover)
+		this.bonusBgCover = scene
+			.add.image(
+				scene.scale.width * 0.5,
+				scene.scale.height * 0.5,
+				"bonus_bg_cover",
+			)
+			.setOrigin(0.5, 0)
+			.setDepth(850);
 		this.bonusBgCover.setVisible(false);
-		console.log('[BonusBackground] Created normal-bg-cover (same layout as normal), depth 850, initially hidden');
+		console.log(
+			"[BonusBackground] Created normal-bg-cover (same layout as normal), depth 850, initially hidden",
+		);
 	}
 
 	private scaleImageToCover(image: Phaser.GameObjects.Image, targetWidth: number, targetHeight: number): void {
@@ -154,14 +142,25 @@ export class BonusBackground {
 		}
 
 		if (this.bonusBgCover) {
-			// Same layout as normal Background (ControllerNormal_PC)
-			const pct = Phaser.Math.Clamp(this.coverHeightPercentOfScene, 0, 1);
-			const scaleX = this.bonusBgCover.width ? (width / this.bonusBgCover.width * 1.2) : 1;
-			const scaleY = this.bonusBgCover.height ? ((height * pct) / this.bonusBgCover.height * 1.15) : 1;
-			this.bonusBgCover.setScale(scaleX, scaleY);
-			const coverHalfHeight = this.bonusBgCover.displayHeight * 1;
-			const y = height - coverHalfHeight - this.coverBottomOffsetPx;
-			this.bonusBgCover.setPosition(width * 0.5, y * 1.56);
+			// Same layout as normal Background (ControllerNormal_PC), with configurable scale.
+			// Bottom edge of the cover is aligned with the bottom of the screen (minus any coverBottomOffsetPx),
+			// so you don't need to manually tweak a Y offset for alignment.
+			scaleBottomCoverImage(
+				scene,
+				this.bonusBgCover,
+				this.coverHeightPercentOfScene,
+				BACKGROUND_COVER_CONFIG.BONUS_WIDTH_MULTIPLIER * BONUS_BG_COVER_SCALE_X,
+				BACKGROUND_COVER_CONFIG.BONUS_HEIGHT_MULTIPLIER * BONUS_BG_COVER_SCALE_Y,
+			);
+
+			// Align the visual bottom edge of the cover with the bottom of the screen
+			// (taking the image's origin into account). With originY = 0, this is
+			// bottomY = y + displayHeight.
+			const coverHeight = this.bonusBgCover.displayHeight;
+			const originY = this.bonusBgCover.originY ?? 0;
+			const bottomY = height - this.coverBottomOffsetPx;
+			const y = bottomY - coverHeight * (1 - originY) + BONUS_BG_COVER_OFFSET_Y;
+			this.bonusBgCover.setPosition(width * 0.5, y);
 		}
 
 	}
@@ -187,9 +186,9 @@ export class BonusBackground {
 	 * Setup listener for bonus mode changes to toggle cover and cloud visibility
 	 */
 	private setupBonusModeListener(scene: Scene): void {
-		// Check if normal-bg-cover asset loaded successfully (same as normal game)
-		if (!scene.textures.exists('normal-bg-cover')) {
-			console.error('[BonusBackground] normal-bg-cover texture not found! Check AssetConfig and file path.');
+		// Check if bonus_bg_cover asset loaded successfully
+		if (!scene.textures.exists('bonus_bg_cover')) {
+			console.error('[BonusBackground] bonus_bg_cover texture not found! Check AssetConfig and file path.');
 			console.log('[BonusBackground] Available textures:', scene.textures.getTextureKeys());
 		}
 		

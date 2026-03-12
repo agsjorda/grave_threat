@@ -254,10 +254,10 @@ export class Preloader extends Scene
 		console.log(`[Preloader] Background scale: ${scale}, canvas: ${this.scale.width}x${this.scale.height}`);
 
 		// Header logo at top of loading screen
-		if (this.textures.exists('header_logo')) {
+		if (this.textures.exists('preload_logo')) {
 			const logoX = this.scale.width * 0.5;
-			const logoY = this.scale.height * 0.12;
-			const headerLogo = this.add.image(logoX, logoY, 'header_logo')
+			const logoY = this.scale.height * 0.2; // change 0.2 to adjust y position of the logo
+			const headerLogo = this.add.image(logoX, logoY, 'preload_logo')
 				.setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(5);
 			const maxWidth = this.scale.width * 0.85;
 			if (headerLogo.width > maxWidth) {
