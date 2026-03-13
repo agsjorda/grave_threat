@@ -72,6 +72,12 @@ class UnresolvedSpinPopup extends GameObjects.Container {
       try {
         (window as any).audioManager?.playSoundEffect?.("button_fx");
       } catch {}
+      // Remove dimmer immediately so the scene is not stuck dark while the dialog tween runs
+      // (and so bonus/base bg is visible as soon as Continue is pressed).
+      try {
+        this.overlay.setVisible(false);
+        this.overlay.disableInteractive?.();
+      } catch {}
       this.hide(() => this.onContinue?.());
     });
     this.buttonImage.on("pointerover", () => this.buttonImage.setTint(0xcccccc));
@@ -106,6 +112,9 @@ class UnresolvedSpinPopup extends GameObjects.Container {
   }
 
   public hide(callback?: () => void): void {
+    try {
+      this.overlay.setVisible(false);
+    } catch {}
     this.scene.tweens.add({
       targets: this,
       scaleX: 0.5,
@@ -115,7 +124,9 @@ class UnresolvedSpinPopup extends GameObjects.Container {
       ease: "Back.In",
       onComplete: () => {
         this.setVisible(false);
-        this.overlay.setVisible(false);
+        try {
+          this.overlay.setVisible(false);
+        } catch {}
         callback?.();
       },
     });

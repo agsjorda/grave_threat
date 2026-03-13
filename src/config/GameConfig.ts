@@ -79,6 +79,14 @@ export const BONUS_HEADER_WIN_BAR_TEXT_OFFSET_Y = 2;
 /** Y offset (px) for bg_border in Background.ts. Positive = down, negative = up from screen center. */
 export const BG_BORDER_OFFSET_Y = 180;
 
+/**
+ * Base display depth for reel/symbol grid content. bg_border must render above this (see BG_BORDER_DEPTH).
+ * Keep in sync with Symbols.ts idle symbol depth.
+ */
+export const SYMBOL_GRID_BASE_DEPTH = 600;
+/** bg_border sits just above the symbol grid so the frame is not covered by symbols. */
+export const BG_BORDER_DEPTH = SYMBOL_GRID_BASE_DEPTH + 1;
+
 /** Bonus cover (bonus_bg_cover): scale multipliers and Y offset for BonusBackground.ts. */
 export const BONUS_BG_COVER_SCALE_X = .85;
 export const BONUS_BG_COVER_SCALE_Y = .8;
@@ -322,7 +330,7 @@ export const GRID_CENTER_X_OFFSET_PX = -5;
 export const GRID_CENTER_Y_RATIO = 0.52;
 export const GRID_CENTER_Y_OFFSET_PX = -65;
 
-export const GRID_MASK_PADDING = { left: 14, right: 14, top: 40, bottom: 50 } as const;
+export const GRID_MASK_PADDING = { left: 14, right: 14, top: 40, bottom: 20 } as const;
 export const GRID_MASK_GRADIENT_FADE_HEIGHT = 24;
 export const GRID_OVERLAY_PADDING = { x: 9, y: 8, offsetX: 1, offsetY: 0.7 } as const;
 

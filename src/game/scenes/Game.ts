@@ -540,8 +540,10 @@ export class Game extends Scene {
 			console.warn('[Game] Failed to show unresolved-spin popup:', e);
 		}
 
+		// Do not call applyBonusModeVisuals here: it hides the base background while the popup
+		// is still open, so the only thing behind the dimmer is often empty/black until Continue.
+		// Bonus/header/bg switch runs at the start of resumeFromUnresolvedSpin instead.
 		try {
-			unresolvedSpinManager.applyBonusModeVisuals(this);
 			if (unresolvedSpinManager.hasUnresolvedSpin && this.slotController) {
 				const unresolved = unresolvedSpinManager.unresolvedSpin;
 				if (unresolved) {
@@ -552,13 +554,20 @@ export class Game extends Scene {
 				}
 			}
 		} catch (e) {
-			console.warn('[Game] Failed to force unresolved bonus visuals:', e);
+			console.warn('[Game] Failed to force unresolved free-spin display:', e);
 		}
 	}
 
 	private resumeFromUnresolvedSpin(): void {
 		const unresolved = unresolvedSpinManager.unresolvedSpin;
 		if (!unresolved) return;
+
+		try {
+			// Switch to bonus bg/header only after Continue (base game stays visible behind popup).
+			unresolvedSpinManager.applyBonusModeVisuals(this);
+		} catch (e) {
+			console.warn('[Game] applyBonusModeVisuals on unresolved resume failed:', e);
+		}
 
 		try {
 			this.gameStateManager.isBonus = true;
@@ -713,6 +722,9 @@ export class Game extends Scene {
 		if (freeSpinItem?.isMaxWin === true) {
 			const slotTotal = Number((spinData.slot as any)?.totalWin);
 			const winAmount = Number.isFinite(slotTotal) ? slotTotal : 0;
+			try {
+				this.symbols?.stopFreeSpinsAfterMaxWin?.();
+			} catch { }
 			try {
 				if (this.dialogs?.showMaxWin) {
 					gameStateManager.isShowingWinDialog = true;
@@ -891,6 +903,7 @@ export class Game extends Scene {
 
 			// Ensure winnings display stays visible and transfers to bonus header on bonus start
 				if (isBonus) {
+					this.gameStateManager.bonusEndedByMaxWin = false;
 					// Only transfer winnings if we're NOT already in bonus mode (i.e., this is the initial bonus activation)
 					// During retriggers, we're already in bonus mode, so we should preserve the accumulated total
 					const wasAlreadyInBonus = this.gameStateManager.isBonus;

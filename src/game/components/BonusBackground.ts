@@ -4,7 +4,6 @@ import { ScreenModeManager } from "../../managers/ScreenModeManager";
 import { gameStateManager } from "../../managers/GameStateManager";
 import { gameEventManager, GameEventType } from "../../event/EventManager";
 import {
-	BG_BORDER_OFFSET_Y,
 	BONUS_BG_COVER_OFFSET_Y,
 	BONUS_BG_COVER_SCALE_X,
 	BONUS_BG_COVER_SCALE_Y,
@@ -18,7 +17,6 @@ export class BonusBackground {
 	private screenModeManager: ScreenModeManager;
 	private bonusBg: any = null; // Spine animation object
 	private bonusBgCover: Phaser.GameObjects.Image | null = null;
-	private bonusBgBorder: Phaser.GameObjects.Image | null = null;
 	private scene: Scene | null = null;
 
 	// Same layout as normal Background for ControllerNormal_PC (normal-bg-cover)
@@ -80,18 +78,7 @@ export class BonusBackground {
 			this.bonusContainer.add(this.bonusBg);
 		}
 
-		// Bonus border: same placement logic as bg_border in Background.ts
-		if (scene.textures.exists("bg_border")) {
-			this.bonusBgBorder = scene
-				.add.image(
-					scene.scale.width * 0.5,
-					scene.scale.height * 0.5 + BG_BORDER_OFFSET_Y,
-					"bg_border",
-				)
-				.setOrigin(0.5, 0.5)
-				.setDepth(0);
-			this.bonusContainer.add(this.bonusBgBorder);
-		}
+		// bg_border is a single scene object in Background.ts at BG_BORDER_DEPTH (above grid); not duplicated here.
 
 		// Cover overlay - same layout as normal (ControllerNormal_PC / normal_bg_cover)
 		this.bonusBgCover = scene

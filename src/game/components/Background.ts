@@ -4,7 +4,7 @@ import { ScreenModeManager } from "../../managers/ScreenModeManager";
 import { gameStateManager } from "../../managers/GameStateManager";
 import { ensureSpineFactory } from "../../utils/SpineGuard";
 import { gameEventManager, GameEventType } from "../../event/EventManager";
-import { BG_BORDER_OFFSET_Y, BACKGROUND_COVER_CONFIG } from "../../config/GameConfig";
+import { BG_BORDER_OFFSET_Y, BG_BORDER_DEPTH, BACKGROUND_COVER_CONFIG } from "../../config/GameConfig";
 import { scaleBottomCoverImage } from "./BackgroundCoverLayout";
 import { startAnimation, stopAnimation } from "../../utils/SpineAnimationHelper";
 
@@ -95,13 +95,12 @@ private bgBorder: Phaser.GameObjects.Image | null = null;
 		).setOrigin(0.5, 0.5);
 		this.bgContainer.add(this.bgDefault);
 
-		// bg_border: border drawn above bg_default but below overlays
+		// bg_border: above symbol grid (SYMBOL_GRID_BASE_DEPTH); not inside bgContainer so depth applies vs grid
 		this.bgBorder = scene.add.image(
 			scene.scale.width * 0.5,
 			scene.scale.height * 0.5,
 			'bg_border'
-		).setOrigin(0.5, 0.5);
-		this.bgContainer.add(this.bgBorder);
+		).setOrigin(0.5, 0.5).setDepth(BG_BORDER_DEPTH);
 
 		// normal-bg-cover: foreground overlay (controller area). Keep it out of the container
 		// so its depth can reliably sit above symbols/win animations if needed.

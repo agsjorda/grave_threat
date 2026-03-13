@@ -23,6 +23,7 @@ export class GameStateManager {
   private _isBonusFinished: boolean = false;
   private _isBuyFeatureSpin: boolean = false;
   private _suppressTotalWinDialog: boolean = false;
+  private _bonusEndedByMaxWin: boolean = false;
   /** When 2, bonus game should start with two x2 sticky markers (buy feature 2). Cleared when applied or when bonus ends. */
   private _buyFeatureStartMultiplier: number = 0;
 
@@ -92,6 +93,7 @@ export class GameStateManager {
   public get isBonusFinished(): boolean { return this._isBonusFinished; }
   public get isBuyFeatureSpin(): boolean { return this._isBuyFeatureSpin; }
   public get suppressTotalWinDialog(): boolean { return this._suppressTotalWinDialog; }
+  public get bonusEndedByMaxWin(): boolean { return this._bonusEndedByMaxWin; }
   public get buyFeatureStartMultiplier(): number { return this._buyFeatureStartMultiplier; }
 
   // Setters for state properties (with event emission where appropriate)
@@ -163,6 +165,9 @@ export class GameStateManager {
   }
   public set suppressTotalWinDialog(value: boolean) {
     this._suppressTotalWinDialog = value;
+  }
+  public set bonusEndedByMaxWin(value: boolean) {
+    this._bonusEndedByMaxWin = value;
   }
 
   public set buyFeatureStartMultiplier(value: number) {

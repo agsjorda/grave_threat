@@ -361,6 +361,47 @@ export class FreeSpinController {
     this.waitingForWinAnimation = true;
   }
 
+  public static isCurrentFreeSpinItemMaxWin(spinData: any): boolean {
+    try {
+      const slot = spinData?.slot;
+      const fs = slot?.freespin || slot?.freeSpin;
+      const items = fs?.items;
+      const area = slot?.area;
+      if (!Array.isArray(items) || !Array.isArray(area)) return false;
+      const areaJson = JSON.stringify(area);
+      const item = items.find(
+        (it: any) => Array.isArray(it?.area) && JSON.stringify(it.area) === areaJson,
+      );
+      return item?.isMaxWin === true;
+    } catch {
+      return false;
+    }
+  }
+
+  public stopFreeSpinsAfterMaxWin(): void {
+    if (this.autoplayTimer) {
+      this.autoplayTimer.destroy();
+      this.autoplayTimer = null;
+    }
+    this._isActive = false;
+    this.spinsRemaining = 0;
+    this.waitingForReelsStop = false;
+    this.waitingForWinAnimation = false;
+    this.hasTriggered = false;
+    this.awaitingReelsStart = false;
+    this.dialogListenerSetup = false;
+    gameStateManager.bonusEndedByMaxWin = true;
+    gameStateManager.isAutoPlaying = false;
+    gameStateManager.isAutoPlaySpinRequested = false;
+    if (this.scene.gameData) {
+      this.scene.gameData.isAutoPlaying = false;
+    }
+    if (this.callbacks.onSetTurboMode) {
+      this.callbacks.onSetTurboMode(false);
+    }
+    gameEventManager.emit(GameEventType.AUTO_STOP);
+  }
+
   /**
    * Handle WIN_STOP event
    */
@@ -372,6 +413,15 @@ export class FreeSpinController {
     }
 
     this.waitingForWinAnimation = false;
+
+    try {
+      const spinData =
+        this.callbacks.getCurrentSpinData?.() ?? (this.scene as any)?.symbols?.currentSpinData;
+      if (FreeSpinController.isCurrentFreeSpinItemMaxWin(spinData)) {
+        this.stopFreeSpinsAfterMaxWin();
+        return;
+      }
+    } catch { }
 
     // If a scatter or Symbol0 retrigger is pending, wait for the retrigger dialog to finish
     // before scheduling the next spin.
@@ -673,7 +723,15 @@ export class FreeSpinController {
         const areaJson = JSON.stringify(slotArea);
         const match = items.find((it: any) => Array.isArray(it?.area) && JSON.stringify(it.area) === areaJson);
         if (match && typeof match.spinsLeft === 'number' && match.spinsLeft > 0) {
-          return { spinsLeft: match.spinsLeft, itemsLen };
+          let spinsLeft = match.spinsLeft;
+          try {
+            const idx = items.indexOf(match);
+            const prev = idx > 0 ? items[idx - 1] : null;
+            if (match.isMaxWin === true && prev && typeof prev.spinsLeft === 'number') {
+              spinsLeft = Math.max(0, Number(prev.spinsLeft) - 1);
+            }
+          } catch { }
+          return { spinsLeft, itemsLen };
         }
       }
 
@@ -684,7 +742,15 @@ export class FreeSpinController {
           (it.spinsLeft === this.spinsRemaining || it.spinsLeft === this.spinsRemaining + 1)
         );
         if (bySpins) {
-          return { spinsLeft: bySpins.spinsLeft, itemsLen };
+          let spinsLeft = bySpins.spinsLeft;
+          try {
+            const idx = items.indexOf(bySpins);
+            const prev = idx > 0 ? items[idx - 1] : null;
+            if (bySpins.isMaxWin === true && prev && typeof prev.spinsLeft === 'number') {
+              spinsLeft = Math.max(0, Number(prev.spinsLeft) - 1);
+            }
+          } catch { }
+          return { spinsLeft, itemsLen };
         }
       }
 

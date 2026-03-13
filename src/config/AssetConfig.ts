@@ -389,35 +389,36 @@ export class AssetConfig {
 				// Menu/UI clicks
 				'click': 'assets/sounds/SFX/click_2.ogg',
 				//BG sounds
-				'mainbg': 'assets/sounds/BG/normalbg_PC.ogg',
-				'bonusbg': 'assets/sounds/BG/bonusbg_PC.ogg',
-				'freespinbg': 'assets/sounds/BG/freespinbg_PC.ogg',
-				'spinb': 'assets/sounds/SFX/spin_PC.ogg',
+				'mainbg': 'assets/sounds/BG/mainbg_GT.ogg',
+				'bonusbg': 'assets/sounds/BG/bonusbg_GT.ogg',
+				'freespinbg': 'assets/sounds/BG/freespin_won_GT.ogg',
+				'spinb': 'assets/sounds/SFX/spin_GT.ogg',
 				'reelroll': 'assets/sounds/SFX/reelroll_PC.ogg',
-				'reeldrop': 'assets/sounds/SFX/reeldrop_PC.ogg',
+				'reeldrop': 'assets/sounds/SFX/reeldrop_GT.ogg',
 				// Scatter reel-drop variants (played progressively per scatter reel in a spin)
 				'scatterdrop1': 'assets/sounds/SFX/symbol_win/scatterdrop_brass_1.ogg',
 				'scatterdrop2': 'assets/sounds/SFX/symbol_win/scatterdrop_brass_2.ogg',
 				'scatterdrop3': 'assets/sounds/SFX/symbol_win/scatterdrop_brass_3.ogg',
 				'scatterdrop4': 'assets/sounds/SFX/symbol_win/scatterdrop_brass_4.ogg',
-				'turbodrop': 'assets/sounds/SFX/turbo_PC.ogg',
+				'turbodrop': 'assets/sounds/SFX/turbo_GT.ogg',
 				// Non-scatter box close SFX (played once when all regular symbol wins finish)
 				'box_close': 'assets/sounds/SFX/box_close.ogg',
 				// Radial light transition whistle SFX
 				'whistle': 'assets/sounds/SFX/whistle_BB.ogg',
-				'scatter': 'assets/sounds/SFX/scatter_PC.ogg',
+				'scatter': 'assets/sounds/SFX/scatter_GT.ogg',
 				// Tumble symbol-win SFX (play per tumble index)
-				'twin1': 'assets/sounds/SFX/symbol_win/twin1_BB.ogg',
-				'twin2': 'assets/sounds/SFX/symbol_win/twin2_BB.ogg',
-				'twin3': 'assets/sounds/SFX/symbol_win/twin3_BB.ogg',
-				'twin4': 'assets/sounds/SFX/symbol_win/twin4_BB.ogg',
+				'twin1': 'assets/sounds/SFX/symbol_win/twin_1_GT.ogg',
+				'twin2': 'assets/sounds/SFX/symbol_win/twin_2_GT.ogg',
+				'twin3': 'assets/sounds/SFX/symbol_win/twin_3_GT.ogg',
+				'twin4': 'assets/sounds/SFX/symbol_win/twin_4_GT.ogg',
 				// Win dialog SFX
-				'bigw': 'assets/sounds/Wins/bigw_PC.ogg',
-				'megaw': 'assets/sounds/Wins/megaw_PC.ogg',
-				'superw': 'assets/sounds/Wins/superw_PC.ogg',
-				'epicw': 'assets/sounds/Wins/epicw_PC.ogg',
-				'maxw': 'assets/sounds/Wins/maxw_PC.ogg',
-				'totalw': 'assets/sounds/Wins/totalw_PC.ogg',
+				'bigw': 'assets/sounds/Wins/bigw_GT.ogg',
+				'megaw': 'assets/sounds/Wins/megaw_GT.ogg',
+				'superw': 'assets/sounds/Wins/superw_GT.ogg',
+				'epicw': 'assets/sounds/Wins/epicw_GT.ogg',
+				'maxw': 'assets/sounds/Wins/maxw_GT.ogg',
+				'maxwend': 'assets/sounds/Wins/maxw_end_GT.ogg',
+				'totalw': 'assets/sounds/Wins/totalw_GT.ogg',
 				'retrigger': 'assets/sounds/Wins/retrigger_PC.ogg',
 			}
 		};

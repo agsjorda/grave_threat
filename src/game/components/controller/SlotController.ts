@@ -652,15 +652,6 @@ export class SlotController {
 		};
 	}
 
-	private playSpinButtonClickSfx(): void {
-		try {
-			const audioManager = (window as any)?.audioManager;
-			if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-				audioManager.playSoundEffect(SoundEffectType.SPIN_CLICK);
-			}
-		} catch {}
-	}
-
 	private createControllerElements(scene: Scene, assetScale: number): void {
 		const screenConfig = this.screenModeManager.getScreenConfig();
 		
@@ -859,7 +850,6 @@ export class SlotController {
 		if (this.autoplaySpinsRemainingText.input) this.autoplaySpinsRemainingText.input.cursor = 'pointer';
 		this.autoplaySpinsRemainingText.on('pointerdown', () => {
 			if (gameStateManager.isAutoPlaying || gameStateManager.isAutoPlaySpinRequested) {
-				this.playSpinButtonClickSfx();
 				this.stopAutoplay();
 			}
 		});
@@ -1411,7 +1401,6 @@ export class SlotController {
 		spinButton.on('pointerdown', async () => {
 			console.log('[SlotController] Spin button clicked');
 			// Debounce is handled by SpinButtonController, no need to check here
-			this.playSpinButtonClickSfx();
 			// If autoplay is active (or about to start), clicking spin will stop autoplay instead
 			if (gameStateManager.isAutoPlaying || gameStateManager.isAutoPlaySpinRequested) {
 				console.log('[SlotController] Stopping autoplay via spin button click');
@@ -1866,7 +1855,6 @@ export class SlotController {
 		spinButton.on('pointerdown', async () => {
 			console.log('[SlotController] Spin button clicked');
 			// Debounce is handled by SpinButtonController, no need to check here
-			this.playSpinButtonClickSfx();
 			// If autoplay is active (or about to start), clicking spin will stop autoplay instead
 			if (gameStateManager.isAutoPlaying || gameStateManager.isAutoPlaySpinRequested) {
 				console.log('[SlotController] Stopping autoplay via spin button click');
@@ -3509,6 +3497,19 @@ export class SlotController {
 		return true;
 	}
 
+	private spinsLeftDisplayForFreeSpinItem(items: any[], idx: number): number {
+		if (!Array.isArray(items) || idx < 0 || idx >= items.length) return 0;
+		const it = items[idx];
+		const raw = Number(it?.spinsLeft ?? 0) || 0;
+		if (it?.isMaxWin === true && idx > 0) {
+			const prev = items[idx - 1];
+			if (prev && typeof prev.spinsLeft === 'number') {
+				return Math.max(0, Number(prev.spinsLeft) - 1);
+			}
+		}
+		return raw;
+	}
+
 	/**
 	 * Determine the spinsLeft to display from the provided spinData.
 	 * Uses next freeSpin.items.spinsLeft when area match: remaining = next item's spinsLeft.
@@ -3522,17 +3523,13 @@ export class SlotController {
 		const fs = spinData?.slot?.freespin || (spinData as any)?.slot?.freeSpin;
 		const isFake = !!this.gameAPI?.isFakeDataEnabled?.();
 
-		// Fake-data mode: always display the current item's spinsLeft as authored in fake_spin_data.json.
-		// Match the current spin's area to the corresponding item and return that item's spinsLeft.
 		if (isFake) {
 			try {
 				const area = (spinData as any)?.slot?.area;
 				if (Array.isArray(area) && Array.isArray(items) && items.length > 0) {
-					for (const it of items) {
-						if (this.areasEqual(it?.area, area)) {
-							const left = Number(it?.spinsLeft || 0) || 0;
-							return left;
-						}
+					const idx = items.findIndex((it: any) => this.areasEqual(it?.area, area));
+					if (idx >= 0) {
+						return this.spinsLeftDisplayForFreeSpinItem(items, idx);
 					}
 				}
 			} catch {}
@@ -3561,7 +3558,7 @@ export class SlotController {
 				}
 				const currentItem = items[idx];
 				if (currentItem && typeof currentItem.spinsLeft === 'number') {
-					return currentItem.spinsLeft;
+					return this.spinsLeftDisplayForFreeSpinItem(items, idx);
 				}
 			}
 		}

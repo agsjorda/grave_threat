@@ -48,6 +48,7 @@ import {
   WIN_BORDER_LINE_WIDTH,
   BONUS_MULTIPLIER_LAYOUT,
   SYMBOL0_MERGE_SCALE,
+  SYMBOL_GRID_BASE_DEPTH,
 } from '../../../config/GameConfig';
 import { SoundEffectType } from '../../../managers/AudioManager';
 import { normalizeAreaToGameConfig, toRowMajor } from '../../../utils/GridTransform';
@@ -844,6 +845,12 @@ export class Symbols {
     console.log('[Symbols] WIN_DIALOG_CLOSED');
     gameStateManager.isShowingWinDialog = false;
 
+    if (gameStateManager.bonusEndedByMaxWin) {
+      gameStateManager.bonusEndedByMaxWin = false;
+      gameStateManager.suppressTotalWinDialog = false;
+      return;
+    }
+
     if (gameStateManager.isBonusFinished) {
       this.showCongratsDialogAfterDelay();
       gameStateManager.isBonusFinished = false;
@@ -898,6 +905,10 @@ export class Symbols {
   public resetFreeSpinAutoplayState(): void {
     this.freeSpinController.reset();
     this.dialogListenerSetup = false;
+  }
+
+  public stopFreeSpinsAfterMaxWin(): void {
+    this.freeSpinController?.stopFreeSpinsAfterMaxWin?.();
   }
 
   public get freeSpinAutoplaySpinsRemaining(): number {
@@ -1411,7 +1422,7 @@ export class Symbols {
         }
       } catch { }
       try {
-        if (typeof symbol.setDepth === 'function') symbol.setDepth(600);
+        if (typeof symbol.setDepth === 'function') symbol.setDepth(SYMBOL_GRID_BASE_DEPTH);
       } catch { }
       // Phase 1: shrink at current position (center)
       this.scene.tweens.add({
@@ -3139,12 +3150,11 @@ export class Symbols {
           const prevOnComplete = last.onComplete;
           last.onComplete = () => {
             try { if (prevOnComplete) prevOnComplete(); } catch { }
+            if (isSkip && (window as any).audioManager) {
+              try { this.playSpinReelDropSoundForColumn(col); } catch { }
+            }
             completedAnimations++;
             if (completedAnimations === totalAnimations) {
-              // In skip mode (non-turbo), play a single reel-drop sound after the last symbol lands.
-              if (isSkip && !isTurbo && (window as any).audioManager) {
-                try { this.playSpinReelDropSoundForColumn(col); } catch { }
-              }
               resolve();
             }
           };
@@ -4283,6 +4293,13 @@ export class Symbols {
               const computedStartDelay = (self.scene?.gameData?.tumbleDropStartDelayMs ?? 0) + (DROP_STAGGER_MS * sequenceIndex);
               const skipPreHop = !!(self.scene?.gameData?.tumbleSkipPreHop);
               const tweensArr: any[] = [];
+              const playReelDropOnMainLand = () => {
+                try {
+                  if (!self.scene.gameData.isTurbo && (window as any).audioManager) {
+                    (window as any).audioManager.playSoundEffect(SoundEffectType.REEL_DROP);
+                  }
+                } catch { }
+              };
               if (!skipPreHop) {
                 tweensArr.push({
                   delay: computedStartDelay,
@@ -4292,47 +4309,39 @@ export class Symbols {
                 });
                 tweensArr.push({
                   y: targetY,
-                  duration: (self.scene.gameData.dropDuration * 0.9),
+                  duration: (self.scene.gameData.dropDuration * 0.8),
                   ease: Phaser.Math.Easing.Linear,
+                  onComplete: playReelDropOnMainLand,
                 });
               } else {
                 tweensArr.push({
                   delay: computedStartDelay,
                   y: targetY,
-                  duration: (self.scene.gameData.dropDuration * 0.9),
+                  duration: (self.scene.gameData.dropDuration * 0.8),
                   ease: Phaser.Math.Easing.Linear,
+                  onComplete: playReelDropOnMainLand,
                 });
               }
               if (!isTurbo) {
-                // Normal mode: include the small post-drop bounce and SFX
                 tweensArr.push(
                   {
                     y: `+= ${10}`,
-                    duration: self.scene.gameData.dropDuration * 0.05,
+                    duration: self.scene.gameData.dropDuration * 0.04,
                     ease: Phaser.Math.Easing.Linear,
                   },
                   {
                     y: `-= ${10}`,
-                    duration: self.scene.gameData.dropDuration * 0.05,
+                    duration: self.scene.gameData.dropDuration * 0.04,
                     ease: Phaser.Math.Easing.Linear,
-                    onComplete: () => {
-                      try {
-                        if (!self.scene.gameData.isTurbo && (window as any).audioManager) {
-                          (window as any).audioManager.playSoundEffect(SoundEffectType.REEL_DROP);
-                        }
-                      } catch { }
-                      resolve();
-                    }
+                    onComplete: () => resolve(),
                   }
                 );
               } else {
-                // Turbo mode: no post-drop bounce; resolve on the main drop completion
                 const last = tweensArr[tweensArr.length - 1];
                 const prevOnComplete = last.onComplete;
                 last.onComplete = () => {
                   try {
                     if (prevOnComplete) prevOnComplete();
-                    // Play tumble sound for every symbol dropped after compression in turbo mode
                     if ((window as any).audioManager) {
                       (window as any).audioManager.playSoundEffect(SoundEffectType.REEL_DROP);
                     }
@@ -4431,38 +4440,46 @@ export class Symbols {
               const computedStartDelay = (self.scene?.gameData?.tumbleDropStartDelayMs ?? 0) + (DROP_STAGGER_MS * sequenceIndex);
               const skipPreHop = !!(self.scene?.gameData?.tumbleSkipPreHop);
               const tweensArr: any[] = [];
+              const playReelDropOnMainLand2 = () => {
+                try {
+                  if (!self.scene.gameData.isTurbo && (window as any).audioManager) {
+                    (window as any).audioManager.playSoundEffect(SoundEffectType.REEL_DROP);
+                  }
+                } catch { }
+              };
               if (!skipPreHop) {
                 tweensArr.push({ delay: computedStartDelay, y: `-= ${symbolHop}`, duration: self.scene.gameData.winUpDuration, ease: Phaser.Math.Easing.Circular.Out });
-                tweensArr.push({ y: targetY, duration: (self.scene.gameData.dropDuration * 0.9), ease: Phaser.Math.Easing.Linear });
+                tweensArr.push({
+                  y: targetY,
+                  duration: (self.scene.gameData.dropDuration * 0.9),
+                  ease: Phaser.Math.Easing.Linear,
+                  onComplete: playReelDropOnMainLand2,
+                });
               } else {
-                tweensArr.push({ delay: computedStartDelay, y: targetY, duration: (self.scene.gameData.dropDuration * 0.9), ease: Phaser.Math.Easing.Linear });
+                tweensArr.push({
+                  delay: computedStartDelay,
+                  y: targetY,
+                  duration: (self.scene.gameData.dropDuration * 0.9),
+                  ease: Phaser.Math.Easing.Linear,
+                  onComplete: playReelDropOnMainLand2,
+                });
               }
               if (!isTurbo) {
-                // Normal mode: include the small post-drop bounce and SFX
                 tweensArr.push(
                   { y: `+= ${10}`, duration: self.scene.gameData.dropDuration * 0.05, ease: Phaser.Math.Easing.Linear },
                   {
                     y: `-= ${10}`,
                     duration: self.scene.gameData.dropDuration * 0.05,
                     ease: Phaser.Math.Easing.Linear,
-                    onComplete: () => {
-                      try {
-                        if (!self.scene.gameData.isTurbo && (window as any).audioManager) {
-                          (window as any).audioManager.playSoundEffect(SoundEffectType.REEL_DROP);
-                        }
-                      } catch { }
-                      resolve();
-                    }
+                    onComplete: () => resolve(),
                   }
                 );
               } else {
-                // Turbo mode: no post-drop bounce; resolve on the main drop completion
                 const last = tweensArr[tweensArr.length - 1];
                 const prevOnComplete = last.onComplete;
                 last.onComplete = () => {
                   try {
                     if (prevOnComplete) prevOnComplete();
-                    // Play tumble sound for every symbol dropped after compression in turbo mode
                     if ((window as any).audioManager) {
                       (window as any).audioManager.playSoundEffect(SoundEffectType.REEL_DROP);
                     }

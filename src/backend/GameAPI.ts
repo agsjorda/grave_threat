@@ -60,6 +60,25 @@ function logUrlParameters(): void {
   }
 }
 
+/** Keep only freeSpin.items through first isMaxWin (no phantom spins after max win). */
+export function truncateFreeSpinItemsAfterFirstMaxWin(
+  items: any[] | undefined | null,
+): any[] {
+  if (!Array.isArray(items) || items.length === 0) return items ?? [];
+  const idx = items.findIndex((it: any) => it?.isMaxWin === true);
+  if (idx < 0) return items;
+  return items.slice(0, idx + 1);
+}
+
+function applyTruncateFreeSpinItems(slot: any): void {
+  if (!slot) return;
+  const items = slot.freeSpin?.items ?? slot.freespin?.items;
+  if (!Array.isArray(items) || items.length === 0) return;
+  const trimmed = truncateFreeSpinItemsAfterFirstMaxWin(items);
+  if (slot.freeSpin) slot.freeSpin.items = trimmed;
+  if (slot.freespin) slot.freespin.items = trimmed;
+}
+
 const getApiBaseUrl = (): string => {
   const configuredUrl = (window as any)?.APP_CONFIG?.["game-url"];
   if (typeof configuredUrl === "string" && configuredUrl.length > 0) {
@@ -372,6 +391,7 @@ export class GameAPI {
             }
           }
         }
+        applyTruncateFreeSpinItems(cloned.slot);
 
         if (!Array.isArray(cloned.slot.paylines)) {
           cloned.slot.paylines = [];
@@ -437,6 +457,7 @@ export class GameAPI {
           }
         }
       }
+      applyTruncateFreeSpinItems(cloned.slot);
     }
 
     return cloned as SpinData;
@@ -477,6 +498,7 @@ export class GameAPI {
   }
 
   private buildFreeSpinFromItems(items: any[], baseSpin: SpinData): SpinData {
+    items = truncateFreeSpinItemsAfterFirstMaxWin(items);
     if (this.currentFreeSpinIndex >= items.length) {
       const nextIdx = items.findIndex(
         (it: any) => Number(it?.spinsLeft || 0) > 0,
@@ -1513,11 +1535,13 @@ export class GameAPI {
             const hasMoreSpinsLeft = nextMaxSpinsLeft > currentMaxSpinsLeft;
 
             if (hasMoreItems || hasMoreSpinsLeft) {
+              applyTruncateFreeSpinItems((responseData as any).slot);
               this.currentSpinData = responseData as SpinData;
             } else {
             }
           } catch (e) {}
         } else {
+          applyTruncateFreeSpinItems((responseData as any).slot);
           this.currentSpinData = responseData as SpinData;
         }
       } else if (
@@ -1528,6 +1552,7 @@ export class GameAPI {
       ) {
         // Don't overwrite the original free spin data - keep it for simulation
       } else {
+        applyTruncateFreeSpinItems((responseData as any).slot);
         this.currentSpinData = responseData as SpinData;
       }
 
@@ -1703,6 +1728,9 @@ export class GameAPI {
    * This method should be called when free spins are triggered to provide the data for simulation
    */
   public setFreeSpinData(spinData: SpinData): void {
+    try {
+      applyTruncateFreeSpinItems((spinData as any)?.slot);
+    } catch { }
     this.currentSpinData = spinData;
     this.resetFreeSpinIndex(); // Reset the index when setting new data
   }
