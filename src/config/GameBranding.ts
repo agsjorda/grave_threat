@@ -46,7 +46,7 @@ export const PRELOADER_BRANDING = {
     FONT_SIZE_PX: 14,
   },
   MAX_WIN: {
-    TEXT: 'Win up to 2,100x',
+    TEXT: 'Win up to 21,000x',
     OFFSET_Y_FROM_CENTER: 145,
     FONT_SIZE_PX: 32,
     BREATHING_DURATION_MS: 800,

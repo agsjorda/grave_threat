@@ -84,12 +84,9 @@ export class BonusHeader {
 	}
 
 	private setupWinbarSuppressionListeners(scene: Scene): void {
-		scene.events.on('dialogShown', (dialogType: string) => {
-			if (dialogType === 'TotalWin') {
-				this.suppressWinbarDisplay = true;
-				this.forceHideWinningsDisplay();
-				console.log('[BonusHeader] TotalWin shown - suppressing winbar display');
-			}
+		// Do not hide win bar text when TotalWin dialog shows; keep it visible until bonus header is hidden.
+		scene.events.on('dialogShown', (_dialogType: string) => {
+			// Reserved for future dialog-specific behavior if needed.
 		});
 		scene.events.on('hideBonusHeader', () => {
 			this.suppressWinbarDisplay = false;
@@ -141,7 +138,8 @@ export class BonusHeader {
 			const winBarY = anchorY + containerHeight + HEADER_CONFIG.WIN_BAR_OFFSET_Y;
 			this.headerWinBarImage = createScaledHeaderImage(scene, 'header_winbar', centerX, winBarY);
 			this.headerWinBarImage.setScale((scene.scale.width / this.headerWinBarImage.width) * HEADER_CONFIG.WIN_BAR_SCALE);
-			this.headerWinBarImage.setDepth(2);
+			// Keep win bar image exactly one depth below win bar text.
+			this.headerWinBarImage.setDepth(BonusHeader.WIN_BAR_DEPTH - 1);
 			this.bonusHeaderContainer.add(this.headerWinBarImage);
 		}
 	}
@@ -863,23 +861,9 @@ export class BonusHeader {
 						this.cumulativeBonusWin = maxWinCapTotal;
 					}
 
-					// After showing YOU WON, update TOTAL WIN with the accumulated total.
-					if (this.scene) {
-						try {
-							this.tumbleTotalDisplayTimer?.destroy();
-						} catch { }
-						const delayMs = Math.max(0, BONUS_TUMBLE_TOTAL_WIN_DELAY_MS || 0);
-						this.tumbleTotalDisplayTimer = this.scene.time.delayedCall(delayMs, () => {
-							if (!gameStateManager.isBonus) return;
-							if (this.youWonText) {
-								this.youWonText.setText('TOTAL WIN');
-							}
-							const totalToShow = hasMaxWinCap
-								? Math.min(this.cumulativeBonusWin, maxWinCapTotal)
-								: this.cumulativeBonusWin;
-							this.showWinningsDisplay(totalToShow);
-						});
-					}
+					// Note: TOTAL WIN is now shown only once per spin, in the WIN_STOP
+					// handler, after all tumbles for that spin have completed. Here we
+					// only show per-tumble "YOU WON" values.
 
 					if (hasMaxWinCap && this.cumulativeBonusWin >= maxWinCapTotal) {
 						try { symbolsComponent?.requestSkipTumbles?.(); } catch {}

@@ -3763,10 +3763,12 @@ export class Symbols {
         const pick = pool[Math.floor(Math.random() * pool.length)];
         const obj = self.symbols[pick.col][pick.row];
         if (!obj) continue;
-        const baseAmount = (winBySymbol[sym] !== undefined) ? winBySymbol[sym] : (tumbleWin > 0 ? tumbleWin : 0);
-        const amount = (bonusTumbleMultiplier > 1)
-          ? (baseAmount * bonusTumbleMultiplier)
-          : baseAmount;
+        // Base amount for this symbol comes strictly from spin data outs.
+        // Do not synthesize from tumble.win or apply extra multiplier scaling;
+        // all visible win values must reflect the backend payload.
+        const hasSymbolWin = winBySymbol[sym] !== undefined;
+        const baseAmount = hasSymbolWin ? winBySymbol[sym] : 0;
+        const amount = baseAmount;
         if (amount <= 0) continue;
         // Remove any previous win text on this symbol
         try {
@@ -3791,23 +3793,13 @@ export class Symbols {
                 try { gameEventManager.emit(GameEventType.WIN_START); } catch { }
                 // Show only the current tumble's wins
                 try {
-                  const originalOutsArr = Array.isArray((tumble as any)?.symbols?.out) ? (tumble as any).symbols.out : [];
-                  const outsArr = (bonusTumbleMultiplier > 1)
-                    ? originalOutsArr.map((out: any) => {
-                      const baseWin = getOutWin(out);
-                      if (!Number.isFinite(baseWin) || baseWin <= 0) return out;
-                      const scaledWin = Number((baseWin * bonusTumbleMultiplier).toFixed(2));
-                      const rawWin = out?.win;
-                      if (rawWin && typeof rawWin === 'object') {
-                        const nextWin = { ...(rawWin as any) };
-                        nextWin.total = scaledWin;
-                        if (!Number.isFinite(Number(nextWin.base))) nextWin.base = baseWin;
-                        nextWin.multiplier = bonusTumbleMultiplier;
-                        return { ...out, win: nextWin };
-                      }
-                      return { ...out, win: scaledWin };
-                    })
-                    : originalOutsArr;
+                  const originalOutsArr = Array.isArray((tumble as any)?.symbols?.out)
+                    ? (tumble as any).symbols.out
+                    : [];
+                  // Always show exactly the wins from spin data without
+                  // rewriting or scaling them. Visible tumble win values
+                  // must come from the backend payload.
+                  const outsArr = originalOutsArr;
                   if (typeof wt.showPagedForTumble === 'function') {
                     wt.showPagedForTumble(
                       outsArr,

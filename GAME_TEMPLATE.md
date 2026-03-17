@@ -42,6 +42,14 @@ File: `src/game/components/Spin.ts`
 - `CLUSTER_PAY_SYMBOLS`
 - `SCATTER_SYMBOL_ID`
 
+#### Tumble win display pattern (base + bonus)
+
+- For each tumble in a spin, the header should display **"YOU WON" + that tumble's win amount** (using the authoritative values from spin data: paylines/tumbles/items as appropriate).
+- **Total Win** should only be updated **once per spin, after all tumbles for that spin are finished**:
+  - In base game, this happens on `TUMBLE_SEQUENCE_DONE` (single-spin total).
+  - In bonus, this happens on `WIN_STOP`, where the spin's total is added into a **cumulative Total Win** and the header shows that accumulated value.
+- Do **not** synthesize extra win amounts or re-scale values for display; all visible win numbers must come directly from the backend/demo spin data.
+
 ### Help and paytable UI copy
 
 File: `src/game/components/MenuTabs/HelpScreen.ts`

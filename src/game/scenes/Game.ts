@@ -597,6 +597,19 @@ export class Game extends Scene {
 
 			this.events.emit('scatterBonusActivated', scatterPayload);
 
+			// Ensure that when the unresolved free-spin sequence fully finishes and the
+			// free-spin state is reset, we always restore the base-game visuals (normal
+			// background and header). This is a safety net for the unresolved-flow so
+			// the game does not remain on a black/bonus background when returning to
+			// normal mode.
+			this.events.once('resetFreeSpinState', () => {
+				try {
+					this.events.emit('setBonusMode', false);
+					this.events.emit('hideBonusBackground');
+					this.events.emit('hideBonusHeader');
+				} catch {}
+			});
+
 			try {
 				(this.slotController as any).clearFreeSpinDisplaySuppression?.();
 				this.slotController.showFreeSpinDisplayWithActualValue(

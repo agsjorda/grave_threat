@@ -304,7 +304,7 @@ export const WIN_THRESHOLDS = {
   /** Threshold for "Super Win" dialog */
   SUPER_WIN: 60,
   /** Threshold for "Max Win" dialog */
-  MAX_WIN: 2100,
+  MAX_WIN: 21000,
 } as const;
 
 // =============================================================================
@@ -352,7 +352,7 @@ export const OVERLAY_FADE_OUT_DURATION_MS = 200;
 // SYMBOL SCALES (Spine/visual tuning) – centralized; use here only. Offsets applied at call sites if needed.
 // =============================================================================
 export const SPINE_SYMBOL_SCALES: Record<number, number> = {
-  0: 1.7, 1: 0.035, 2: 0.035, 3: 0.035, 4: 0.135, 5: 0.135, 6: 0.135, 7: 0.135,
+  0: 1.1, 1: 0.035, 2: 0.035, 3: 0.035, 4: 0.135, 5: 0.135, 6: 0.135, 7: 0.135,
   8: 0.135, 9: 0.135, 10: 0.135, 11: 0.135, 12: 0.137, 13: 0.137, 14: 0.137, 15: 0.137, 16: 0.137, 17: 0.137, 18: 0.137, 19: 0.137, 20: 0.137, 21: 0.137, 22: 0.137,
 };
 export const DEFAULT_SPINE_SCALE = 0.6;

@@ -34,7 +34,7 @@ export enum SoundEffectType {
 	MAX_WIN = 'maxw',
 	MAX_WIN_END = 'maxwend',
 	DIALOG_CONGRATS = 'dialog_congrats',
-	DIALOG_RETRIGGER = 'dialog_retrigger',
+	DIALOG_FREESPIN = 'dialog_freespin',
 	// Non-scatter box close SFX (played once when all regular symbol wins finish)
 	BOX_CLOSE = 'box_close'
 }
@@ -42,8 +42,8 @@ export enum SoundEffectType {
 export class AudioManager {
 	private scene: Phaser.Scene;
 	private currentMusic: MusicType | null = null;
-	private musicVolume: number = 1;
-	private sfxVolume: number = 0.55;
+	private musicVolume: number = 0.3;
+	private sfxVolume: number = 0.3;
 	private ambientVolume: number = 0.3; // Volume for ambient audio layer
 	private isMuted: boolean = false;
 	private musicInstances: Map<MusicType, Phaser.Sound.BaseSound> = new Map();
@@ -267,9 +267,10 @@ export class AudioManager {
 			console.log('[AudioManager] Win dialog SFX instances created');
 
 			// Create dialog-specific SFX instances (only if loaded for this game)
-			if (this.scene.cache.audio.exists('congrats')) {
+			// Use existing 'totalw' asset as the Congrats/TotalWin dialog sound.
+			if (this.scene.cache.audio.exists('totalw')) {
 				try {
-					const congratsDlg = this.scene.sound.add('congrats', { volume: this.sfxVolume, loop: false });
+					const congratsDlg = this.scene.sound.add('totalw', { volume: this.sfxVolume, loop: false });
 					this.sfxInstances.set(SoundEffectType.DIALOG_CONGRATS, congratsDlg);
 					console.log('[AudioManager] Congrats dialog SFX instance created');
 				} catch (e) {
@@ -277,11 +278,11 @@ export class AudioManager {
 				}
 			}
 			try {
-				const retriggerDlg = this.scene.sound.add('retrigger', { volume: this.sfxVolume, loop: false });
-				this.sfxInstances.set(SoundEffectType.DIALOG_RETRIGGER, retriggerDlg);
-				console.log('[AudioManager] Retrigger dialog SFX instance created');
+				const freeSpinDlg = this.scene.sound.add('retrigger', { volume: this.sfxVolume, loop: false });
+				this.sfxInstances.set(SoundEffectType.DIALOG_FREESPIN, freeSpinDlg);
+				console.log('[AudioManager] Free spin dialog SFX instance created');
 			} catch (e) {
-				console.warn('[AudioManager] Failed to create retrigger SFX instance:', e);
+				console.warn('[AudioManager] Failed to create free spin dialog SFX instance:', e);
 			}
 			console.log('[AudioManager] Total SFX instances:', this.sfxInstances.size);
 

@@ -62,6 +62,7 @@ export class SlotController {
 	private featureDollarText!: Phaser.GameObjects.Text;
 	private featureLabelText: Phaser.GameObjects.Text | null = null;
 	private featureButtonHitbox: Phaser.GameObjects.Rectangle | null = null;
+	private featureButtonAmountOverride: number | null = null;
 	private primaryControllers!: Phaser.GameObjects.Container;
 	private controllerTexts: Phaser.GameObjects.Text[] = [];
 	private freeSpinLabel!: Phaser.GameObjects.Text;
@@ -161,6 +162,7 @@ export class SlotController {
 			getBalanceAmount: () => this.getBalanceAmount(),
 			updateBalanceAmount: (balance: number) => this.updateBalanceAmount(balance),
 			updateBetAmount: (bet: number) => this.updateBetAmount(bet),
+			setFeatureButtonAmountOverride: (amount: number | null) => this.setFeatureButtonAmountOverride(amount),
 			enableSpinButton: () => this.enableSpinButton(),
 			enableAutoplayButton: () => this.enableAutoplayButton(),
 			enableFeatureButton: () => this.enableFeatureButton(),
@@ -1997,9 +1999,21 @@ export class SlotController {
 		// Treat this as an internal bet change so resetAmplifyBetOnBetChange is not triggered
 		this.isInternalBetChange = true;
 		try {
+			// External bet changes clear any buy-feature-confirmed display override.
+			this.setFeatureButtonAmountOverride(null);
 			// Update base bet BEFORE updateBetAmount so that
 			// updateFeatureAmountFromCurrentBet (called inside) reads the new value.
 			this.baseBetAmount = betAmount;
+
+			// Also re-seed BuyFeature's internal bet ladder so its options reflect
+			// the autoplay-selected base bet (option 1 = base, option 2 = 5x base).
+			try {
+				if (this.buyFeatureController && typeof this.buyFeatureController.resetBetFromExternal === 'function') {
+					this.buyFeatureController.resetBetFromExternal(betAmount);
+				}
+			} catch (e) {
+				console.warn('[SlotController] Failed to sync BuyFeature bet from autoplay:', e);
+			}
 
 			this.updateBetAmount(betAmount);
 
@@ -2026,7 +2040,18 @@ export class SlotController {
 
 		// Update base bet amount when changed externally (not by amplify bet)
 		if (!this.isInternalBetChange) {
+			// External bet changes clear any buy-feature-confirmed display override.
+			this.featureButtonAmountOverride = null;
 			this.baseBetAmount = betAmount;
+			// Also sync BuyFeature's internal bet ladder so its options reflect
+			// the latest base bet chosen via BetOptions/bet controls.
+			try {
+				if (this.buyFeatureController && typeof this.buyFeatureController.resetBetFromExternal === 'function') {
+					this.buyFeatureController.resetBetFromExternal(betAmount);
+				}
+			} catch (e) {
+				console.warn('[SlotController] Failed to sync BuyFeature bet from base bet change:', e);
+			}
 			// Keep amplify ON when user changes base bet from +/- controls.
 			// Legacy reset path remains for non-enhanced states only.
 			if (!isEnhanced) {
@@ -2050,7 +2075,12 @@ export class SlotController {
 		}
 		// Always use base bet for Buy Feature price; enhanced bet's +25% is display-only
 		const baseBet = this.getBaseBetAmount() || 0;
-		const price = baseBet * 100;
+		const hasOverride =
+			this.featureButtonAmountOverride !== null &&
+			Number.isFinite(this.featureButtonAmountOverride);
+		const price = hasOverride
+			? this.featureButtonAmountOverride!
+			: baseBet * 100;
 		// Format with thousands separators and 2 decimals
 		this.featureAmountText.setText(price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 		const isDemo = this.gameAPI?.getDemoState();
@@ -2060,6 +2090,14 @@ export class SlotController {
 			this.featureDollarText.setColor && this.featureDollarText.setColor('#000000');
 			this.layoutCurrencyPair(featureX, y, this.featureDollarText, this.featureAmountText, !!isDemo, 5);
 		}
+	}
+
+	private setFeatureButtonAmountOverride(amount: number | null): void {
+		this.featureButtonAmountOverride =
+			amount !== null && Number.isFinite(amount) && amount >= 0
+				? amount
+				: null;
+		this.updateFeatureAmountFromCurrentBet();
 	}
 
 	public refreshCurrencySymbols(): void {
@@ -2494,19 +2532,36 @@ export class SlotController {
 				this.disableAmplifyButton();
 				return;
 			}
-			if (!this.isBuyFeatureControlsLocked()) {
-				this.enableAutoplayButton();
+			// Do not re-enable autoplay while a win dialog is still showing; wait until it closes.
+			const holdForDialog = gameStateManager.isShowingWinDialog;
+			if (!this.isBuyFeatureControlsLocked() && !holdForDialog) {
 				this.enableTurboButton();
 				if (!gameStateManager.isAutoPlaying) {
 					this.enableBetButtons();
 					this.enableAmplifyButton();
 				}
+				// Only re-enable autoplay when autoplay has fully stopped and this is the
+				// final tumble completion (e.g., after a cancel).
+				const autoplayFullyStopped =
+					!gameStateManager.isAutoPlaying &&
+					this.getAutoplaySpinsRemaining() === 0;
+				if (autoplayFullyStopped && !gameStateManager.isReelSpinning) {
+					this.enableAutoplayButton();
+				}
 			}
 			// Delayed re-apply so autoplay button is enabled after balance/lock state settles
 			this.scene?.time.delayedCall(250, () => {
 				if (gameStateManager.isScatter || gameStateManager.isBonus) return;
-				if (!this.isBuyFeatureControlsLocked() && !gameStateManager.isReelSpinning) {
-					this.enableAutoplayButton();
+				const delayedHoldForDialog = gameStateManager.isShowingWinDialog;
+				if (!this.isBuyFeatureControlsLocked() && !gameStateManager.isReelSpinning && !delayedHoldForDialog) {
+					const autoplayFullyStoppedLater =
+						!gameStateManager.isAutoPlaying &&
+						this.getAutoplaySpinsRemaining() === 0;
+					if (autoplayFullyStoppedLater) {
+						this.enableAutoplayButton();
+					} else {
+						this.updateAutoplayButtonState();
+					}
 				} else {
 					this.updateAutoplayButtonState();
 				}
@@ -2560,18 +2615,12 @@ export class SlotController {
 			// Hide autoplay spin count display
 			this.hideAutoplaySpinsRemainingText();
 
-			// Only reset/disable autoplay button when we're actually stopping (reels still spinning or autoplay just stopped).
-			// When WIN_STOP emits AUTO_STOP after a completed spin (e.g. cancelled autoplay), spin/tumbles are already done
-			// and TUMBLE_SEQUENCE_DONE already re-enabled the button - don't disable again.
-			const spinAndTumblesComplete = !gameStateManager.isReelSpinning && this.getAutoplaySpinsRemaining() === 0 && !gameStateManager.isAutoPlaying;
-			if (!spinAndTumblesComplete) {
-				console.log('[SlotController] Resetting autoplay UI on AUTO_STOP (spin/tumbles not yet complete)');
-				this.setAutoplayButtonState(false);
-				this.disableAutoplayButton();
-			} else {
-				console.log('[SlotController] AUTO_STOP after spin/tumbles complete - leaving autoplay button state as set by TUMBLE_SEQUENCE_DONE');
-				this.updateAutoplayButtonState();
-			}
+			// Always reset/disable autoplay button on AUTO_STOP; re-enabling is handled
+			// explicitly by TUMBLE_SEQUENCE_DONE / WIN_DIALOG_CLOSED once spins/tumbles
+			// and any win dialogs are fully complete.
+			console.log('[SlotController] Resetting autoplay UI on AUTO_STOP (button will remain disabled until TUMBLE_SEQUENCE_DONE / WIN_DIALOG_CLOSED)');
+			this.setAutoplayButtonState(false);
+			this.disableAutoplayButton();
 			console.log('[SlotController] Autoplay spin count hidden');
 
 			// If we are in initialization free-round mode, do not re-enable autoplay
@@ -2585,15 +2634,17 @@ export class SlotController {
 				return;
 			}
 			
-			// Re-enable all buttons now that autoplay has stopped
+			// Re-enable non-autoplay controls as appropriate now that autoplay has stopped.
+			// The autoplay button itself must stay disabled until spin resolution is fully done
+			// (all tumbles/dialogs complete, or scatter/bonus flow takes over).
 			this.updateSpinButtonState();
 			this.scene?.time.delayedCall(150, () => this.updateSpinButtonState());
 			if (!this.isBuyFeatureControlsLocked()) {
-				this.enableAutoplayButton();
 				this.enableBetButtons();
 				this.enableAmplifyButton();
 				this.enableBetBackgroundInteraction('after autoplay stop');
 			}
+			this.updateAutoplayButtonState();
 			this.updateTurboButtonStateWithLock();
 			this.enableFeatureButton();
 
@@ -2715,10 +2766,24 @@ export class SlotController {
 				isShowingWinDialog: gameStateManager.isShowingWinDialog
 			});
 
-			// Autoplay continuation is handled by AutoplayController
-			if (gameStateManager.isAutoPlaying || this.getAutoplaySpinsRemaining() > 0) {
-				console.log('[SlotController] Autoplay continuation handled by AutoplayController');
+			// When a win dialog closes after an autoplay cancel, this is one of the final
+			// points where we can safely re-enable the autoplay button (along with
+			// TUMBLE_SEQUENCE_DONE) once the game is fully idle.
+			this.updateSpinButtonState();
+			this.updateAllAuxiliaryButtonStates();
+			this.updateFeatureButtonState();
+			if (!this.isBuyFeatureControlsLocked()) {
+				const autoplayFullyStopped =
+					!gameStateManager.isAutoPlaying &&
+					this.getAutoplaySpinsRemaining() === 0 &&
+					!gameStateManager.isReelSpinning;
+				if (autoplayFullyStopped && !gameStateManager.isScatter && !gameStateManager.isBonus) {
+					this.enableAutoplayButton();
+				} else {
+					this.updateAutoplayButtonState();
+				}
 			}
+			this.enableBetBackgroundInteraction('after win dialog closed');
 		});
 
 		// Note: SPIN_RESPONSE event listeners removed - now using SPIN_DATA_RESPONSE

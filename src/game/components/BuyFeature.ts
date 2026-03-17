@@ -34,7 +34,8 @@ export class BuyFeature {
     0.2, 0.4, 0.6, 0.8, 1, 1.2, 1.6, 2, 2.4, 2.8, 3.2, 3.6, 4, 5, 6, 8, 10, 14,
     18, 24, 32, 40, 60, 80, 100, 110, 120, 130, 140, 150,
   ];
-  private currentBetIndex: number = 0; // Index in betOptions array
+  // Index in betOptions array; -1 means "not initialized from base bet yet"
+  private currentBetIndex: number = -1;
   private closeButton!: Phaser.GameObjects.Text;
   private confirmButton!: Phaser.GameObjects.Text;
   private betDisplay!: Phaser.GameObjects.Text;
@@ -51,6 +52,7 @@ export class BuyFeature {
   private backgroundImage!: Phaser.GameObjects.Image;
   private onCloseCallback?: () => void;
   private onConfirmCallback?: () => void;
+  private lastExternalBaseBet: number | null = null;
   private scatterSpine?: any;
   private scatterFallbackSprite?: Phaser.GameObjects.Image;
   private scatterRetryCount: number = 0;
@@ -104,30 +106,43 @@ export class BuyFeature {
   private static readonly BORDER_ANIM_PULSE_SPEED = 4;
 
   /** Card configuration */
-  private static readonly CARD_ICON_SIZE = 90;
+  private static readonly CARD_ICON_SIZE = 110;
   private static readonly CARD_ICON_INSET = 4;
   private static readonly CARD_SELECTED_ICON_SIZE = 18;
   private static readonly CARD_SELECTED_ICON_INSET = 12;
   /** Gap between icon and text (px). Decrease to move text left. */
   private static readonly CARD_TEXT_OFFSET_FROM_ICON = 4;
-  /** Idle scatter size as fraction of icon size (0â€“1). */
-  private static readonly CARD_SCATTER_SIZE_RATIO = 0.7;
+  /** Base font size (px) for card title text. Adjust to scale the title. */
+  private static readonly CARD_TITLE_FONT_SIZE = 14;
+  /** Idle scatter size as fraction of icon size. */
+  private static readonly CARD_SCATTER_SIZE_RATIO = 0.55;
+  /** Horizontal offset for the card icon center position (buy_feature_logo). */
+  private static readonly CARD_ICON_OFFSET_X = -8;
   /** Additional per-axis scale for popup card scatter (applied after SPINE_SYMBOL_SCALES[0]). */
-  private static readonly CARD_SCATTER_SCALE_OFFSET_X = .7;
+  private static readonly CARD_SCATTER_SCALE_OFFSET_X = 1;
   private static readonly CARD_SCATTER_SCALE_OFFSET_Y = 1;
   private static readonly SCATTER_SPINE_KEY = "symbol_0_spine";
   private static readonly SCATTER_SPINE_ATLAS_KEY = "symbol_0_spine-atlas";
-  private static readonly SCATTER_IDLE_ANIM = "Symbol0_PC_idle";
+  private static readonly SCATTER_IDLE_ANIM = "Symbol0_GT_idle";
   /** Multiplier digit display: scale and spacing (uses number_0..9 textures from numbers/Number0..9.webp) */
-  private static readonly CARD_MULT_DIGIT_SCALE = 0.1;
+  private static readonly CARD_MULT_DIGIT_SCALE = 0.08;
   private static readonly CARD_MULT_DIGIT_SPACING = 0.5;
   private static readonly CURRENCY_LABEL = CurrencyManager.getInlinePrefix();
   private static readonly CARD_ITEMS: BuyFeatureCardItem[] = [
-    { title: "Chef's Big Meaty Surprise v.1", scatterCount: 3, startMultiplier: 1},
-    { title: "Chef's Big Meaty Surprise v.2", scatterCount: 3, startMultiplier: 2 },
+    {
+      title: "Nathan's Goolish Gold bonus v.1",
+      scatterCount: 3,
+      startMultiplier: 1,
+    },
+    {
+      title: "Nathan's Goolish Gold bonus v.2",
+      scatterCount: 3,
+      startMultiplier: 2,
+    },
   ];
 
-  private buyFeatureSelectedCardIndex: number = 0;
+  // -1 means "no card selected yet this session"; we keep the last choice otherwise.
+  private buyFeatureSelectedCardIndex: number = -1;
 
   /**
    * Set the SlotController reference for accessing current bet
@@ -152,11 +167,13 @@ export class BuyFeature {
   }
 
   /**
-   * Bet amount to show in the popup: 5x when buy feature 2 (v.2) is selected, else 1x.
+   * Bet amount to show in the popup input between -/+.
+   * This always reflects the base bet ladder value (currentBet), regardless of
+   * which buy feature option is selected. Option 2 still uses 5x for its card
+   * price and spin price, but the editable bet field stays at the base bet.
    */
   private getDisplayBetAmount(): number {
-    const item = BuyFeature.CARD_ITEMS[this.buyFeatureSelectedCardIndex];
-    return item?.startMultiplier === 2 ? this.currentBet * 5 : this.currentBet;
+    return this.currentBet;
   }
 
   /**
@@ -171,9 +188,34 @@ export class BuyFeature {
   }
 
   /**
+   * Re-seed the buy feature bet from an external base bet (e.g., autoplay or bet options).
+   * This updates the internal ladder index and currentBet so that option 1 matches
+   * the given base bet and option 2 remains 5x that base.
+   */
+  public resetBetFromExternal(baseBet: number): void {
+    if (!Number.isFinite(baseBet) || baseBet <= 0) return;
+    let closestIndex = 0;
+    let closestDifference = Math.abs(this.betOptions[0] - baseBet);
+    for (let i = 1; i < this.betOptions.length; i++) {
+      const difference = Math.abs(this.betOptions[i] - baseBet);
+      if (difference < closestDifference) {
+        closestDifference = difference;
+        closestIndex = i;
+      }
+    }
+    this.currentBetIndex = closestIndex;
+    this.currentBet = this.betOptions[closestIndex];
+    this.lastExternalBaseBet = this.currentBet;
+  }
+
+  /**
    * Initialize bet index based on current bet from SlotController
    */
   private initializeBetIndex(): void {
+    // Only initialize once per session; afterwards we keep the user's last bet choice.
+    if (this.currentBetIndex >= 0) {
+      return;
+    }
     if (this.slotController) {
       const currentBaseBet = this.slotController.getBaseBetAmount();
 
@@ -191,6 +233,7 @@ export class BuyFeature {
 
       this.currentBetIndex = closestIndex;
       this.currentBet = this.betOptions[closestIndex];
+      this.lastExternalBaseBet = this.currentBet;
       console.log(
         `[BuyFeature] Initialized bet index ${closestIndex} with bet $${this.currentBet.toFixed(2)}`,
       );
@@ -202,7 +245,7 @@ export class BuyFeature {
 
     // Create main container
     this.container = scene.add.container(0, 0);
-    this.container.setDepth(9501); // Above header/background in pastry_cub
+    this.container.setDepth(9502); // Above dialogs (9501) and header/background
 
     // Create background
     this.createBackground(scene);
@@ -699,7 +742,8 @@ export class BuyFeature {
     const leftX = -cardWidth / 2 + BuyFeature.CARD_ICON_INSET;
     const iconY = -BuyFeature.CARD_ICON_SIZE / 2; // center icon vertically on card
     const iconSize = BuyFeature.CARD_ICON_SIZE;
-    const iconCenterX = leftX + iconSize / 2;
+    const iconCenterX =
+      leftX + iconSize / 2 + BuyFeature.CARD_ICON_OFFSET_X;
     const iconCenterY = iconY + iconSize / 2;
 
     // Left panel: buy_feature_logo (card 1) or buy_feature_logo2 (card 2)
@@ -729,7 +773,7 @@ export class BuyFeature {
       const addAny = scene.add as any;
       const spine = addAny.spine?.(
         iconCenterX,
-        iconCenterY + 5,
+        iconCenterY - 5,
         BuyFeature.SCATTER_SPINE_KEY,
         BuyFeature.SCATTER_SPINE_ATLAS_KEY,
       );
@@ -742,8 +786,12 @@ export class BuyFeature {
             // Scale to fit (Spine skeleton height ~1000â€“2000px; target scatterDisplaySize px)
             const base = scatterDisplaySize / 1500;
             spine.setScale(
-              base * scatterScaleFromConfig * BuyFeature.CARD_SCATTER_SCALE_OFFSET_X,
-              base * scatterScaleFromConfig * BuyFeature.CARD_SCATTER_SCALE_OFFSET_Y,
+              base *
+                scatterScaleFromConfig *
+                BuyFeature.CARD_SCATTER_SCALE_OFFSET_X,
+              base *
+                scatterScaleFromConfig *
+                BuyFeature.CARD_SCATTER_SCALE_OFFSET_Y,
             );
           }
         } catch {}
@@ -768,11 +816,11 @@ export class BuyFeature {
 
     // Left panel: multiplier as number display (digit sprites), left-aligned from icon left edge (empty when startMultiplier === 1)
     if (item.startMultiplier !== 1) {
-      const multDisplayLeftX = leftX + 25;
+      const multDisplayLeftX = leftX + 20;
       const multDisplay = this.createMultiplierDigitDisplay(
         scene,
         multDisplayLeftX,
-        iconCenterY + 5,
+        iconCenterY - 6,
         item.startMultiplier,
       );
       if (multDisplay) {
@@ -812,7 +860,7 @@ export class BuyFeature {
     const textTop = -BuyFeature.CARD_HEIGHT / 2 + 12;
     const titleText = scene.add
       .text(textLeft, textTop + 8, item.title, {
-        fontSize: "16px",
+        fontSize: `${BuyFeature.CARD_TITLE_FONT_SIZE}px`,
         fontFamily: "Poppins-Bold",
         color: "#ffffff",
       })
@@ -1430,9 +1478,31 @@ export class BuyFeature {
       }
     }
 
-    // Initialize bet index based on current bet from SlotController
-    this.initializeBetIndex();
-    this.selectBuyFeatureCard(0);
+    // Initialize/sync buy feature bet from the latest external base bet so that
+    // Bet Options / Autoplay changes are reflected in the popup while still
+    // preserving the last buy-feature bet until an external change occurs.
+    const latestBaseBet = this.slotController?.getBaseBetAmount?.();
+    if (
+      Number.isFinite(latestBaseBet) &&
+      latestBaseBet! > 0 &&
+      (this.lastExternalBaseBet === null ||
+        Math.abs(latestBaseBet! - this.lastExternalBaseBet) > 0.0001)
+    ) {
+      this.resetBetFromExternal(latestBaseBet!);
+    } else {
+      this.initializeBetIndex();
+    }
+
+    // If no card has been selected yet this session, default to the first card.
+    // Otherwise, keep the last selected card as the active choice.
+    if (
+      this.buyFeatureSelectedCardIndex < 0 ||
+      this.buyFeatureSelectedCardIndex >= BuyFeature.CARD_ITEMS.length
+    ) {
+      this.selectBuyFeatureCard(0);
+    } else {
+      this.selectBuyFeatureCard(this.buyFeatureSelectedCardIndex);
+    }
 
     this.updatePriceDisplay();
     this.updateBetDisplay();

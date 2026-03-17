@@ -16,7 +16,7 @@ import { gameStateManager } from '../../../managers/GameStateManager';
 /** Resolve symbol animation name (pastry_cub: PC naming only). */
 export function resolveSymbolAnimationName(skeletonData: any, value: number, type: 'drop' | 'idle' | 'win'): string | null {
   if (!skeletonData?.findAnimation) return null;
-  const name = `Symbol${value}_PC_${type}`;
+  const name = `Symbol${value}_GT_${type}`;
   return skeletonData.findAnimation(name) ? name : null;
 }
 

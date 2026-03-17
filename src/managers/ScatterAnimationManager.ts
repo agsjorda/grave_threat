@@ -301,10 +301,10 @@ export class ScatterAnimationManager {
     try {
       const audioMgr = (window as any).audioManager;
       if (audioMgr && typeof audioMgr.playSoundEffect === 'function') {
-        audioMgr.playSoundEffect(SoundEffectType.DIALOG_RETRIGGER);
+        audioMgr.playSoundEffect(SoundEffectType.DIALOG_FREESPIN);
       }
     } catch (e) {
-      console.warn('[ScatterAnimationManager] Failed to play retrigger SFX', e);
+      console.warn('[ScatterAnimationManager] Failed to play free spin dialog SFX', e);
     }
     // A retrigger explicitly means the bonus is continuing, so make sure any
     // tentative "bonus finished" state set earlier in the spin (e.g. from

@@ -1,0 +1,12 @@
+Symbol3_GT.webp
+size:178,110
+filter:Linear,Linear
+scale:0.137
+PumpKinEyeGlow
+bounds:124,43,65,52
+offsets:37,34,140,140
+rotate:90
+PumpkinBody
+bounds:2,2,106,120
+offsets:17,16,140,140
+rotate:90

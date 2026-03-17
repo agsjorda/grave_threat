@@ -1,0 +1,13 @@
+Symbol1_GT.webp
+size:168,168
+filter:Linear,Linear
+scale:0.137
+WitchHatBody
+bounds:2,57,133,109
+offsets:5,12,140,140
+WitchHatEyesMouth
+bounds:2,2,57,53
+offsets:38,28,140,140
+WitchHatGlowEyesMouth
+bounds:61,2,57,53
+offsets:38,28,140,140

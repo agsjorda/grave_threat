@@ -101,7 +101,8 @@ export class Header {
 			// Win bar is centered within the header area container, which itself is centered on screen.
 			this.headerWinBarImage = createScaledHeaderImage(scene, 'header_winbar', 0, winBarY);
 			this.headerWinBarImage.setScale((scene.scale.width / this.headerWinBarImage.width) * HEADER_CONFIG.WIN_BAR_SCALE);
-			this.headerWinBarImage.setDepth(2);
+			// Keep win bar image just below win bar text (9501) and above the header container (9500).
+			this.headerWinBarImage.setDepth(9500);
 			this.headerAreaContainer.add(this.headerWinBarImage);
 		}
 

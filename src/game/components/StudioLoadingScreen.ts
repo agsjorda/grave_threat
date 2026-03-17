@@ -1,5 +1,7 @@
 import { Scene } from 'phaser';
 import { AssetLoader } from '../../utils/AssetLoader';
+import { ensureSpineFactory } from '../../utils/SpineGuard';
+import { startAnimation } from '../../utils/SpineAnimationHelper';
 
 export interface StudioLoadingScreenOptions {
     loadingFrameOffsetX?: number;
@@ -26,6 +28,7 @@ export class StudioLoadingScreen {
     private scene: Scene;
     private container: Phaser.GameObjects.Container;
     private shownAtMs: number = 0;
+    private spine?: any;
     private bg?: Phaser.GameObjects.Rectangle;
     private loadingFrame?: Phaser.GameObjects.Image;
     private text?: Phaser.GameObjects.Text;
@@ -42,6 +45,9 @@ export class StudioLoadingScreen {
     private onProgressHandler?: (progress: number) => void;
     private options: StudioLoadingScreenOptions;
     private dotGrid?: Phaser.GameObjects.Graphics;
+    private dijokerLogo?: Phaser.GameObjects.Image;
+    private loadingCharacter: any = null;
+    private spineUpdateListener: ((time: number, delta: number) => void) | null = null;
 
     constructor(scene: Scene, options?: StudioLoadingScreenOptions) {
         this.scene = scene;
@@ -251,12 +257,22 @@ export class StudioLoadingScreen {
 
             // Time display disabled in this game (no TimeUtils helper available)
 
-            // Progress bar – positioned in lower area
+            // Show DI JOKER loading character/logo like pastry_cub.
+            this.createLoadingCharacter();
+
+            // Progress bar – positioned just below the loading character area.
             const assetScale = 1; // static scale for studio screen
             const barWidth = this.scene.scale.width * 0.5;
             const barHeight = Math.max(13, 13 * assetScale);
             const barX = this.scene.scale.width * 0.5;
-            const barY = this.scene.scale.height * 0.8;
+            let barY = this.scene.scale.height * 0.8;
+            if (this.spine) {
+                const cy = this.scene.scale.height * 0.48;
+                const spineH = ((this.spine as any).height || 800) as number;
+                const appliedScaleY = (this.spine.scaleY ?? this.spine.scale ?? 1) as number;
+                const displayH = spineH * appliedScaleY;
+                barY = cy + displayH * 0.5 + Math.max(20, 24 * assetScale);
+            }
 
             // Store progress bar properties for animation updates
             this.progressBarX = barX;
@@ -333,6 +349,16 @@ export class StudioLoadingScreen {
 				this.progressBarBg?.setVisible(false);
 			} catch {}
 
+            // Hide DiJoker character and logo as soon as we leave the studio screen,
+            // so they are not visible when the preloader/play screen is shown.
+            try {
+                this.dijokerLogo?.setVisible(false);
+                if (this.loadingCharacter && this.loadingCharacter !== this.spine) {
+                    this.loadingCharacter.setVisible?.(false);
+                }
+                this.spine?.setVisible?.(false);
+            } catch {}
+
             // Stop time update timer
             try {
                 if (this.timeUpdateTimer) {
@@ -358,7 +384,90 @@ export class StudioLoadingScreen {
     }
 
     public hide(): void {
+        this.removeSpineUpdateListener();
         this.container.destroy(true);
+    }
+
+    private createLoadingCharacter(): void {
+        const centerX = this.scene.scale.width * 0.35;
+        const centerY = this.scene.scale.height * 0.48;
+
+        const hasSpine = ensureSpineFactory(this.scene, '[StudioLoadingScreen] createLoadingCharacter');
+        if (hasSpine) {
+            try {
+                const spine = (this.scene.add as any).spine(centerX, centerY, 'di_joker', 'di_joker-atlas');
+                spine.setOrigin?.(0.5, 0.5);
+                spine.setScale(0.09);
+                this.container.add(spine);
+                this.spine = spine;
+                this.loadingCharacter = spine;
+                startAnimation(spine, {
+                    animationName: 'animation',
+                    loop: true,
+                    trackIndex: 0,
+                    logWhenMissing: false
+                });
+                this.removeSpineUpdateListener();
+                this.spineUpdateListener = (_time: number, delta: number) => {
+                    if (this.loadingCharacter?.updatePose) {
+                        try {
+                            this.loadingCharacter.updatePose(delta);
+                        } catch {}
+                    }
+                };
+                this.scene.events.on('update', this.spineUpdateListener);
+
+                if (this.scene.textures.exists('dijoker_logo')) {
+                    this.dijokerLogo = this.scene.add.image(
+                        centerX + this.scene.scale.width * 0.27,
+                        centerY,
+                        'dijoker_logo'
+                    );
+                    this.dijokerLogo.setScale(1);
+                    this.dijokerLogo.setOrigin(0.5, 0.5);
+                    this.container.add(this.dijokerLogo);
+                } else {
+                    console.warn('[StudioLoadingScreen] DiJoker logo texture not found');
+                }
+
+                console.log('[StudioLoadingScreen] DI JOKER spine displayed');
+                return;
+            } catch (e) {
+                console.warn('[StudioLoadingScreen] Failed to create di_joker spine:', e);
+            }
+        }
+
+        if (this.scene.textures.exists('dijoker_loading')) {
+            const img = this.scene.add.image(centerX, centerY, 'dijoker_loading');
+            img.setOrigin(0.5, 0.5);
+            const scale = Math.min(
+                (this.scene.scale.width * 0.24) / Math.max(1, img.width),
+                (this.scene.scale.height * 0.4) / Math.max(1, img.height)
+            );
+            img.setScale(Math.max(0.1, scale));
+            this.container.add(img);
+            this.loadingCharacter = img;
+
+            if (this.scene.textures.exists('dijoker_logo')) {
+                this.dijokerLogo = this.scene.add.image(
+                    centerX + this.scene.scale.width * 0.27,
+                    centerY,
+                    'dijoker_logo'
+                );
+                this.dijokerLogo.setScale(1);
+                this.dijokerLogo.setOrigin(0.5, 0.5);
+                this.container.add(this.dijokerLogo);
+            }
+
+            console.log('[StudioLoadingScreen] dijoker_loading fallback image displayed');
+        }
+    }
+
+    private removeSpineUpdateListener(): void {
+        if (this.spineUpdateListener) {
+            this.scene.events.off('update', this.spineUpdateListener);
+            this.spineUpdateListener = null;
+        }
     }
 
     private createDotGrid(): void {

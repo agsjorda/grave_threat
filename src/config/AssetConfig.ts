@@ -112,7 +112,7 @@ export class AssetConfig {
 	// Add more asset groups as needed
 	getSymbolAssets(): AssetGroup {
 		// Symbols and related bonus art live under portrait/high for pastry_cub.
-		const suffix = 'PC';
+		const suffix = 'GT';
 		const pcPath = 'assets/portrait/high/symbols/';
 		console.log(`[AssetConfig] Loading symbol assets from: ${pcPath}`);
 

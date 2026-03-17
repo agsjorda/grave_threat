@@ -1,0 +1,17 @@
+Symbol5_GT.webp
+size:340,137
+filter:Linear,Linear
+scale:0.137
+BatBody
+bounds:2,2,136,133
+offsets:2,4,140,140
+BatEyes
+bounds:140,8,32,13
+offsets:60,76,140,140
+BatHead
+bounds:140,50,61,85
+offsets:40,51,140,140
+BatMouth
+bounds:140,23,25,17
+offsets:62,56,140,140
+rotate:90
