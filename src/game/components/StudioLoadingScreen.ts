@@ -47,7 +47,6 @@ export class StudioLoadingScreen {
     private dotGrid?: Phaser.GameObjects.Graphics;
     private dijokerLogo?: Phaser.GameObjects.Image;
     private loadingCharacter: any = null;
-    private spineUpdateListener: ((time: number, delta: number) => void) | null = null;
 
     constructor(scene: Scene, options?: StudioLoadingScreenOptions) {
         this.scene = scene;
@@ -384,7 +383,6 @@ export class StudioLoadingScreen {
     }
 
     public hide(): void {
-        this.removeSpineUpdateListener();
         this.container.destroy(true);
     }
 
@@ -407,15 +405,6 @@ export class StudioLoadingScreen {
                     trackIndex: 0,
                     logWhenMissing: false
                 });
-                this.removeSpineUpdateListener();
-                this.spineUpdateListener = (_time: number, delta: number) => {
-                    if (this.loadingCharacter?.updatePose) {
-                        try {
-                            this.loadingCharacter.updatePose(delta);
-                        } catch {}
-                    }
-                };
-                this.scene.events.on('update', this.spineUpdateListener);
 
                 if (this.scene.textures.exists('dijoker_logo')) {
                     this.dijokerLogo = this.scene.add.image(
@@ -460,13 +449,6 @@ export class StudioLoadingScreen {
             }
 
             console.log('[StudioLoadingScreen] dijoker_loading fallback image displayed');
-        }
-    }
-
-    private removeSpineUpdateListener(): void {
-        if (this.spineUpdateListener) {
-            this.scene.events.off('update', this.spineUpdateListener);
-            this.spineUpdateListener = null;
         }
     }
 
