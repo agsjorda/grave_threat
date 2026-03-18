@@ -651,8 +651,8 @@ export class Symbols {
   private async playSymbol0RetriggerSequence(symbol0Grids: GridPosition[]): Promise<void> {
     if (!symbol0Grids.length) return;
 
-    const winAnimName = 'Symbol0_PC_win';
-    const idleAnimName = 'Symbol0_PC_idle';
+    const winAnimName = 'Symbol0_GT_win';
+    const idleAnimName = 'Symbol0_GT_idle';
 
     const animationPromises = symbol0Grids.map((grid) => {
       return new Promise<void>((resolve) => {
@@ -1241,8 +1241,6 @@ export class Symbols {
               animState.setAnimation(0, `${base}_Idle`, true);
             }
             delete (symbol as any).__pausedMultiplierWin;
-          } else if ((symbol as any).animationState.clearTracks) {
-            (symbol as any).animationState.clearTracks();
           }
         } catch { /* ignore */ }
       }
@@ -1282,7 +1280,7 @@ export class Symbols {
     const animState = (symbol as any)?.animationState;
     if (!animState || typeof animState.setAnimation !== 'function') return;
     try {
-      const idleName = `Symbol${SCATTER_SYMBOL_ID}_PC_idle`;
+      const idleName = `Symbol${SCATTER_SYMBOL_ID}_GT_idle`;
       const entry = animState.setAnimation(0, idleName, true);
       if (entry) {
         (entry as any).trackTime = 0;
@@ -1298,7 +1296,7 @@ export class Symbols {
    * Call when FreeSpin_PC dialog shows so merged scatters show idle; when dialog closes, unmerge runs with them already in idle state.
    */
   public setAllScatterSpinesToIdle(): void {
-    const idleAnimName = `Symbol${SCATTER_SYMBOL_ID}_PC_idle`;
+    const idleAnimName = `Symbol${SCATTER_SYMBOL_ID}_GT_idle`;
     this.grid.forEachSymbol((symbol) => {
       if (!this.isScatterSymbol(symbol)) return;
       try {
@@ -1405,7 +1403,7 @@ export class Symbols {
     moveDuration: number,
     tweenPromises: Array<Promise<void>>
   ): void {
-    const idleAnimName = `Symbol${SCATTER_SYMBOL_ID}_PC_idle`;
+    const idleAnimName = `Symbol${SCATTER_SYMBOL_ID}_GT_idle`;
     tweenPromises.push(new Promise<void>((resolve) => {
       this.scene.tweens.killTweensOf(symbol);
       try {
@@ -1890,8 +1888,8 @@ export class Symbols {
 
   private getScatterTransitionAnimationConfig(): Pick<ScatterTransitionConfig, 'idleAnimName' | 'winAnimName'> {
     return {
-      idleAnimName: `Symbol${SCATTER_SYMBOL_ID}_PC_idle`,
-      winAnimName: `Symbol${SCATTER_SYMBOL_ID}_PC_win`
+      idleAnimName: `Symbol${SCATTER_SYMBOL_ID}_GT_idle`,
+      winAnimName: `Symbol${SCATTER_SYMBOL_ID}_GT_win`
     };
   }
 
@@ -2201,7 +2199,7 @@ export class Symbols {
    * Set all scatter spines to idle. Prefer activeScatterMergeSymbols when available (merged symbols at center).
    */
   public playScatterIdleAnimation(): void {
-    const idleAnimName = `Symbol${SCATTER_SYMBOL_ID}_PC_idle`;
+    const idleAnimName = `Symbol${SCATTER_SYMBOL_ID}_GT_idle`;
     const applyIdle = (symbol: SymbolObject | null) => {
       if (!symbol) return;
       try {
@@ -3230,11 +3228,10 @@ export class Symbols {
 
       const skelData = (obj as any)?.skeleton?.data;
       const baseValue = value;
-      const dropAnimName = resolveSymbolAnimationName(skelData, baseValue, 'drop') ?? `Symbol${baseValue}_PC_drop`;
-      const idleAnimName = resolveSymbolAnimationName(skelData, baseValue, 'idle') ?? `Symbol${baseValue}_PC_idle`;
+      const idleAnimName = resolveSymbolAnimationName(skelData, baseValue, 'idle') ?? `Symbol${baseValue}_GT_idle`;
 
-      animState.setAnimation(0, dropAnimName, false);
-      animState.addAnimation(0, idleAnimName, true, 0);
+      // While symbols are in spin, just ensure they are on their idle animation.
+      animState.setAnimation(0, idleAnimName, true);
     } catch (e) {
       console.warn('[Symbols] Failed to play drop animation:', e);
     }
