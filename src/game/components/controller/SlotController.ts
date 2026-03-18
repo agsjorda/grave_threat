@@ -131,6 +131,8 @@ export class SlotController {
 	private isFreeRoundAutoplay: boolean = false;
 	// Cached base-game autoplay spins used when a scatter-triggered bonus pauses autoplay.
 	private pausedAutoplaySpinsRemaining: number | null = null;
+	// Single retry timer used when paused autoplay resume is blocked by transient state.
+	private resumePausedAutoplayRetryTimer: Phaser.Time.TimerEvent | null = null;
 	// Flag to track if we need to re-enable spin button after first autoplay spin in normal mode
 	private shouldReenableSpinButtonAfterFirstAutoplay: boolean = false;
 	// Throttle API spin requests to prevent spam
@@ -2887,13 +2889,32 @@ export class SlotController {
 		return spins;
 	}
 
+	private scheduleResumeAutoplayFromPauseRetry(delayMs: number, reason: string, spins: number): void {
+		if (!this.scene?.time) {
+			return;
+		}
+		if (this.resumePausedAutoplayRetryTimer) {
+			return;
+		}
+		console.log('[SlotController] resumeAutoplayFromPause retry scheduled:', { reason, delayMs, spins });
+		this.resumePausedAutoplayRetryTimer = this.scene.time.delayedCall(delayMs, () => {
+			this.resumePausedAutoplayRetryTimer = null;
+			this.resumeAutoplayFromPause();
+		});
+	}
+
 	/**
 	 * Resume base-game autoplay using cached data from `pauseAutoplay()`.
 	 * Safe to call multiple times; it will no-op unless a paused cache exists.
 	 */
 	public resumeAutoplayFromPause(): void {
-		const spins = this.consumePausedAutoplaySpinsRemaining();
+		const spins = this.pausedAutoplaySpinsRemaining ?? 0;
 		if (spins <= 0) {
+			this.pausedAutoplaySpinsRemaining = null;
+			if (this.resumePausedAutoplayRetryTimer) {
+				try { this.resumePausedAutoplayRetryTimer.destroy(); } catch {}
+				this.resumePausedAutoplayRetryTimer = null;
+			}
 			return;
 		}
 
@@ -2905,6 +2926,7 @@ export class SlotController {
 				isShowingWinDialog: gameStateManager.isShowingWinDialog,
 				spins,
 			});
+			this.scheduleResumeAutoplayFromPauseRetry(450, 'waiting-for-bonus-scatter-dialog-state', spins);
 			return;
 		}
 
@@ -2915,9 +2937,16 @@ export class SlotController {
 				isReelSpinning: gameStateManager.isReelSpinning,
 				spins,
 			});
+			this.scheduleResumeAutoplayFromPauseRetry(450, 'spin-in-flight', spins);
 			return;
 		}
 
+		if (this.resumePausedAutoplayRetryTimer) {
+			try { this.resumePausedAutoplayRetryTimer.destroy(); } catch {}
+			this.resumePausedAutoplayRetryTimer = null;
+		}
+
+		this.consumePausedAutoplaySpinsRemaining();
 		console.log('[SlotController] Resuming autoplay from paused cache:', { spins });
 		this.startAutoplay(spins);
 	}

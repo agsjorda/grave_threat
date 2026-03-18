@@ -29,6 +29,7 @@ export class BonusHeader {
 	// Track if we've already accumulated this spin's total (prevents double add with WIN_STOP)
 	private accumulatedThisSpin: boolean = false;
 	private showingTotalWin: boolean = false;
+	private lastProcessedBonusWinStopSignature: string | null = null;
 	private tumbleTotalDisplayTimer: Phaser.Time.TimerEvent | null = null;
 	private lastTumbleCumulative: number = 0;
 	private scene: Scene | null = null;
@@ -762,6 +763,22 @@ export class BonusHeader {
 	 * Set up event listener for winnings updates from backend (like regular header)
 	 */
 	private setupWinningsEventListener(): void {
+		const buildBonusWinStopSignature = (spinData: any): string => {
+			try {
+				const slot: any = spinData?.slot ?? {};
+				const currentItem = this.getCurrentFreeSpinItem(spinData);
+				const spinsLeft = Number((currentItem as any)?.spinsLeft ?? -1);
+				const area = Array.isArray(slot?.area) ? JSON.stringify(slot.area) : '[]';
+				const itemWin = Number((currentItem as any)?.totalWin ?? (currentItem as any)?.subTotalWin ?? 0);
+				const slotTotal = Number(slot?.totalWin ?? 0);
+				const tumblesLen = Array.isArray(slot?.tumbles) ? slot.tumbles.length : 0;
+				const paylinesLen = Array.isArray(slot?.paylines) ? slot.paylines.length : 0;
+				return `${spinsLeft}|${itemWin}|${slotTotal}|${tumblesLen}|${paylinesLen}|${area}`;
+			} catch {
+				return '';
+			}
+		};
+
 		// Listen for tumble win progress (during bonus mode: per-spin cumulative)
 		gameEventManager.on(GameEventType.TUMBLE_WIN_PROGRESS, (data: any) => {
 			try {
@@ -984,6 +1001,7 @@ export class BonusHeader {
 				// Reset per-spin accumulation flag
 				this.accumulatedThisSpin = false;
 				this.showingTotalWin = false;
+				this.lastProcessedBonusWinStopSignature = null;
 				this.lastTumbleCumulative = 0;
 				try {
 					this.tumbleTotalDisplayTimer?.destroy();
@@ -1108,6 +1126,10 @@ export class BonusHeader {
 			if (!gameStateManager.isBonus) {
 				return;
 			}
+			if (gameStateManager.isReelSpinning) {
+				console.log('[BonusHeader] WIN_STOP (bonus): ignored while reels are spinning');
+				return;
+			}
 			if (this.showingTotalWin) {
 				console.log('[BonusHeader] WIN_STOP (bonus): duplicate TOTAL WIN update suppressed');
 				return;
@@ -1115,6 +1137,16 @@ export class BonusHeader {
 
 			const symbolsComponent = (this.bonusHeaderContainer.scene as any).symbols;
 			const spinData = symbolsComponent?.currentSpinData;
+			const winStopSignature = buildBonusWinStopSignature(spinData);
+			if (
+				winStopSignature &&
+				this.lastProcessedBonusWinStopSignature &&
+				winStopSignature === this.lastProcessedBonusWinStopSignature
+			) {
+				console.log('[BonusHeader] WIN_STOP (bonus): duplicate spin signature suppressed');
+				return;
+			}
+			this.lastProcessedBonusWinStopSignature = winStopSignature || null;
 
 			// Calculate the total win for this spin (includes paylines + tumbles)
 			let spinWin = 0;

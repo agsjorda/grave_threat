@@ -199,7 +199,7 @@ export const SCATTER_FREE_SPINS: Record<number, number> = {
 };
 
 /** Max win cap as multiplier of bet */
-export const MAX_WIN_MULTIPLIER: number = 2100;
+export const MAX_WIN_MULTIPLIER: number = 21000;
 
 /** @deprecated Scatter pays FS only per spec; use SCATTER_FREE_SPINS. Kept for backwards compat. */
 export const SCATTER_PAYOUT_MULTIPLIERS: Record<number, number> = {

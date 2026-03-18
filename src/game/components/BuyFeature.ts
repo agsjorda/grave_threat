@@ -17,7 +17,7 @@ export interface BuyFeatureConfig {
 /** Data for each buy feature card (title, scatter, start multiplier) */
 export interface BuyFeatureCardItem {
 	title: string;
-	scatterCount?: number;
+	scatterCount?: string;
 	startMultiplier?: number;
 	decriptionOverride? : string;
 }
@@ -106,18 +106,18 @@ export class BuyFeature {
   private static readonly BORDER_ANIM_PULSE_SPEED = 4;
 
   /** Card configuration */
-  private static readonly CARD_ICON_SIZE = 110;
+  private static readonly CARD_ICON_SIZE = 140;
   private static readonly CARD_ICON_INSET = 4;
   private static readonly CARD_SELECTED_ICON_SIZE = 18;
   private static readonly CARD_SELECTED_ICON_INSET = 12;
   /** Gap between icon and text (px). Decrease to move text left. */
-  private static readonly CARD_TEXT_OFFSET_FROM_ICON = 4;
+  private static readonly CARD_TEXT_OFFSET_FROM_ICON = -35;
   /** Base font size (px) for card title text. Adjust to scale the title. */
   private static readonly CARD_TITLE_FONT_SIZE = 14;
   /** Idle scatter size as fraction of icon size. */
-  private static readonly CARD_SCATTER_SIZE_RATIO = 0.55;
+  private static readonly CARD_SCATTER_SIZE_RATIO = 0.45;
   /** Horizontal offset for the card icon center position (buy_feature_logo). */
-  private static readonly CARD_ICON_OFFSET_X = -8;
+  private static readonly CARD_ICON_OFFSET_X = -20;
   /** Additional per-axis scale for popup card scatter (applied after SPINE_SYMBOL_SCALES[0]). */
   private static readonly CARD_SCATTER_SCALE_OFFSET_X = 1;
   private static readonly CARD_SCATTER_SCALE_OFFSET_Y = 1;
@@ -131,12 +131,12 @@ export class BuyFeature {
   private static readonly CARD_ITEMS: BuyFeatureCardItem[] = [
     {
       title: "Nathan's Goolish Gold bonus v.1",
-      scatterCount: 3,
+      scatterCount: "3-7",
       startMultiplier: 1,
     },
     {
       title: "Nathan's Goolish Gold bonus v.2",
-      scatterCount: 3,
+      scatterCount: "3-7",
       startMultiplier: 2,
     },
   ];
@@ -742,8 +742,7 @@ export class BuyFeature {
     const leftX = -cardWidth / 2 + BuyFeature.CARD_ICON_INSET;
     const iconY = -BuyFeature.CARD_ICON_SIZE / 2; // center icon vertically on card
     const iconSize = BuyFeature.CARD_ICON_SIZE;
-    const iconCenterX =
-      leftX + iconSize / 2 + BuyFeature.CARD_ICON_OFFSET_X;
+    const iconCenterX = leftX + iconSize / 2 + BuyFeature.CARD_ICON_OFFSET_X;
     const iconCenterY = iconY + iconSize / 2;
 
     // Left panel: buy_feature_logo (card 1) or buy_feature_logo2 (card 2)
@@ -773,7 +772,7 @@ export class BuyFeature {
       const addAny = scene.add as any;
       const spine = addAny.spine?.(
         iconCenterX,
-        iconCenterY - 5,
+        iconCenterY,
         BuyFeature.SCATTER_SPINE_KEY,
         BuyFeature.SCATTER_SPINE_ATLAS_KEY,
       );
@@ -899,10 +898,10 @@ export class BuyFeature {
 
     const description =
       item.decriptionOverride ||
-      `${item.scatterCount} Scatter, Start Multiplier: ${item.startMultiplier}x`;
+      `Random Scatter (${item.scatterCount}), Start Multipliers: ${item.startMultiplier}x`;
     const descText = scene.add
       .text(textLeft, textTop + 56, description, {
-        fontSize: "12px",
+        fontSize: "11px",
         fontFamily: "Poppins-Regular",
         color: "#cccccc",
       })

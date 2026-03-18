@@ -57,3 +57,33 @@ When adding a new replace point (new assets folder, config constant, or game rul
 
 - Always include clickable file links for all modified files in the final response.
 - Include at least one line anchor per changed file (prefer the main edit location).
+
+## 10. Task Decomposition And Subagent Usage
+
+For complex tasks, prefer structured decomposition before implementation.
+
+### When To Use Multi-Agent / Subagents
+Use a multi-agent approach (if available in the environment) when the task includes:
+- Multiple independent concerns (e.g., UI, logic, config, assets)
+- Large codebase exploration across multiple folders
+- Parallel analysis (e.g., bug finding, performance review, config validation)
+- Multi-step feature work requiring separation of planning, implementation, and validation
+
+### When NOT To Use Subagents
+- Small, localized changes (single file or simple config edit)
+- Clearly scoped fixes with minimal impact
+
+### Execution Strategy
+For complex approved tasks:
+1. Break the task into clearly defined subtasks
+2. Identify which parts can be done independently
+3. If multi-agent support is available, assign subtasks to separate agents
+4. Ensure all outputs are consolidated into a single consistent result
+
+### Constraints
+- Always follow **Change Approval (Section 7)** before any implementation
+- Do not allow parallel work to introduce conflicting edits
+- Maintain consistency with existing naming and architecture rules
+
+### Goal
+Improve speed and accuracy for complex tasks while keeping changes safe, minimal, and aligned with repository standards.

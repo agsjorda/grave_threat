@@ -465,15 +465,15 @@ export class Dialogs {
 	 */
 	private getDialogAnimationCandidates(dialogType: string): string[] {
 		const legacyMap: Record<string, string[]> = {
-			BigWin: ['BigW_PC'],
-			MegaWin: ['MegaW_PC'],
-			EpicWin: ['EpicW_PC'],
-			SuperWin: ['SuperW_PC'],
+			BigWin: ['BigW_GT'],
+			MegaWin: ['MEgaW_GT'],
+			EpicWin: ['EpicW_GT'],
+			SuperWin: ['Super_GT', 'SuperW_GT'],
 			MaxWin: ['MaxW_PC'],
 			FreeSpin: ['FreeSpin_PC'],
 			FreeSpinRetrigger: ['FreeSpin_PC'],
 			TotalWin: [],
-			Congrats: ['Congrats_PC']
+			Congrats: ['Congrats_GT']
 		};
 
 		const bases = [dialogType, ...(legacyMap[dialogType] || [])];
@@ -986,8 +986,8 @@ export class Dialogs {
 			showCommas: opts.showCommas,
 			prefix: opts.prefix ?? '',
 			suffix: opts.suffix ?? '',
-			commaYOffset: 12,
-			dotYOffset: 10,
+			commaYOffset: 5,
+			dotYOffset: 0,
 			formatValue: opts.formatValue
 		};
 	}

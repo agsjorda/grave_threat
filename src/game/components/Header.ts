@@ -629,17 +629,39 @@ export class Header {
 			const symbolsComponent = (this.headerContainer.scene as any).symbols;
 			const spinData = symbolsComponent?.currentSpinData;
 			const slot: any = spinData?.slot ?? {};
+			const fs = slot?.freespin || slot?.freeSpin;
+			const hasBonusPayload =
+				(Array.isArray(fs?.items) && fs.items.length > 0) ||
+				(Number.isFinite(Number(fs?.count)) && Number(fs?.count) > 0);
+
+			const triggerWinFromPaylines =
+				Array.isArray(slot?.paylines) && slot.paylines.length > 0
+					? this.calculateTotalWinningsFromPaylines(slot.paylines)
+					: 0;
+			const triggerWinFromTumbles =
+				Array.isArray(slot?.tumbles) && slot.tumbles.length > 0
+					? slot.tumbles.reduce((sum: number, tumble: any) => {
+						return sum + Number(getTumbleTotal(tumble) || 0);
+					}, 0)
+					: 0;
+			const triggerSpinWin = triggerWinFromPaylines + triggerWinFromTumbles;
+
+			// Match shuten_doji buy-feature/scatter trigger behavior:
+			// when free-spin payload is present, header should only show the trigger-spin win,
+			// not the aggregated bonus total from slot.totalWin.
+			if (hasBonusPayload) {
+				return triggerSpinWin > 0 ? triggerSpinWin : 0;
+			}
+
 			const slotTotalWin = Number(slot?.totalWin ?? 0);
 			if (Number.isFinite(slotTotalWin) && slotTotalWin > 0) {
 				return slotTotalWin;
 			}
-			if (Array.isArray(slot?.tumbles) && slot.tumbles.length > 0) {
-				return slot.tumbles.reduce((sum: number, tumble: any) => {
-					return sum + Number(getTumbleTotal(tumble) || 0);
-				}, 0);
+			if (triggerWinFromTumbles > 0) {
+				return triggerWinFromTumbles;
 			}
-			if (Array.isArray(slot?.paylines) && slot.paylines.length > 0) {
-				return this.calculateTotalWinningsFromPaylines(slot.paylines);
+			if (triggerWinFromPaylines > 0) {
+				return triggerWinFromPaylines;
 			}
 		} catch {}
 		return 0;

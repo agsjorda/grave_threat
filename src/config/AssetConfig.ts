@@ -288,32 +288,32 @@ export class AssetConfig {
 		return {
 			spine: {
 				'Congrats': {
-					atlas: `${prefix}/dialogs/Congrats_PC.atlas`,
-					json: `${prefix}/dialogs/Congrats_PC.json`
+					atlas: `${prefix}/dialogs/Congrats_GT.atlas`,
+					json: `${prefix}/dialogs/Congrats_GT.json`
 				},
 				'BigWin': {
-					atlas: `${prefix}/dialogs/BigW_PC.atlas`,
-					json: `${prefix}/dialogs/BigW_PC.json`
+					atlas: `${prefix}/dialogs/BigW_GT.atlas`,
+					json: `${prefix}/dialogs/BigW_GT.json`
 				},
 				'MegaWin': {
-					atlas: `${prefix}/dialogs/MegaW_PC.atlas`,
-					json: `${prefix}/dialogs/MegaW_PC.json`
+					atlas: `${prefix}/dialogs/MEgaW_GT.atlas`,
+					json: `${prefix}/dialogs/MEgaW_GT.json`
 				},
 				'EpicWin': {
-					atlas: `${prefix}/dialogs/EpicW_PC.atlas`,
-					json: `${prefix}/dialogs/EpicW_PC.json`
+					atlas: `${prefix}/dialogs/EpicW_GT.atlas`,
+					json: `${prefix}/dialogs/EpicW_GT.json`
 				},
 				'SuperWin': {
-					atlas: `${prefix}/dialogs/SuperW_PC.atlas`,
-					json: `${prefix}/dialogs/SuperW_PC.json`
+					atlas: `${prefix}/dialogs/SuperW_GT.atlas`,
+					json: `${prefix}/dialogs/SuperW_GT.json`
 				},
 				'MaxWin': {
 					atlas: `${prefix}/dialogs/MaxW_PC.atlas`,
 					json: `${prefix}/dialogs/MaxW_PC.json`
 				},
 				'TotalWin': {
-					atlas: `${prefix}/dialogs/Congrats_PC.atlas`,
-					json: `${prefix}/dialogs/Congrats_PC.json`
+					atlas: `${prefix}/dialogs/Congrats_GT.atlas`,
+					json: `${prefix}/dialogs/Congrats_GT.json`
 				},
 				'FreeSpin': {
 					atlas: `${prefix}/dialogs/FreeSpin_PC.atlas`,
