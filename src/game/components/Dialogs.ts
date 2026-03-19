@@ -1525,8 +1525,10 @@ export class Dialogs {
 								scene.events.emit('hideBonusBackground');
 								scene.events.emit('hideBonusHeader');
 							}
-							// Preserve WIN_DIALOG_CLOSED emission for MaxWin flow.
-							if (dialogTypeBeforeCleanup === 'MaxWin') {
+							// End-of-bonus dialogs must emit the same close signal once the
+							// transition fully finishes so paused base autoplay and button
+							// state recovery happen after the screen is back to normal.
+							if (dialogTypeBeforeCleanup === 'Congrats' || dialogTypeBeforeCleanup === 'TotalWin' || dialogTypeBeforeCleanup === 'MaxWin') {
 								gameEventManager.emit(GameEventType.WIN_DIALOG_CLOSED);
 							}
 

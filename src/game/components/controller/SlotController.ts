@@ -2658,6 +2658,16 @@ export class SlotController {
 
 		// Listen for win dialog close (for high winnings case)
 		gameEventManager.on(GameEventType.WIN_DIALOG_CLOSED, () => {
+			const pausedAutoplaySpins = this.getPausedAutoplaySpinsRemaining();
+			if (
+				pausedAutoplaySpins > 0 &&
+				!gameStateManager.isAutoPlaying &&
+				!gameStateManager.isScatter &&
+				!gameStateManager.isBonus
+			) {
+				this.resumeAutoplayFromPause();
+				return;
+			}
 
 			// When a win dialog closes after an autoplay cancel, this is one of the final
 			// points where we can safely re-enable the autoplay button (along with

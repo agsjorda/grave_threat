@@ -983,14 +983,9 @@ export class Game extends Scene {
 					});
 				} catch {}
 
-				// If normal base-game autoplay was paused due to the scatter-triggered bonus,
-				// resume it now that we're returning to base mode (after bonus/Congrats flow).
-				try {
-					const slotControllerAny: any = this.slotController as any;
-					if (slotControllerAny && typeof slotControllerAny.resumeAutoplayFromPause === 'function') {
-						slotControllerAny.resumeAutoplayFromPause();
-					}
-				} catch { }
+				// Paused base-game autoplay is resumed after the end-of-bonus dialog fully
+				// closes. Resuming here is too early and can consume the cached autoplay
+				// state while the transition is still in progress.
 			}
 
 			// TODO: Update backend data isBonus flag if needed
