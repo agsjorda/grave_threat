@@ -143,7 +143,7 @@ export const PRELOADER_CONFIG = {
 /** When true, show the loading spinner while fetching spin API. When false, spinner never shows. */
 export const LOADING_SPINNER_ENABLED = false;
 /** Minimum time (ms) to show the loading spinner when spin is pressed (simulate slow network). Set to 0 to hide as soon as data arrives. */
-export const LOADING_SPINNER_SIMULATE_MIN_DISPLAY_MS = 2000;
+export const LOADING_SPINNER_SIMULATE_MIN_DISPLAY_MS = 0;
 /** Target height of DI JOKER spine as ratio of scene height (e.g. 0.28 = 28%). Used to scale the spine for different screen sizes. */
 export const LOADING_SPINNER_SPINE_HEIGHT_RATIO = 0.28;
 /** Playback speed of DI JOKER spine animation (1 = normal, 0.5 = half speed, 2 = double speed). */

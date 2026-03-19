@@ -111,7 +111,7 @@ export class BuyFeature {
   private static readonly CARD_SELECTED_ICON_SIZE = 18;
   private static readonly CARD_SELECTED_ICON_INSET = 12;
   /** Gap between icon and text (px). Decrease to move text left. */
-  private static readonly CARD_TEXT_OFFSET_FROM_ICON = -35;
+  private static readonly CARD_TEXT_OFFSET_FROM_ICON = -40;
   /** Base font size (px) for card title text. Adjust to scale the title. */
   private static readonly CARD_TITLE_FONT_SIZE = 14;
   /** Idle scatter size as fraction of icon size. */
@@ -901,7 +901,7 @@ export class BuyFeature {
       `Random Scatter (${item.scatterCount}), Start Multipliers: ${item.startMultiplier}x`;
     const descText = scene.add
       .text(textLeft, textTop + 56, description, {
-        fontSize: "11px",
+        fontSize: "12px",
         fontFamily: "Poppins-Regular",
         color: "#cccccc",
       })

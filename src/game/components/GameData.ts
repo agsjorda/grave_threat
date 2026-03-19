@@ -11,7 +11,7 @@ import { Logger } from '../../utils/Logger';
  */
 export class GameData {
 	/** Default height for win-up animation (symbol hop before drop) */
-	static WIN_UP_HEIGHT: number = 50;
+	static WIN_UP_HEIGHT: number = 30;
 
 	// Legacy state flags (prefer GameStateManager for new code)
 	public isAutoPlaying: boolean = false;
@@ -50,7 +50,7 @@ export const DROP_RESET_TIME_MULTIPLIER: number = 0.8;
 
 export function setSpeed(data: GameData, DELAY_BETWEEN_SPINS: number) {
 	// Apply global multiplier to win-up (reset) and drop durations
-	data.winUpDuration = DELAY_BETWEEN_SPINS * 0.1 * DROP_RESET_TIME_MULTIPLIER;
+	data.winUpDuration = DELAY_BETWEEN_SPINS * 0.2 * DROP_RESET_TIME_MULTIPLIER;
 	data.dropDuration = DELAY_BETWEEN_SPINS * 0.4 * DROP_RESET_TIME_MULTIPLIER;
 	data.dropReelsDelay = DELAY_BETWEEN_SPINS * DROP_REEL_START_INTERVAL_RATIO;
 	data.dropReelsDuration = DELAY_BETWEEN_SPINS * 0.4 * DROP_RESET_TIME_MULTIPLIER;

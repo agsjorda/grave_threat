@@ -81,13 +81,15 @@ export class Dialogs {
 	private defaultWinDialogAutoCloseEnabled: boolean = true;
 
 	// Number display Y positions per dialog group (overrides). If null, default will be used.
-	private numberYWin: number | null = 490;
+	private numberYWin: number | null = 450;
 	private numberYFreeSpin: number | null = null;
 	private numberYCongrats: number | null = null;
 	private readonly defaultNumberDisplayScale: number = 0.5;
 	private readonly minNumberDisplayScale: number = 0.18;
 	private readonly numberDisplayPaddingXRatio: number = 0.05;
-	private readonly numberDisplayMinPaddingX: number = 16;
+	private readonly numberDisplayMinPaddingX: number = 30;
+	private readonly dialogFitPaddingXRatio: number = 0.05;
+	private readonly dialogFitMinPaddingX: number = 30;
 
 	// Managers
 	private networkManager: NetworkManager;
@@ -116,26 +118,26 @@ export class Dialogs {
 
 	// Dialog positions (relative: 0.0 = left/top, 0.5 = center, 1.0 = right/bottom)
 	private dialogPositions: Record<string, { x: number; y: number }> = {
-		'Congrats': { x: 0.5, y: 0.4 },
-		'FreeSpin': { x: 0.5, y: 0.4 },
-		'BigWin': { x: 0.5, y: 0.4 },
-		'MegaWin': { x: 0.5, y: 0.4 },
-		'EpicWin': { x: 0.5, y: 0.4 },
-		'SuperWin': { x: 0.5, y: 0.4 },
+		'Congrats': { x: 0.5, y: 0.3 },
+		'FreeSpin': { x: 0.5, y: 0.3 },
+		'BigWin': { x: 0.5, y: 0.3 },
+		'MegaWin': { x: 0.5, y: 0.3 },
+		'EpicWin': { x: 0.5, y: 0.3 },
+		'SuperWin': { x: 0.5, y: 0.3 },
 		'MaxWin': { x: 0.5, y: 0.5 },
-		'TotalWin': { x: 0.5, y: 0.4 }
+		'TotalWin': { x: 0.5, y: 0.3 }
 	};
 
 	// Offset for number display (e.g. TotalWin amount)
 	private numberDisplayOffsetY: Record<string, number> = {
-		'Congrats': 0,
+		'Congrats': 90,
 		'FreeSpin': 0,
-		'BigWin': -70,
-		'MegaWin': -70,
-		'EpicWin': -70,
-		'SuperWin': -70,
-		'MaxWin': -70,
-		'TotalWin': 150
+		'BigWin': 90,
+		'MegaWin': 90,
+		'EpicWin': 90,
+		'SuperWin': 90,
+		'MaxWin': 0,
+		'TotalWin': 90
 	};
 
 	private dialogLoops: Record<string, boolean> = {
@@ -172,9 +174,9 @@ export class Dialogs {
 
 		this.radialLightTransition = new RadialLightTransition(scene);
 
-		// Create main dialog overlay container
+		// Create main dialog overlay container (above win bar text, below menu popups)
 		this.dialogOverlay = scene.add.container(0, 0);
-		this.dialogOverlay.setDepth(13000); // Above all popups (9501), header (9500), and backgrounds (850/9000)
+		this.dialogOverlay.setDepth(9501);
 		this.dialogOverlay.setVisible(false); // Hidden by default
 
 		// Create black overlay background just behind dialog overlay
@@ -185,7 +187,7 @@ export class Dialogs {
 		this.blackOverlay.setVisible(false);
 		this.blackOverlay.setAlpha(0);
 
-		// Create dialog content container (same layer as numbers)
+		// Create dialog content container (base layer for dialog visuals; below menu)
 		this.dialogContentContainer = scene.add.container(0, 0);
 		this.dialogContentContainer.setDepth(103);
 		this.dialogOverlay.add(this.dialogContentContainer);
@@ -555,22 +557,9 @@ export class Dialogs {
 			};
 		}
 		let scale = config.scale || this.getDialogScale(config.type);
-		let scaleX = scale;
-		let scaleY = scale;
+		let scaleX = isTotalWinDialog && config.scaleX !== undefined ? config.scaleX : scale;
+		let scaleY = isTotalWinDialog && config.scaleY !== undefined ? config.scaleY : scale;
 		const addAny = scene.add as any;
-		const scaleOverride = (isTotalWinDialog && config.scale === undefined && config.scaleX === undefined && config.scaleY === undefined)
-			? this.getDialogScaleXY(config.type)
-			: null;
-		if (scaleOverride) {
-			scaleX = scaleOverride.x;
-			scaleY = scaleOverride.y;
-		}
-		if (isTotalWinDialog && config.scaleX !== undefined) {
-			scaleX = config.scaleX;
-		}
-		if (isTotalWinDialog && config.scaleY !== undefined) {
-			scaleY = config.scaleY;
-		}
 
 		// Create Spine animation for the dialog
 		try {
@@ -601,34 +590,43 @@ export class Dialogs {
 				);
 				scaleX = fillScale;
 				scaleY = fillScale;
-			} else if (isTotalWinDialog) {
-				const shouldClamp = config.scale === undefined && config.scaleX === undefined && config.scaleY === undefined && !scaleOverride;
-				if (shouldClamp) {
-					const rawWidth = this.currentDialog.width || 1;
-					const rawHeight = this.currentDialog.height || 1;
-					const fitScaleX = (scene.scale.width * 0.9) / rawWidth;
-					const fitScaleY = (scene.scale.height * 0.9) / rawHeight;
-					if (isFinite(fitScaleX) && fitScaleX > 0) {
-						scaleX = Math.min(scaleX, fitScaleX);
-					}
-					if (isFinite(fitScaleY) && fitScaleY > 0) {
-						scaleY = Math.min(scaleY, fitScaleY);
-					}
-				}
 			} else {
-				if (config.scale === undefined) {
-					const rawWidth = this.currentDialog.width || 1;
-					const rawHeight = this.currentDialog.height || 1;
+				const rawWidth = this.currentDialog.width || 1;
+				const rawHeight = this.currentDialog.height || 1;
+				let fitScaleUsed: number | null = null;
+				const shouldApplyUniformFit =
+					config.scale === undefined &&
+					!(isTotalWinDialog && (config.scaleX !== undefined || config.scaleY !== undefined));
+				if (shouldApplyUniformFit) {
+					const dialogPaddingX = this.getDialogFitPaddingX(scene);
 					const fitScale = Math.min(
-						(scene.scale.width * 0.9) / rawWidth,
+						Math.max(1, scene.scale.width - dialogPaddingX * 2) / rawWidth,
 						(scene.scale.height * 0.9) / rawHeight
 					);
 					if (isFinite(fitScale) && fitScale > 0) {
+						fitScaleUsed = fitScale;
 						scale = Math.min(scale, fitScale);
 					}
 				}
-				scaleX = scale;
-				scaleY = scale;
+				if (!(isTotalWinDialog && config.scaleX !== undefined)) {
+					scaleX = scale;
+				}
+				if (!(isTotalWinDialog && config.scaleY !== undefined)) {
+					scaleY = scale;
+				}
+				console.log('[Dialogs] Dialog spine scale debug', {
+					dialogType: config.type,
+					renderType,
+					requestedScale: config.scale ?? this.getDialogScale(config.type),
+					rawWidth,
+					rawHeight,
+					dialogPaddingX: this.getDialogFitPaddingX(scene),
+					fitScaleUsed,
+					finalScaleX: scaleX,
+					finalScaleY: scaleY,
+					explicitScaleX: config.scaleX,
+					explicitScaleY: config.scaleY,
+				});
 			}
 
 			this.lastDialogScaleX = scaleX;
@@ -898,9 +896,9 @@ export class Dialogs {
 		this.numberDisplay = numberDisplay;
 		this.numberTargetValue = displayValue;
 
-		// Create container for number display
+		// Create container for number display (above dialog content but still below menu)
 		this.numberDisplayContainer = scene.add.container(0, 0);
-		this.numberDisplayContainer.setDepth((this.dialogOverlay?.depth ?? 12000) + 10);
+		this.numberDisplayContainer.setDepth((this.dialogOverlay?.depth ?? 9500) - 1);
 		this.numberDisplayContainer.add(numberDisplay.getContainer());
 
 		// Start with alpha 0 (invisible) - will be faded in after delay
@@ -972,6 +970,8 @@ export class Dialogs {
 			prefix?: string;
 			suffix?: string;
 			scale?: number;
+			commaScaleOffset?: number;
+			dotScaleOffset?: number;
 			formatValue?: (value: number) => string;
 		}
 	): NumberDisplayConfig {
@@ -987,7 +987,9 @@ export class Dialogs {
 			prefix: opts.prefix ?? '',
 			suffix: opts.suffix ?? '',
 			commaYOffset: 5,
-			dotYOffset: 0,
+			dotYOffset: 5,
+			commaScaleOffset: opts.commaScaleOffset ?? -0.08,
+			dotScaleOffset: opts.dotScaleOffset ?? -0.08,
 			formatValue: opts.formatValue
 		};
 	}
@@ -1015,6 +1017,11 @@ export class Dialogs {
 	private getNumberDisplayPaddingX(scene: Scene): number {
 		const ratioPadding = Math.round(scene.scale.width * this.numberDisplayPaddingXRatio);
 		return Math.max(this.numberDisplayMinPaddingX, ratioPadding);
+	}
+
+	private getDialogFitPaddingX(scene: Scene): number {
+		const ratioPadding = Math.round(scene.scale.width * this.dialogFitPaddingXRatio);
+		return Math.max(this.dialogFitMinPaddingX, ratioPadding);
 	}
 
 	/**
@@ -1552,7 +1559,7 @@ export class Dialogs {
 
 		// Create centralized black screen overlay
 		const blackScreen = scene.add.graphics();
-		blackScreen.setDepth(10000); // Very high depth to cover everything
+		blackScreen.setDepth(9490);
 		blackScreen.fillStyle(0x000000, 1);
 		blackScreen.fillRect(0, 0, scene.scale.width, scene.scale.height);
 		blackScreen.setAlpha(0); // Start transparent
@@ -2060,9 +2067,9 @@ export class Dialogs {
 		}
 
 		if (this.currentScene) {
-			// Create a black overlay for transition
+			// Create a black overlay for transition (below menu popup depth 9501)
 			const transitionOverlay = this.currentScene.add.graphics();
-			transitionOverlay.setDepth(10000); // Very high depth to cover everything
+			transitionOverlay.setDepth(9490);
 			transitionOverlay.fillStyle(0x000000, 1);
 			transitionOverlay.fillRect(0, 0, this.currentScene.scale.width, this.currentScene.scale.height);
 			transitionOverlay.setAlpha(0); // Start transparent

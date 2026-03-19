@@ -15,6 +15,8 @@ export interface NumberDisplayConfig {
 	suffix?: string;
 	commaYOffset?: number;
 	dotYOffset?: number;
+	commaScaleOffset?: number;
+	dotScaleOffset?: number;
 	/** When set, used for display instead of internal formatting (e.g. formatCurrencyNumber). */
 	formatValue?: (value: number) => string;
 }
@@ -59,9 +61,22 @@ export class NumberDisplay {
 			suffix: '',
 			commaYOffset: 0,
 			dotYOffset: 0,
+			commaScaleOffset: 0,
+			dotScaleOffset: 0,
 			offsetY: 0,
 			...config
 		};
+	}
+
+	private getCharScale(char: string): number {
+		const baseScale = Number(this.config.scale) || 1;
+		if (char === ',') {
+			return Math.max(0.01, baseScale + (Number(this.config.commaScaleOffset) || 0));
+		}
+		if (char === '.') {
+			return Math.max(0.01, baseScale + (Number(this.config.dotScaleOffset) || 0));
+		}
+		return baseScale;
 	}
 
 	/**
@@ -169,7 +184,8 @@ export class NumberDisplay {
 			
 			if (key && this.scene!.textures.exists(key)) {
 				const sprite = this.scene!.add.image(currentX, 0, key);
-				sprite.setScale(this.config.scale!);
+				const charScale = this.getCharScale(char);
+				sprite.setScale(charScale);
 				sprite.setOrigin(0, 0.5);
 				
 				// Apply y-offset for commas and decimal points
@@ -183,7 +199,7 @@ export class NumberDisplay {
 				this.numberSprites.push(sprite);
 				
 				// Move to next position
-				currentX += sprite.width * this.config.scale! + this.config.spacing!;
+				currentX += sprite.width * charScale + this.config.spacing!;
 			} else {
 				console.warn(`[NumberDisplay] Missing texture for character: ${char}`);
 			}
@@ -246,7 +262,7 @@ export class NumberDisplay {
 			
 			if (key && this.scene!.textures.exists(key)) {
 				const texture = this.scene!.textures.get(key);
-				totalWidth += texture.source[0].width * this.config.scale! + this.config.spacing!;
+				totalWidth += texture.source[0].width * this.getCharScale(char) + this.config.spacing!;
 			}
 		}
 		

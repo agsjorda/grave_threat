@@ -18,7 +18,7 @@
  */
 
 import { Game } from '../../scenes/Game';
-import { setSpeed } from '../GameData';
+import { DROP_RESET_TIME_MULTIPLIER, setSpeed } from '../GameData';
 import { ScatterAnimationManager } from '../../../managers/ScatterAnimationManager';
 import { getScatterGrids } from '../../../utils/scatterGrid';
 import { gameEventManager, GameEventType } from '../../../event/EventManager';
@@ -88,6 +88,8 @@ interface ReelDropTimingSnapshot {
   dropDuration: number;
   dropReelsDelay: number;
 }
+
+const SUGAR_WONDERLAND_PRE_SPIN_BASE_DELAY_MS = 3000;
 
 interface ScatterTransitionConfig {
   idleAnimName: string;
@@ -216,6 +218,10 @@ export class Symbols {
   private tumbleInProgress: boolean = false;
   private reelDropInProgress: boolean = false;
   private tumbleDropInProgress: boolean = false;
+  private preSpinDropInProgress: boolean = false;
+  private preSpinDropPromise: Promise<void> | null = null;
+  private preSpinDropRowPromises: Map<number, Promise<void>> = new Map();
+  private spinDataResponseReceivedForCurrentSpin: boolean = false;
   // Column-major snapshots used to validate cluster checks at WIN_STOP.
   private clusterWinGridSnapshots: number[][][] = [];
   private readonly skipTweenTimeScale: number = 1;
@@ -330,12 +336,14 @@ export class Symbols {
         console.error('[Symbols] Invalid SpinData received - missing slot.area');
         return;
       }
+      this.spinDataResponseReceivedForCurrentSpin = true;
       this.currentSpinData = data.spinData;
       await this.processSpinData(data.spinData);
     });
 
     // Listen for REELS_STOP
     gameEventManager.on(GameEventType.REELS_STOP, () => {
+      this.spinDataResponseReceivedForCurrentSpin = false;
       if (this.scatterAnimationManager?.isAnimationInProgress()) {
         return;
       }
@@ -965,6 +973,13 @@ export class Symbols {
 
   public clearSkipTumbles(): void {
     this.skipTumblesActive = false;
+  }
+
+  public clearPreSpinDropState(): void {
+    this.preSpinDropInProgress = false;
+    this.preSpinDropPromise = null;
+    this.preSpinDropRowPromises.clear();
+    this.spinDataResponseReceivedForCurrentSpin = false;
   }
 
   public isSkipReelDropsActive(): boolean {
@@ -2638,6 +2653,8 @@ export class Symbols {
         try {
           if (this.tumbleInProgress) return;
           if (gameStateManager.isShowingWinDialog) return;
+          // Guard (normal game): skip is disabled until spin data response arrives.
+          if (!gameStateManager.isBonus && !this.spinDataResponseReceivedForCurrentSpin) return;
           if (gameStateManager.isReelSpinning && this.reelDropInProgress) {
             this.requestSkipReelDrops();
           }
@@ -2690,41 +2707,74 @@ export class Symbols {
   }
 
   public startPreSpinDrop(): void {
-    // Immediately destroy all old symbols when a new spin starts
-    // This prevents symbols from lingering on screen if the spin button is pressed quickly
-    console.log('[Symbols] startPreSpinDrop: clearing old symbols immediately');
-    
+    if (this.preSpinDropInProgress) {
+      return;
+    }
+    this.spinDataResponseReceivedForCurrentSpin = false;
+
     if (!this.symbols || this.symbols.length === 0) {
       return;
     }
 
-    let destroyedCount = 0;
-    for (let col = 0; col < this.symbols.length; col++) {
-      const column = this.symbols[col];
-      if (!Array.isArray(column)) continue;
-      
-      for (let row = 0; row < column.length; row++) {
-        const symbol = column[row];
-        if (symbol && !(symbol as any).destroyed) {
-          // Kill any active tweens on this symbol
-          try {
-            this.scene.tweens.killTweensOf(symbol);
-          } catch { }
-          
-          // Destroy the symbol and its overlay if it exists
-          try {
-            const overlayObj = (symbol as any)?.__overlayImage;
-            if (overlayObj && !overlayObj.destroyed) {
-              overlayObj.destroy();
-            }
-            symbol.destroy();
-            destroyedCount++;
-          } catch { }
-        }
-      }
+    const numRows = (this.symbols[0] && this.symbols[0].length) ? this.symbols[0].length : SLOT_ROWS;
+    if (numRows <= 0) {
+      return;
     }
-    
-    console.log(`[Symbols] startPreSpinDrop destroyed ${destroyedCount} old symbols immediately`);
+
+    // Match the same timing initialization used in processSpinDataSymbols so
+    // pre-spin old-symbol drops feel identical to the normal reel drop style.
+    const baseDelay = DELAY_BETWEEN_SPINS;
+    const adjustedDelay = gameStateManager.isTurbo
+      ? baseDelay * TurboConfig.TURBO_SPEED_MULTIPLIER
+      : baseDelay;
+    setSpeed(this.scene.gameData, adjustedDelay);
+
+    const isTurbo = !!this.scene.gameData?.isTurbo;
+    const sugarWonderlandPreSpinDelay = gameStateManager.isTurbo
+      ? SUGAR_WONDERLAND_PRE_SPIN_BASE_DELAY_MS * TurboConfig.TURBO_SPEED_MULTIPLIER
+      : SUGAR_WONDERLAND_PRE_SPIN_BASE_DELAY_MS;
+    const dropTimingSnapshot: ReelDropTimingSnapshot = {
+      winUpDuration: sugarWonderlandPreSpinDelay * 0.1 * DROP_RESET_TIME_MULTIPLIER,
+      dropDuration: Number(this.scene.gameData?.dropDuration ?? 0),
+      dropReelsDelay: Number(this.scene.gameData?.dropReelsDelay ?? 0),
+    };
+
+    console.log('[Symbols] startPreSpinDrop: starting old-symbol drop before spin response', {
+      numRows,
+      isTurbo,
+      dropTimingSnapshot
+    });
+
+    this.preSpinDropInProgress = true;
+    this.preSpinDropRowPromises.clear();
+    const runPromise = (async () => {
+      const rowPromises: Promise<void>[] = [];
+      for (let step = 0; step < numRows; step++) {
+        const actualRow = (numRows - 1) - step;
+        const bonusPreDropDelay = gameStateManager.isBonus
+          ? (dropTimingSnapshot.winUpDuration * 2)
+          : 0.3;
+        const rowDelayFactor = isTurbo ? 0 : 1;
+        const startDelay = bonusPreDropDelay +
+          (dropTimingSnapshot.dropReelsDelay * step * rowDelayFactor);
+
+        const rowPromise = (async () => {
+          await this.delayOrSkip(startDelay);
+          await this.dropOldSymbols(actualRow, isTurbo, dropTimingSnapshot);
+        })();
+        this.preSpinDropRowPromises.set(actualRow, rowPromise);
+        rowPromises.push(rowPromise);
+      }
+      await Promise.all(rowPromises);
+    })();
+
+    this.preSpinDropPromise = runPromise
+      .catch((e) => {
+        console.warn('[Symbols] startPreSpinDrop failed:', e);
+      })
+      .finally(() => {
+        this.preSpinDropInProgress = false;
+      });
   }
 
   // Helper methods for symbol processing
@@ -2773,6 +2823,34 @@ export class Symbols {
     this.newSymbols = newSymbolsArray;
   }
 
+  private sendNewSymbolsBehindExisting(): void {
+    if (!this.container || !this.newSymbols || this.newSymbols.length === 0) {
+      return;
+    }
+
+    const list: any[] = Array.isArray((this.container as any).list)
+      ? (this.container as any).list
+      : [];
+
+    for (let col = 0; col < this.newSymbols.length; col++) {
+      const column = this.newSymbols[col];
+      if (!Array.isArray(column)) continue;
+      for (let row = 0; row < column.length; row++) {
+        const symbol: any = column[row];
+        if (!symbol || symbol.destroyed) continue;
+        try {
+          if (list.includes(symbol)) this.container.sendToBack(symbol);
+        } catch { }
+        try {
+          const overlayObj: any = symbol?.__overlayImage;
+          if (overlayObj && !overlayObj.destroyed && list.includes(overlayObj)) {
+            this.container.sendToBack(overlayObj);
+          }
+        } catch { }
+      }
+    }
+  }
+
   private async dropReels(data: SpinMockData): Promise<void> {
     this.reelDropInProgress = true;
     this.initializeSpinDropSoundsByColumn();
@@ -2791,6 +2869,20 @@ export class Symbols {
       this.skipReelDropsActive = true;
     }
     const isSkip = this.skipReelDropsActive || this.skipReelDropsPending;
+    const pendingPreSpinDrop = this.preSpinDropPromise;
+    if (pendingPreSpinDrop) {
+      // Cleanup the stored promise when it completes, but do not block new-symbol drops.
+      pendingPreSpinDrop.finally(() => {
+        if (this.preSpinDropPromise === pendingPreSpinDrop) {
+          this.preSpinDropPromise = null;
+        }
+      });
+    }
+    const shouldSkipOldDropPhase = !!pendingPreSpinDrop;
+    if (shouldSkipOldDropPhase) {
+      // Keep old symbols visually above while both old/new drops overlap.
+      this.sendNewSymbolsBehindExisting();
+    }
 
     // Drop symbols row by row from bottom to top
     if (isSkip) {
@@ -2806,7 +2898,15 @@ export class Symbols {
         const startDelay = step === 0 ? preDelay : rowDelay;
         await this.delay(startDelay);
         console.log(`[Symbols] Processing row ${actualRow}/${numRows - 1}`);
-        await this.dropOldSymbols(actualRow, isTurbo, dropTimingSnapshot);
+        if (shouldSkipOldDropPhase && !isTurbo) {
+          const oldRowDone = this.preSpinDropRowPromises.get(actualRow);
+          if (oldRowDone) {
+            try { await oldRowDone; } catch {}
+          }
+        }
+        if (!shouldSkipOldDropPhase) {
+          await this.dropOldSymbols(actualRow, isTurbo, dropTimingSnapshot);
+        }
         await this.dropNewSymbols(actualRow, false, isTurbo, dropTimingSnapshot);
       }
 
@@ -2827,12 +2927,19 @@ export class Symbols {
 
         // In turbo mode, remove row stagger so all drop together
         const rowDelayFactor = isTurbo ? 0 : 1;
-        const startDelay = bonusPreDropDelay +
-          (dropTimingSnapshot.dropReelsDelay * step * rowDelayFactor);
+        const startDelay = bonusPreDropDelay + (dropTimingSnapshot.dropReelsDelay * step * rowDelayFactor);
 
         const p = (async () => {
           await this.delayOrSkip(startDelay);
-          await this.dropOldSymbols(actualRow, isTurbo, dropTimingSnapshot);
+          if (shouldSkipOldDropPhase && !isTurbo) {
+            const oldRowDone = this.preSpinDropRowPromises.get(actualRow);
+            if (oldRowDone) {
+              try { await oldRowDone; } catch {}
+            }
+          }
+          if (!shouldSkipOldDropPhase) {
+            await this.dropOldSymbols(actualRow, isTurbo, dropTimingSnapshot);
+          }
 
           // Then drop new symbols
           await this.dropNewSymbols(actualRow, false, isTurbo, dropTimingSnapshot);
@@ -3101,9 +3208,9 @@ export class Symbols {
         const overlayObj: any = (baseObj as any)?.__overlayImage;
         const tweenTargets: any = overlayObj ? [baseObj, overlayObj] : baseObj;
 
-        const delayMs = isSkip
-          ? STAGGER_MS * 0.3 * col
-          : STAGGER_MS * col;
+        const delayMs = isTurbo
+          ? 0
+          : (isSkip ? STAGGER_MS * 0.3 * col : STAGGER_MS * col);
         console.log(`[Symbols] Column ${col}: delay=${delayMs}ms, targetY=${targetY}`);
 
         const tweens: any[] = [
@@ -3148,7 +3255,9 @@ export class Symbols {
           const prevOnComplete = last.onComplete;
           last.onComplete = () => {
             try { if (prevOnComplete) prevOnComplete(); } catch { }
-            if (isSkip && (window as any).audioManager) {
+            // Turbo should use a single TURBO_DROP SFX (played once in dropReels),
+            // so suppress per-column drop sounds while turbo is active.
+            if (isSkip && !isTurbo && (window as any).audioManager) {
               try { this.playSpinReelDropSoundForColumn(col); } catch { }
             }
             completedAnimations++;

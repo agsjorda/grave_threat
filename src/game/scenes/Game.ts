@@ -1215,7 +1215,7 @@ export class Game extends Scene {
 		FullScreenManager.addToggle(this, {
 			margin: 16 * assetScale,
 			iconScale: 1.5 * assetScale,
-			depth: 1500,
+			depth: 9501,
 			maximizeKey: 'maximize',
 			minimizeKey: 'minimize'
 		});
