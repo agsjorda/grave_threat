@@ -278,7 +278,6 @@ export class FreeRoundManager {
 		gameEventManager.on(GameEventType.FREEROUND_COUNT_UPDATE, (data: any) => {
 			const fsCount = typeof data === 'number' ? data : (data?.fsCount ?? data);
 			if (typeof fsCount === 'number') {
-				console.log('[FreeRoundManager] Received FREEROUND_COUNT_UPDATE from backend:', fsCount);
 				this.remainingFreeSpins = fsCount;
 				this.setFreeSpins(fsCount);
 			} else {
@@ -295,14 +294,6 @@ export class FreeRoundManager {
 		// is active.
 		this.setupManualFreeRoundSpinConsumption();
 
-		console.log('[FreeRoundManager] Created at', {
-			x,
-			y,
-			scaleX,
-			scaleY,
-			initialFreeSpins,
-			hasSpinButton: !!spinButton
-		});
 
 		// Initially decide visibility based on initialization data
 		const shouldUseFreeSpin =
@@ -520,7 +511,6 @@ export class FreeRoundManager {
 	private startTrackingFreeRoundAutoplayWins(): void {
 		this.accumulatedFreeRoundWin = 0;
 		this.trackingFreeRoundAutoplay = true;
-		console.log('[FreeRoundManager] Started tracking freeround autoplay total win');
 	}
 
 	/**
@@ -532,10 +522,6 @@ export class FreeRoundManager {
 			return;
 		}
 		this.trackingFreeRoundAutoplay = false;
-		console.log(
-			'[FreeRoundManager] Stopped tracking freeround autoplay total win. Final accumulated value:',
-			this.accumulatedFreeRoundWin
-		);
 	}
 
 	/**
@@ -594,27 +580,20 @@ export class FreeRoundManager {
 				// Prefer direct totalWin if available for most accurate value.
 				if (typeof slot.totalWin === 'number') {
 					spinWin = slot.totalWin;
-					console.log('[FreeRoundManager] Using slot.totalWin for initialization free spin:', spinWin);
 				} else if (Array.isArray(slot.tumbles) && slot.tumbles.length > 0) {
 					// Fallback: calculate from tumbles (cluster wins)
 					spinWin = this.calculateTotalWinFromTumbles(slot.tumbles);
-					console.log('[FreeRoundManager] Calculated from tumbles:', spinWin);
 				} else if (Array.isArray(slot.paylines) && slot.paylines.length > 0) {
 					// Fallback: sum payline wins if present.
 					for (const payline of slot.paylines) {
 						const w = Number((payline as any)?.win || 0);
 						spinWin += isNaN(w) ? 0 : w;
 					}
-					console.log('[FreeRoundManager] Calculated from paylines:', spinWin);
 				}
 
 				if (spinWin > 0) {
 					this.accumulatedFreeRoundWin += spinWin;
-					console.log(
-						`[FreeRoundManager] WIN_STOP (freeround autoplay): added spinWin=$${spinWin}, accumulatedFreeRoundWin=$${this.accumulatedFreeRoundWin}`
-					);
 				} else {
-					console.log('[FreeRoundManager] No win detected for this free spin (spinWin=0)');
 				}
 			} catch (e) {
 				console.warn('[FreeRoundManager] Failed to accumulate freeround win on WIN_STOP:', e);
@@ -635,7 +614,6 @@ export class FreeRoundManager {
 		// DISABLED: Backend now provides fsCount in response, so no manual decrement needed
 		// The FREEROUND_COUNT_UPDATE event handler (set up in create()) will update
 		// the remaining free spins display with the value from the server.
-		console.log('[FreeRoundManager] Manual spin consumption disabled - using backend fsCount instead');
 		
 		// Legacy code commented out:
 		/*
@@ -1411,7 +1389,6 @@ export class FreeRoundManager {
 			this.container.setVisible(true);
 		}
 
-		console.log('[FreeRoundManager] Enabling free spin mode (re-skinning SlotController spin button for free rounds)');
 
 		// Re-skin the SlotController's spin button to use the freeround background,
 		// but keep its interaction and core behavior intact.
@@ -1455,7 +1432,6 @@ export class FreeRoundManager {
 			this.container.setVisible(false);
 		}
 
-		console.log('[FreeRoundManager] Disabling free spin mode (restoring normal spin button visuals)');
 
 		// Restore the SlotController spin button texture and overlays.
 		if (this.spinButton) {

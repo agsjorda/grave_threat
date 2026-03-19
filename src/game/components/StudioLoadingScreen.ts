@@ -102,7 +102,6 @@ export class StudioLoadingScreen {
 
                 this.container.add(loadingFrame);
                 this.loadingFrame = loadingFrame;
-                console.log(`[StudioLoadingScreen] Loading frame displayed at scale: ${finalScale}x (base: ${baseScale}x, modifier: ${this.options.loadingFrameScaleModifier || 1.0})`);
             } else {
                 console.warn('[StudioLoadingScreen] Loading frame texture not found');
             }
@@ -169,7 +168,6 @@ export class StudioLoadingScreen {
 
                 this.container.add(text);
                 this.text = text;
-                console.log(`[StudioLoadingScreen] Text displayed: "${this.options.text}" at (${textX}, ${textY}) with font size ${fontSize}px, weight 500, and alpha ${alpha}`);
             }
 
             // Add second text if provided
@@ -234,7 +232,6 @@ export class StudioLoadingScreen {
 
                 this.container.add(text2);
                 this.text2 = text2;
-                console.log(`[StudioLoadingScreen] Text2 displayed: "${this.options.text2}" at (${text2X}, ${text2Y}) with font size ${fontSize}px, weight 500, and alpha ${alpha}`);
             }
 
             // Ensure Poppins fonts are applied once web fonts are ready
@@ -419,7 +416,6 @@ export class StudioLoadingScreen {
                     console.warn('[StudioLoadingScreen] DiJoker logo texture not found');
                 }
 
-                console.log('[StudioLoadingScreen] DI JOKER spine displayed');
                 return;
             } catch (e) {
                 console.warn('[StudioLoadingScreen] Failed to create di_joker spine:', e);
@@ -448,7 +444,6 @@ export class StudioLoadingScreen {
                 this.container.add(this.dijokerLogo);
             }
 
-            console.log('[StudioLoadingScreen] dijoker_loading fallback image displayed');
         }
     }
 
@@ -497,7 +492,6 @@ export class StudioLoadingScreen {
         this.container.add(dotGridGraphics);
         this.dotGrid = dotGridGraphics;
         
-        console.log(`[StudioLoadingScreen] Dot grid created: ${cols}x${rows} dots, spacing: ${dotSpacing}px, radius: ${dotRadius}px`);
     }
 
     public beginLoading(assetLoader: AssetLoader): void {
@@ -514,7 +508,6 @@ export class StudioLoadingScreen {
         assetLoader.loadNumberAssets(this.scene);
         // Optional groups not present in this game have been omitted
         assetLoader.loadDialogAssets(this.scene);
-        console.log('[StudioLoadingScreen] Queued game assets (optimized, audio handled separately)');
     }
 }
 
@@ -532,5 +525,4 @@ export function queueGameAssetLoading(scene: Scene, assetLoader: AssetLoader): v
     assetLoader.loadNumberAssets(scene);
     assetLoader.loadDialogAssets(scene);
     // Optional groups not present in this game have been omitted
-    console.log('[StudioLoadingScreen] Queued game asset loading (optimized, audio handled separately)');
 }

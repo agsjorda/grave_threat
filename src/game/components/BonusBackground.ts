@@ -32,11 +32,9 @@ export class BonusBackground {
 
 	preload(scene: Scene): void {
 		// Assets are loaded centrally through AssetConfig in Preloader
-		console.log(`[BonusBackground] Assets loaded centrally through AssetConfig`);
 	}
 
 	create(scene: Scene): void {
-		console.log("[BonusBackground] Creating bonus background elements");
 		
 		// Store scene reference
 		this.scene = scene;
@@ -47,7 +45,6 @@ export class BonusBackground {
 	this.bonusContainer.setDepth(-1);
 		const assetScale = this.networkManager.getAssetScale();
 		
-		console.log(`[BonusBackground] Creating bonus background with scale: ${assetScale}x`);
 
 		// Add bonus background elements
 		this.createBonusElements(scene, assetScale);
@@ -63,7 +60,6 @@ export class BonusBackground {
 	}
 
 	private createCommonBonusBackground(scene: Scene, assetScale: number): void {
-		console.log("[BonusBackground] Creating bonus background layout (same as normal)");
 
 		// Static bonus background: prefer bg_bonus (BonusGame.webp), fall back to bg_default if missing
 		const bonusBgKey = scene.textures.exists("bg_bonus") ? "bg_bonus" : "bg_default";
@@ -90,9 +86,6 @@ export class BonusBackground {
 			.setOrigin(0.5, 0)
 			.setDepth(850);
 		this.bonusBgCover.setVisible(false);
-		console.log(
-			"[BonusBackground] Created normal-bg-cover (same layout as normal), depth 850, initially hidden",
-		);
 	}
 
 	private scaleImageToCover(image: Phaser.GameObjects.Image, targetWidth: number, targetHeight: number): void {
@@ -176,16 +169,13 @@ export class BonusBackground {
 		// Check if bonus_bg_cover asset loaded successfully
 		if (!scene.textures.exists('bonus_bg_cover')) {
 			console.error('[BonusBackground] bonus_bg_cover texture not found! Check AssetConfig and file path.');
-			console.log('[BonusBackground] Available textures:', scene.textures.getTextureKeys());
 		}
 		
 		// Listen for bonus mode events using scene.events (same as Background.ts)
 		scene.events.on('setBonusMode', (isBonus: boolean) => {
-			console.log(`[BonusBackground] Bonus mode changed to: ${isBonus}`);
 			
 			if (this.bonusBgCover) {
 				this.bonusBgCover.setVisible(isBonus);
-				console.log(`[BonusBackground] Bonus bg cover visibility: ${isBonus}`);
 			}
 			
 			// Refresh layout when bonus mode changes
@@ -196,7 +186,6 @@ export class BonusBackground {
 
 		// Listen for showBonusBackground to refresh layout (called after dialog closes)
 		scene.events.on('showBonusBackground', () => {
-			console.log('[BonusBackground] showBonusBackground event - refreshing layout');
 			this.layout(scene);
 		});
 
@@ -205,7 +194,6 @@ export class BonusBackground {
 		
 		if (this.bonusBgCover) {
 			this.bonusBgCover.setVisible(isBonus);
-			console.log(`[BonusBackground] Initial bonus bg cover visibility: ${isBonus} (isBonus: ${isBonus})`);
 		}
 	}
 }

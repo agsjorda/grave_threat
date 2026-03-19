@@ -54,7 +54,6 @@ export class SymbolOverlay {
     this.overlayRect.setDepth(DEPTH_OVERLAY);
     this.overlayRect.setVisible(false);
     
-    console.log('[SymbolOverlay] Overlay rectangle created');
   }
 
   /**
@@ -71,7 +70,6 @@ export class SymbolOverlay {
     
     // If already visible at full alpha, skip
     if (this.overlayRect.visible && this.overlayRect.alpha >= 1) {
-      console.log('[SymbolOverlay] Already visible');
       return;
     }
     
@@ -85,7 +83,6 @@ export class SymbolOverlay {
       duration: OVERLAY_FADE_IN_DURATION_MS,
       ease: 'Power2.easeOut',
       onComplete: () => {
-        console.log('[SymbolOverlay] Fade in completed');
       }
     });
   }
@@ -109,7 +106,6 @@ export class SymbolOverlay {
         if (this.overlayRect) {
           this.overlayRect.setVisible(false);
         }
-        console.log('[SymbolOverlay] Fade out completed');
       }
     });
   }

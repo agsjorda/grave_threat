@@ -92,7 +92,6 @@ export class BalanceController {
         ? currentBet * 1.25
         : currentBet;
 
-      console.log(`[SlotController] Decrementing balance: $${currentBalance} - $${totalBetToCharge} ${gameData && gameData.isEnhancedBet ? '(enhanced bet +25%)' : ''}`);
 
       const newBalance = Math.max(0, currentBalance - totalBetToCharge);
       this.updateBalanceAmount(newBalance);
@@ -102,7 +101,6 @@ export class BalanceController {
         gameAPI.updateDemoBalance(newBalance);
       }
 
-      console.log(`[SlotController] Balance decremented: $${currentBalance} -> $${newBalance} (bet charged: $${totalBetToCharge})`);
     } catch (error) {
       console.error('[SlotController] Error decrementing balance:', error);
     }
@@ -163,7 +161,6 @@ export class BalanceController {
 
   public applyPendingBalanceUpdateIfAny(): void {
     if (this.pendingBalanceUpdate) {
-      console.log('[SlotController] Applying pending balance update after reels stopped:', this.pendingBalanceUpdate);
       if (this.pendingBalanceUpdate.balance !== undefined) {
         const oldBalance = this.getBalanceAmountText();
         this.updateBalanceAmount(this.pendingBalanceUpdate.balance);
@@ -174,21 +171,16 @@ export class BalanceController {
           }
         } catch { }
         if (this.pendingBalanceUpdate.winnings && this.pendingBalanceUpdate.winnings > 0) {
-          console.log(`[SlotController] Balance updated after reels stopped: ${oldBalance} -> ${this.pendingBalanceUpdate.balance} (added winnings: ${this.pendingBalanceUpdate.winnings})`);
         } else {
-          console.log(`[SlotController] Balance updated after reels stopped: ${oldBalance} -> ${this.pendingBalanceUpdate.balance}`);
         }
       }
       this.pendingBalanceUpdate = null;
-      console.log('[SlotController] Pending balance update cleared');
     } else {
-      console.log('[SlotController] No pending balance update to apply');
     }
   }
 
   public clearPendingBalanceUpdate(): void {
     if (this.pendingBalanceUpdate) {
-      console.log('[SlotController] Clearing pending balance update:', this.pendingBalanceUpdate);
       this.pendingBalanceUpdate = null;
     }
   }
@@ -211,38 +203,31 @@ export class BalanceController {
 
   public forceApplyPendingBalanceUpdate(): void {
     if (this.pendingBalanceUpdate) {
-      console.log('[SlotController] Force applying pending balance update:', this.pendingBalanceUpdate);
 
       if (this.pendingBalanceUpdate.balance !== undefined) {
         const oldBalance = this.getBalanceAmountText();
         this.updateBalanceAmount(this.pendingBalanceUpdate.balance);
 
         if (this.pendingBalanceUpdate.winnings && this.pendingBalanceUpdate.winnings > 0) {
-          console.log(`[SlotController] Balance force updated: ${oldBalance} -> ${this.pendingBalanceUpdate.balance} (added winnings: ${this.pendingBalanceUpdate.winnings})`);
         } else {
-          console.log(`[SlotController] Balance force updated: ${oldBalance} -> ${this.pendingBalanceUpdate.balance}`);
         }
       }
 
       if (this.pendingBalanceUpdate.bet !== undefined) {
         this.callbacks.updateBetAmount(this.pendingBalanceUpdate.bet);
-        console.log('[SlotController] Bet force updated:', this.pendingBalanceUpdate.bet);
       }
 
       this.pendingBalanceUpdate = null;
     } else {
-      console.log('[SlotController] No pending balance update to force apply');
     }
   }
 
   public async updateBalanceFromServer(): Promise<void> {
     if (this.callbacks.getGameAPI()?.getDemoState()) {
-      console.log('[SlotController] Demo mode active - skipping balance update from server');
       return;
     }
 
     try {
-      console.log('[SlotController] 💰 Updating balance from server after reels stopped...');
 
       const gameAPI = this.callbacks.getGameAPI();
       if (!gameAPI) {
@@ -251,7 +236,6 @@ export class BalanceController {
       }
 
       const balanceResponse = await gameAPI.getBalance();
-      console.log('[SlotController] Balance response received:', balanceResponse);
 
       let newBalance = 0;
       if (balanceResponse && balanceResponse.data && balanceResponse.data.balance !== undefined) {
@@ -264,14 +248,12 @@ export class BalanceController {
       }
 
       const oldBalance = this.getBalanceAmount();
-      console.log(`[SlotController] 💰 Server balance update: $${oldBalance} -> $${newBalance}`);
 
       this.updateBalanceAmount(newBalance);
       if (newBalance <= 0) {
         this.callbacks.showOutOfBalancePopup();
       }
 
-      console.log('[SlotController] ✅ Balance updated from server successfully');
     } catch (error) {
       console.error('[SlotController] ❌ Error updating balance from server:', error);
     }

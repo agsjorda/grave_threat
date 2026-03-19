@@ -107,7 +107,6 @@ export class AutoplayOptions {
 	}
 
 	create(scene: Scene): void {
-		console.log("[AutoplayOptions] Creating autoplay options component");
 		
 		// Create main container
 		this.container = scene.add.container(0, 0);
@@ -499,7 +498,6 @@ export class AutoplayOptions {
 		
 		buttonImage.setInteractive();
 		buttonImage.on('pointerdown', () => {
-			console.log('[AutoplayOptions] START AUTOPLAY clicked');
 			const audioManager =
 				(this.container?.scene as any)?.audioManager || (window as any)?.audioManager;
 			if (audioManager && typeof audioManager.playSoundEffect === 'function') {

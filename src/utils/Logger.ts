@@ -58,13 +58,11 @@ class ModuleLogger {
 
   debug(...args: any[]): void {
     if (this.shouldLog('debug')) {
-      console.log(this.prefix, ...args);
     }
   }
 
   info(...args: any[]): void {
     if (this.shouldLog('info')) {
-      console.log(this.prefix, ...args);
     }
   }
 

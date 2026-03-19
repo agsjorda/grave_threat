@@ -27,7 +27,6 @@ export class Boot extends Scene
 
 	init ()
 	{
-		console.log('Boot scene init');
 		EventBus.emit('current-scene-ready', this);
 	}
 
@@ -43,9 +42,9 @@ export class Boot extends Scene
 		// Show debug info
 		this.assetConfig.getDebugInfo();
 		
-		console.log(`[Boot] Asset loading configuration:`);
-		console.log(`[Boot] - Asset scale: ${this.networkManager.getAssetScale()}x`);
-		console.log(`[Boot] - Asset prefix: ${this.assetConfig['getAssetPrefix']()}`);
+
+
+
 		
 		// Load loading assets using AssetLoader
 		this.assetLoader.loadLoadingAssets(this);
@@ -57,13 +56,6 @@ export class Boot extends Scene
 
 		// Preload font assets as early as possible so loading/studio screens can use Poppins
 		this.assetLoader.loadFontAssets(this);
-		
-		console.log(`[Boot] Loading assets (loading + fonts) for Boot scene`);
-
-		// Debug: Log when loading completes
-		this.load.once('complete', () => {
-			console.log('[Boot] All assets loaded');
-		});
 	}
 
 	create ()

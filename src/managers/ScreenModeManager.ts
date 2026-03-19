@@ -10,7 +10,6 @@ export class ScreenModeManager {
     constructor() {
         this.isPortrait = this.detectOrientation();
         this.forcedMode = null;
-        console.log(`[ScreenModeManager] Initial screen orientation detected: ${this.isPortrait ? 'PORTRAIT' : 'LANDSCAPE'}`);
         
         // Add event listener for orientation changes
         window.addEventListener('resize', this.handleOrientationChange.bind(this));
@@ -19,7 +18,6 @@ export class ScreenModeManager {
 
     private detectOrientation(): boolean {
         const isPortrait = window.innerHeight > window.innerWidth;
-        console.log(`[ScreenModeManager] Window dimensions: ${window.innerWidth}x${window.innerHeight}`);
         return isPortrait;
     }
 
@@ -32,7 +30,6 @@ export class ScreenModeManager {
         const newIsPortrait = this.detectOrientation();
         if (newIsPortrait !== this.isPortrait) {
             this.isPortrait = newIsPortrait;
-            console.log(`[ScreenModeManager] Screen orientation changed to: ${this.isPortrait ? 'PORTRAIT' : 'LANDSCAPE'}`);
             
             // Notify all callbacks
             const config = this.getScreenConfig();
@@ -43,7 +40,6 @@ export class ScreenModeManager {
     public forceOrientation(mode: 'portrait' | 'landscape'): void {
         this.forcedMode = mode;
         this.isPortrait = mode === 'portrait';
-        console.log(`[ScreenModeManager] Screen orientation FORCED to: ${mode.toUpperCase()}`);
         
         // Notify all callbacks
         const config = this.getScreenConfig();

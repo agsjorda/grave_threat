@@ -705,7 +705,6 @@ export class Menu {
       }
     }
 
-    console.log("History API Response:", result);
 
     // Update pagination state - check multiple possible metadata formats
     this.historyCurrentPage =
@@ -718,11 +717,6 @@ export class Menu {
       1;
     this.historyPageLimit = limit;
 
-    console.log("Pagination State:", {
-      currentPage: this.historyCurrentPage,
-      totalPages: this.historyTotalPages,
-      limit: this.historyPageLimit,
-    });
 
     // Display headers centered per column (only once)
     const columnCenters = this.getHistoryColumnCenters(scene);

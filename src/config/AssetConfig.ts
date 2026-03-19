@@ -114,7 +114,6 @@ export class AssetConfig {
 		// Symbols and related bonus art live under portrait/high for pastry_cub.
 		const suffix = 'GT';
 		const pcPath = 'assets/portrait/high/symbols/';
-		console.log(`[AssetConfig] Loading symbol assets from: ${pcPath}`);
 
 		// Generate symbol assets for all symbols (0-10)
 		const symbolImages: { [key: string]: string } = {};
@@ -139,7 +138,6 @@ export class AssetConfig {
 			const key = `bonus_multiplier_x${mult}`;
 			const path = `${pcPath}/multiplier_symbols/x${mult}.webp`;
 			symbolImages[key] = path;
-			console.log(`[AssetConfig] Bonus multiplier mark#${index + 1} -> ${mult}x: ${path}`);
 		});
 
 		return {
@@ -155,7 +153,6 @@ export class AssetConfig {
 		const quality = isHighSpeed ? 'high' : 'low';
 		const screenMode = screenConfig.isPortrait ? 'portrait' : 'landscape';
 
-		console.log(`[AssetConfig] Loading controller buttons with quality: ${quality}, screen mode: ${screenMode}`);
 
 		return {
 			images: {
@@ -214,7 +211,6 @@ export class AssetConfig {
 	}
 
 	getFontAssets(): AssetGroup {
-		console.log(`[AssetConfig] Loading font assets`);
 
 		return {
 			fonts: {
@@ -283,7 +279,6 @@ export class AssetConfig {
 	getDialogAssets(): AssetGroup {
 		const prefix = this.getAssetPrefix();
 	
-		console.log(`[AssetConfig] Loading dialog assets with prefix: ${prefix}`);
 	
 		return {
 			spine: {
@@ -328,7 +323,6 @@ export class AssetConfig {
 	 * We intentionally do not use getAssetPrefix() to avoid missing assets on low quality.
 	 */
 	getScatterAnticipationAssets(): AssetGroup {
-		console.log('[AssetConfig] Loading Scatter Anticipation assets');
 		return {
 			spine: {}
 		};
@@ -337,7 +331,6 @@ export class AssetConfig {
 	getNumberAssets(): AssetGroup {
 		const prefix = this.getAssetPrefix();
 
-		console.log(`[AssetConfig] Loading number assets with prefix: ${prefix}`);
 
 		// Generate number assets for digits 0-9, plus comma and dot
 		const numberImages: { [key: string]: string } = {};
@@ -347,15 +340,12 @@ export class AssetConfig {
 			const key = `number_${i}`;
 			const path = `${prefix}/numbers/Number${i}.webp`;
 			numberImages[key] = path;
-			console.log(`[AssetConfig] Number ${key}: ${path}`);
 		}
 
 		// Add comma and dot
 		numberImages['number_comma'] = `${prefix}/numbers/comma.webp`;
 		numberImages['number_dot'] = `${prefix}/numbers/dot.webp`;
 
-		console.log(`[AssetConfig] Number comma: ${prefix}/numbers/comma.webp`);
-		console.log(`[AssetConfig] Number dot: ${prefix}/numbers/dot.webp`);
 
 		return {
 			images: numberImages
@@ -365,7 +355,6 @@ export class AssetConfig {
 	getBuyFeatureAssets(): AssetGroup {
 		const prefix = this.getAssetPrefix();
 
-		console.log(`[AssetConfig] Loading buy feature assets with prefix: ${prefix}`);
 
 		return {
 			images: {
@@ -382,7 +371,6 @@ export class AssetConfig {
 	//-------------------------
 
 	getAudioAssets(): AssetGroup {
-		console.log(`[AssetConfig] Loading audio assets`);
 
 		return {
 			audio: {
@@ -445,8 +433,6 @@ export class AssetConfig {
 	// Method to get debug info
 	getDebugInfo(): void {
 		const prefix = this.getAssetPrefix();
-		console.log(`[AssetConfig] Asset prefix: ${prefix}`);
-		console.log(`[AssetConfig] Available asset groups:`, Object.keys(this.getAllAssets()));
 	}
 } 
 

@@ -27,9 +27,6 @@ export const Loading = ({ currentScene, mode }: Props) => {
 	
 	// Debug logging for mode detection - only log when values change
 	useEffect(() => {
-		console.log(`[Loading] Current mode:`, mode);
-		console.log(`[Loading] Is portrait:`, mode?.isPortrait);
-		console.log(`[Loading] Scene key:`, scene?.scene.key);
 	}, [mode, scene]);
 	
 	return (

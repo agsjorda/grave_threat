@@ -3,7 +3,6 @@ export class NetworkManager {
 
     constructor() {
         this.isHighSpeed = this.detectNetworkSpeed();
-        console.log(`[NetworkManager] Network speed detected: ${this.isHighSpeed ? 'HIGH' : 'LOW'}`);
     }
 
     private detectNetworkSpeed(): boolean {

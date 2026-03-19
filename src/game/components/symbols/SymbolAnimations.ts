@@ -146,7 +146,6 @@ export class SymbolAnimations {
     }
     
     if (stoppedCount > 0) {
-      console.log(`[SymbolAnimations] Stopped ${stoppedCount} Spine animations`);
     }
   }
 
@@ -184,7 +183,6 @@ export class SymbolAnimations {
       this.scene.tweens.killTweensOf(container);
     }
     
-    console.log(`[SymbolAnimations] Stopped ${animationsStopped} tweens, cleared ${spineTracksCleared} Spine tracks`);
   }
 
   /**
@@ -257,7 +255,6 @@ export class SymbolAnimations {
     }
 
     if (resumedCount > 0) {
-      console.log(`[SymbolAnimations] Resumed idle animations on ${resumedCount} Spine symbols`);
     }
   }
 

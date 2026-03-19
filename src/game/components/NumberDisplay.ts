@@ -83,7 +83,6 @@ export class NumberDisplay {
 	 * Initialize the number display
 	 */
 	create(scene: Scene): void {
-		console.log('[NumberDisplay] Creating number display');
 		
 		this.scene = scene;
 		
@@ -164,7 +163,6 @@ export class NumberDisplay {
 		const formattedNumber = this.config.formatValue
 			? (this.config.prefix ?? '') + this.config.formatValue(this.currentValue) + (this.config.suffix ?? '')
 			: this.formatNumber(this.currentValue);
-		console.log(`[NumberDisplay] Displaying: ${formattedNumber}`);
 
 		// Create sprites for each character
 		let currentX = 0;

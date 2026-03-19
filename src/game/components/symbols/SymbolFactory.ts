@@ -165,11 +165,9 @@ export class SymbolFactory {
 
       const hasDrop = !!skelData?.findAnimation?.(dropName);
       
-      console.log(`[SymbolFactory] Symbol ${value}: dropName=${dropName}, idleName=${idleName}, hasDrop=${hasDrop}`);
       
       if (hasDrop) {
         animState.setAnimation(0, dropName, false);
-        console.log(`[SymbolFactory] Playing drop animation: ${dropName}`);
         
         // Add listener to transition to idle
         if (animState.addListener) {
@@ -178,7 +176,6 @@ export class SymbolFactory {
               try {
                 if (!entry || entry.animation?.name !== dropName) return;
                 
-                console.log(`[SymbolFactory] Drop complete, transitioning to idle: ${idleName}`);
                 // Transition to idle with random offset
                 const idleEntry = animState.setAnimation(0, idleName, true);
                 
@@ -209,7 +206,6 @@ export class SymbolFactory {
         }
       } else {
         // No drop animation, just play idle
-        console.log(`[SymbolFactory] No drop animation, playing idle directly: ${idleName}`);
         const idleEntry = animState.setAnimation(0, idleName, true);
         
         if (idleEntry) {
@@ -218,7 +214,6 @@ export class SymbolFactory {
           if (typeof idleEntry.timeScale === 'number') {
             idleEntry.timeScale = speedJitter;
           }
-          console.log(`[SymbolFactory] Idle animation set successfully for symbol ${value}`);
         } else {
           console.warn(`[SymbolFactory] Failed to set idle animation ${idleName} for symbol ${value}`);
         }
@@ -321,7 +316,6 @@ export class SymbolFactory {
     const atlasKey = `${spineKey}-atlas`;
     
     try {
-      console.log(`[SymbolFactory] Replacing sprite with Spine: ${spineKey} at (${col}, ${row})`);
       
       // Destroy current symbol
       if (currentSymbol.destroy) {
@@ -355,7 +349,6 @@ export class SymbolFactory {
       // Add to container
       this.container.add(spineSymbol);
       
-      console.log(`[SymbolFactory] Successfully replaced at (${col}, ${row})`);
       
       return spineSymbol as SymbolObject;
     } catch (error) {

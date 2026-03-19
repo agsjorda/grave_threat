@@ -50,11 +50,9 @@ export class BonusHeader {
 
 	preload(scene: Scene): void {
 		// Assets are now loaded centrally through AssetConfig in Preloader
-		console.log(`[BonusHeader] Assets loaded centrally through AssetConfig`);
 	}
 
 	create(scene: Scene): void {
-		console.log("[BonusHeader] Creating bonus header elements");
 		
 		// Store scene reference for animations
 		this.scene = scene;
@@ -65,7 +63,6 @@ export class BonusHeader {
 		const screenConfig = this.screenModeManager.getScreenConfig();
 		const assetScale = this.networkManager.getAssetScale();
 		
-		console.log(`[BonusHeader] Creating bonus header with scale: ${assetScale}x`);
 
 		// Add bonus header elements
 		this.createBonusHeaderElements(scene, assetScale);
@@ -146,7 +143,6 @@ export class BonusHeader {
 	}
 
 	private createCommonBonusHeaderLayout(scene: Scene, assetScale: number): void {
-		console.log("[BonusHeader] Creating bonus header layout");
 
 		// Create winnings text at a stable position (was inside win bar)
 		const winBarTextY = scene.scale.height * 0.15
@@ -319,12 +315,10 @@ export class BonusHeader {
 							onComplete: () => { this.amountText.setScale(HEADER_CONFIG.WIN_BAR_TEXT_VALUE_SCALE); }
 						});
 					}
-					console.log(`[BonusHeader] Winnings updated with pulse animation: ${formattedWinnings} (raw: ${winnings})`);
 				} else {
 					// Value unchanged: keep persistent without animation.
 					this.youWonText.setScale(HEADER_CONFIG.WIN_BAR_TEXT_SCALE);
 					this.amountText.setScale(HEADER_CONFIG.WIN_BAR_TEXT_VALUE_SCALE);
-					console.log(`[BonusHeader] Winnings value unchanged, skipping animation: ${formattedWinnings} (raw: ${winnings})`);
 				}
 			} else {
 				// Not visible or not scaled - do full scale-in animation
@@ -352,7 +346,6 @@ export class BonusHeader {
 					});
 				}
 				
-				console.log(`[BonusHeader] Winnings updated with scale-in animation: ${formattedWinnings} (raw: ${winnings})`);
 			}
 		}
 	}
@@ -370,7 +363,6 @@ export class BonusHeader {
 		
 		// For bonus mode, we only show per-tumble "YOU WON" values.
 		// Seed the cumulative tracker silently; UI will be driven by tumble events.
-		console.log(`[BonusHeader] Seeded cumulative bonus win with scatter base (tracking only): $${this.scatterBaseWin}`);
 	}
 
 	/**
@@ -386,7 +378,6 @@ export class BonusHeader {
 				this.hasStartedBonusTracking = true;
 				this.justSeededWin = true;
 				this.skipNextSpinAccumulation = false;
-				console.log(`[BonusHeader] Seeded cumulative from trigger spin win: $${triggerWin}`);
 				return;
 			}
 		} catch { }
@@ -511,7 +502,6 @@ export class BonusHeader {
 		if (amountToAdd > 0) {
 			this.cumulativeBonusWin += amountToAdd;
 			this.hasStartedBonusTracking = true;
-			console.log(`[BonusHeader] Added to cumulative bonus win: +$${amountToAdd}, new total: $${this.cumulativeBonusWin}`);
 		}
 	}
 
@@ -531,7 +521,6 @@ export class BonusHeader {
 			this.youWonText.setText('TOTAL WIN');
 			this.showWinningsDisplay(this.cumulativeBonusWin);
 			this.showingTotalWin = true;
-			console.log(`[BonusHeader] Showing cumulative total immediately: $${this.cumulativeBonusWin}`);
 		}
 	}
 
@@ -569,7 +558,6 @@ export class BonusHeader {
 				this.amountText.setVisible(false);
 			}
 			
-			console.log('[BonusHeader] Winnings display hidden with shrink animation');
 		} else {
 			console.warn('[BonusHeader] Cannot hide winnings display - text objects not available', {
 				amountText: !!this.amountText,
@@ -593,7 +581,6 @@ export class BonusHeader {
 			this.amountText.setVisible(false);
 			this.youWonText.setScale(HEADER_CONFIG.WIN_BAR_TEXT_SCALE);
 			this.amountText.setScale(HEADER_CONFIG.WIN_BAR_TEXT_VALUE_SCALE);
-			console.log('[BonusHeader] Winbar display force-hidden');
 		}
 	}
 
@@ -656,12 +643,10 @@ export class BonusHeader {
 							onComplete: () => { this.amountText.setScale(HEADER_CONFIG.WIN_BAR_TEXT_VALUE_SCALE); }
 						});
 					}
-					console.log(`[BonusHeader] Winnings display updated with pulse animation: ${formattedWinnings} (raw: ${winnings})`);
 				} else {
 					// Value hasn't changed - just ensure scale is correct without animation
 					this.youWonText.setScale(HEADER_CONFIG.WIN_BAR_TEXT_SCALE);
 					this.amountText.setScale(HEADER_CONFIG.WIN_BAR_TEXT_VALUE_SCALE);
-					console.log(`[BonusHeader] Winnings display value unchanged, skipping animation: ${formattedWinnings} (raw: ${winnings})`);
 				}
 			} else {
 				// Not visible or not scaled - do full scale-in animation
@@ -688,7 +673,6 @@ export class BonusHeader {
 						onComplete: () => { this.amountText.setScale(HEADER_CONFIG.WIN_BAR_TEXT_VALUE_SCALE); }
 					});
 				}
-				console.log(`[BonusHeader] Winnings display shown with scale-in animation: ${formattedWinnings} (raw: ${winnings})`);
 			}
 		} else {
 			console.warn('[BonusHeader] Cannot show winnings display - text objects not available', {
@@ -746,7 +730,6 @@ export class BonusHeader {
 	 * Initialize winnings display when bonus header starts
 	 */
 	public initializeWinnings(): void {
-		console.log('[BonusHeader] Initializing winnings display - starting hidden');
 		this.currentWinnings = 0;
 		this.hideWinningsDisplay();
 	}
@@ -755,7 +738,6 @@ export class BonusHeader {
 	 * Hide winnings display at the start of a new spin (like regular header)
 	 */
 	public hideWinningsForNewSpin(): void {
-		console.log('[BonusHeader] Hiding winnings display for new spin');
 		this.hideWinningsDisplay();
 	}
 
@@ -811,19 +793,9 @@ export class BonusHeader {
 						}
 						this.showWinningsDisplay(maxWinCapTotal);
 						try { symbolsComponent?.requestSkipTumbles?.(); } catch {}
-						console.log('[BonusHeader] MaxWin cap already reached - skipping further tumble win updates', {
-							cumulativeBonusWin: this.cumulativeBonusWin,
-							maxWinCapTotal
-						});
 						return;
 					}
 					if (effectiveTumbleWin > remainingToCap) {
-						console.log('[BonusHeader] Clamping tumble win to MaxWin cap remainder', {
-							rawTumbleWin: effectiveTumbleWin,
-							clampedTumbleWin: remainingToCap,
-							cumulativeBonusWin: this.cumulativeBonusWin,
-							maxWinCapTotal
-						});
 						effectiveTumbleWin = remainingToCap;
 					}
 				}
@@ -851,7 +823,6 @@ export class BonusHeader {
 						if (this.skipNextSpinAccumulation) {
 							this.accumulatedThisSpin = true;
 							this.skipNextSpinAccumulation = false;
-							console.log('[BonusHeader] TUMBLE_WIN_PROGRESS: skipping accumulation (first spin already seeded)');
 						} else {
 							this.cumulativeBonusWin += effectiveTumbleWin;
 							this.accumulatedThisSpin = true;
@@ -909,7 +880,6 @@ export class BonusHeader {
 							spinPaylineWin = this.calculateTotalWinFromPaylines(slotAny.paylines);
 						}
 						spinWin = spinTumbleWin + spinPaylineWin;
-						console.log(`[BonusHeader] TUMBLE_SEQUENCE_DONE: using event total (tumbles=$${spinTumbleWin} + paylines=$${spinPaylineWin}) = $${spinWin}`);
 					}
 
 					// Fallback: freespin item backend total/subtotal
@@ -923,7 +893,6 @@ export class BonusHeader {
 							const itemTotal = Number(rawItemTotal);
 							if (!isNaN(itemTotal) && itemTotal > 0) {
 								spinWin = itemTotal;
-								console.log(`[BonusHeader] TUMBLE_SEQUENCE_DONE: fallback freespin item totalWin=$${itemTotal}`);
 							}
 						}
 					}
@@ -941,18 +910,15 @@ export class BonusHeader {
 				// have finished, avoiding any label flicker during tumble updates.
 				if (spinWin > 0) {
 					if (this.accumulatedThisSpin) {
-						console.log('[BonusHeader] TUMBLE_SEQUENCE_DONE: skipping accumulation (already added per tumble)');
 						return;
 					}
 					if (this.skipNextSpinAccumulation) {
 						this.accumulatedThisSpin = true;
 						this.skipNextSpinAccumulation = false;
-						console.log('[BonusHeader] TUMBLE_SEQUENCE_DONE: skipping accumulation (first spin already seeded)');
 					} else {
 						this.cumulativeBonusWin += spinWin;
 						this.accumulatedThisSpin = true;
 					}
-					console.log(`[BonusHeader] TUMBLE_SEQUENCE_DONE: added spinWin=$${spinWin}, cumulativeBonusWin=$${this.cumulativeBonusWin}`);
 				}
 			} catch {}
 		});
@@ -960,20 +926,16 @@ export class BonusHeader {
 		// Listen for spin events to hide winnings display at start of manual spin
 		gameEventManager.on(GameEventType.SPIN, () => {
 			if (gameStateManager.isBonus && this.cumulativeBonusWin > 0) {
-				console.log('[BonusHeader] SPIN during bonus - keeping total win visible for cumulative tracking');
 				return;
 			}
-			console.log('[BonusHeader] Manual spin started - hiding winnings display');
 			this.hideWinningsDisplay();
 		});
 
 		// Listen for autoplay start to hide winnings display
 		gameEventManager.on(GameEventType.AUTO_START, () => {
 			if (gameStateManager.isBonus && this.cumulativeBonusWin > 0) {
-				console.log('[BonusHeader] AUTO_START during bonus - keeping total win visible for cumulative tracking');
 				return;
 			}
-			console.log('[BonusHeader] Auto play started - hiding winnings display');
 			this.hideWinningsDisplay();
 		});
 
@@ -989,14 +951,12 @@ export class BonusHeader {
 					this.bonusHeaderContainer?.visible
 				) {
 					this.showCumulativeTotalIfReady();
-					console.log('[BonusHeader] dialogAnimationsComplete: re-showing cumulative total after radial light transition');
 				}
 			});
 		}
 
 		// Listen for reels start to reset per-spin bonus state
 		gameEventManager.on(GameEventType.REELS_START, () => {
-			console.log('[BonusHeader] Reels started');
 			if (gameStateManager.isBonus) {
 				// Reset per-spin accumulation flag
 				this.accumulatedThisSpin = false;
@@ -1013,12 +973,10 @@ export class BonusHeader {
 					this.hasStartedBonusTracking = true;
 				}
 				const totalWinSoFar = this.cumulativeBonusWin;
-				console.log(`[BonusHeader] REELS_START (bonus): cumulative bonus win so far = $${totalWinSoFar}`);
 
 				// Clear the justSeededWin flag when first spin starts (scatter activation complete)
 				if (this.justSeededWin) {
 					this.justSeededWin = false;
-					console.log('[BonusHeader] Cleared justSeededWin flag - first bonus spin starting');
 				}
 
 				// At the start of each bonus spin, show the cumulative TOTAL WIN so far.
@@ -1046,11 +1004,9 @@ export class BonusHeader {
 
 		// Listen for reel done events to show winnings display (like regular header)
 		gameEventManager.on(GameEventType.REELS_STOP, (data: any) => {
-			console.log(`[BonusHeader] REELS_STOP received - checking for wins`);
 
 			// In bonus mode, per-spin display is handled on WIN_STOP; skip here to avoid label mismatch
 			if (gameStateManager.isBonus) {
-				console.log('[BonusHeader] In bonus mode - skipping REELS_STOP winnings update (handled on WIN_STOP)');
 				return;
 			}
 			
@@ -1058,12 +1014,10 @@ export class BonusHeader {
 			const symbolsComponent = (this.bonusHeaderContainer.scene as any).symbols;
 			if (symbolsComponent && symbolsComponent.currentSpinData) {
 				const spinData = symbolsComponent.currentSpinData;
-				console.log(`[BonusHeader] Found current spin data:`, spinData);
 				
 				// Use the same logic as regular header - calculate from paylines
 				if (spinData.slot && spinData.slot.paylines && spinData.slot.paylines.length > 0) {
 					const totalWin = this.calculateTotalWinFromPaylines(spinData.slot.paylines);
-					console.log(`[BonusHeader] Total winnings calculated from paylines: ${totalWin}`);
 					
 					if (totalWin > 0) {
 						this.showWinningsDisplay(totalWin);
@@ -1071,11 +1025,9 @@ export class BonusHeader {
 						this.hideWinningsDisplay();
 					}
 				} else {
-					console.log('[BonusHeader] No paylines in current spin data - hiding winnings display');
 					this.hideWinningsDisplay();
 				}
 			} else {
-				console.log('[BonusHeader] No current spin data available - hiding winnings display');
 				this.hideWinningsDisplay();
 			}
 		});
@@ -1093,7 +1045,6 @@ export class BonusHeader {
 			// If this spin has tumbles, let TUMBLE_WIN_PROGRESS handle the "YOU WON"
 			// label and values so the header updates are synchronized with tumbles.
 			if (Array.isArray(spinData?.slot?.tumbles) && spinData.slot.tumbles.length > 0) {
-				console.log('[BonusHeader] WIN_START (bonus): tumbles present - winnings display handled by TUMBLE_WIN_PROGRESS');
 				return;
 			}
 
@@ -1127,11 +1078,9 @@ export class BonusHeader {
 				return;
 			}
 			if (gameStateManager.isReelSpinning) {
-				console.log('[BonusHeader] WIN_STOP (bonus): ignored while reels are spinning');
 				return;
 			}
 			if (this.showingTotalWin) {
-				console.log('[BonusHeader] WIN_STOP (bonus): duplicate TOTAL WIN update suppressed');
 				return;
 			}
 
@@ -1143,7 +1092,6 @@ export class BonusHeader {
 				this.lastProcessedBonusWinStopSignature &&
 				winStopSignature === this.lastProcessedBonusWinStopSignature
 			) {
-				console.log('[BonusHeader] WIN_STOP (bonus): duplicate spin signature suppressed');
 				return;
 			}
 			this.lastProcessedBonusWinStopSignature = winStopSignature || null;
@@ -1157,7 +1105,6 @@ export class BonusHeader {
 					const rawWin = (currentItem as any).totalWin ?? (currentItem as any).subTotalWin;
 					if (typeof rawWin === 'number' && rawWin > 0) {
 						spinWin = rawWin;
-						console.log(`[BonusHeader] WIN_STOP (bonus): using item win=$${spinWin} from freespin item`);
 					}
 				}
 				// Fallback: if freespin item total not available, manually sum paylines + tumbles
@@ -1172,7 +1119,6 @@ export class BonusHeader {
 						spinWin += tumbleWin;
 					}
 					if (spinWin > 0) {
-						console.log(`[BonusHeader] WIN_STOP (bonus): fallback calculation = $${spinWin}`);
 					}
 				}
 			} catch {}
@@ -1189,14 +1135,12 @@ export class BonusHeader {
 				if (this.skipNextSpinAccumulation) {
 					this.accumulatedThisSpin = true;
 					this.skipNextSpinAccumulation = false;
-					console.log('[BonusHeader] WIN_STOP (bonus): skipping accumulation (first spin already seeded)');
 				} else {
 					this.cumulativeBonusWin += (spinWin || 0);
 					this.accumulatedThisSpin = true;
 				}
 			}
 
-			console.log(`[BonusHeader] WIN_STOP (bonus): finalized cumulativeBonusWin=$${this.cumulativeBonusWin} (spinWin=$${spinWin})`);
 
 			// If this was the last free spin, align the cumulative total to backend totalWin
 			try {
@@ -1255,22 +1199,13 @@ export class BonusHeader {
 					if (shouldSnapToBackendTotal && backendTotal > 0) {
 						this.cumulativeBonusWin = backendTotal;
 						this.hasStartedBonusTracking = true;
-						console.log(
-							`[BonusHeader] WIN_STOP (bonus): forcing cumulative total to slot.totalWin=$${backendTotal}` +
-							` (isMaxWinItem=${isMaxWinItem}, isLastSpinItem=${isLastSpinItem}, hasFutureRetriggerItems=${hasFutureRetriggerItems})`
-						);
 					} else if (backendTotal > 0) {
-						console.log(
-							`[BonusHeader] WIN_STOP (bonus): non-MaxWin final spin - keeping frontend cumulative total=$${this.cumulativeBonusWin} ` +
-							`(backend totalWin=$${backendTotal}, isLastSpinItem=${isLastSpinItem}, hasFutureRetriggerItems=${hasFutureRetriggerItems})`
-						);
 					}
 				}
 			} catch { }
 
 			// Show "TOTAL WIN" with the cumulative total (all spins including scatter trigger)
 			const showTotalWinForSpin = () => {
-				console.log(`[BonusHeader] showTotalWinForSpin: spinWin=${spinWin}, cumulativeBonusWin=$${this.cumulativeBonusWin}`);
 				this.showingTotalWin = true;
 
 				this.scene?.time.delayedCall(0, () => {
@@ -1286,15 +1221,12 @@ export class BonusHeader {
 						if (this.youWonText) {
 							this.youWonText.setText('TOTAL WIN');
 							this.youWonText.setVisible(true);
-							console.log('[BonusHeader] Set youWonText to "TOTAL WIN" and visible');
 						}
 
 						// Show the cumulative total (scatter + all spins so far)
 						this.showWinningsDisplay(this.cumulativeBonusWin);
-						console.log(`[BonusHeader] WIN_STOP (bonus): ✅ SHOWING "TOTAL WIN" with cumulative total=$${this.cumulativeBonusWin}`);
 					} else {
 						// No cumulative win yet – leave the existing display unchanged
-						console.log('[BonusHeader] WIN_STOP (bonus): cumulativeBonusWin is 0, leaving existing winnings display unchanged');
 					}
 
 					// Always emit event to signal that spin display phase is complete
@@ -1326,14 +1258,11 @@ export class BonusHeader {
 			
 			if (currentFreeSpinItem && currentFreeSpinItem.subTotalWin !== undefined) {
 				const subTotalWin = currentFreeSpinItem.subTotalWin;
-				console.log(`[BonusHeader] Found subTotalWin: $${subTotalWin}`);
 				
 				// Only show display if subTotalWin > 0, otherwise hide it
 				if (subTotalWin > 0) {
-					console.log(`[BonusHeader] Showing winnings display with subTotalWin: $${subTotalWin}`);
 					this.updateWinningsDisplay(subTotalWin);
 				} else {
-					console.log(`[BonusHeader] subTotalWin is 0, hiding winnings display`);
 					this.hideWinningsDisplay();
 				}
 				return;
@@ -1343,18 +1272,14 @@ export class BonusHeader {
 		// Fallback: calculate from paylines if no subTotalWin available
 		if (spinData.slot?.paylines && spinData.slot.paylines.length > 0) {
 			const totalWin = this.calculateTotalWinFromPaylines(spinData.slot.paylines);
-			console.log(`[BonusHeader] Calculated from paylines: $${totalWin}`);
 			
 			// Only show display if totalWin > 0, otherwise hide it
 			if (totalWin > 0) {
-				console.log(`[BonusHeader] Showing winnings display with payline calculation: $${totalWin}`);
 				this.updateWinningsDisplay(totalWin);
 			} else {
-				console.log(`[BonusHeader] No wins from paylines, hiding winnings display`);
 				this.hideWinningsDisplay();
 			}
 		} else {
-			console.log('[BonusHeader] No win data available in spin data, hiding display');
 			this.hideWinningsDisplay();
 		}
 	}

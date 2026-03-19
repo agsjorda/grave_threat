@@ -34,7 +34,9 @@ export default defineConfig({
         minify: 'terser',
         terserOptions: {
             compress: {
-                passes: 2
+                passes: 2,
+                drop_console: true,
+                drop_debugger: true
             },
             mangle: true,
             format: {

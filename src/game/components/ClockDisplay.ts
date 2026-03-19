@@ -90,7 +90,6 @@ export class ClockDisplay {
         }
 
         this.timeText = timeText;
-        console.log(`[ClockDisplay] Clock created at (${timeX}, ${timeY}) with font size ${fontSize}px`);
 
         // Create additional text if provided
         if (this.options.additionalText) {
@@ -137,7 +136,6 @@ export class ClockDisplay {
             }
 
             this.additionalText = additionalTextObj;
-            console.log(`[ClockDisplay] Additional text "${this.options.additionalText}" created at (${additionalX}, ${additionalY}) with scale ${additionalScale}`);
         }
 
         // Update time every second

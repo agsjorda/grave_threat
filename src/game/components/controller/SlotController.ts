@@ -193,7 +193,6 @@ export class SlotController {
 	 */
 	public setLoadingSpinner(spinner: LoadingSpinner): void {
 		this.loadingSpinner = spinner;
-		console.log('[SlotController] Loading spinner set from scene');
 	}
 
 	/**
@@ -215,7 +214,6 @@ export class SlotController {
 		const centerX = this.scene.scale.width * GRID_CENTER_X_RATIO + GRID_CENTER_X_OFFSET_PX;
 		const centerY = this.scene.scale.height * GRID_CENTER_Y_RATIO + GRID_CENTER_Y_OFFSET_PX;
 		this.loadingSpinner = new LoadingSpinner(this.scene, centerX, centerY);
-		console.log('[SlotController] Loading spinner initialized');
 	}
 
 	/**
@@ -277,7 +275,6 @@ export class SlotController {
 	 * - Bet background (that opens bet options)
 	 */
 	public disableControlsForFreeRounds(): void {
-		console.log('[SlotController] Disabling controls for free rounds');
 
 		this.disableBetButtons();
 		this.disableFeatureButton();
@@ -296,7 +293,6 @@ export class SlotController {
 	 * Re-enable UI controls after free rounds end.
 	 */
 	public enableControlsAfterFreeRounds(): void {
-		console.log('[SlotController] Enabling controls after free rounds');
 
 		this.updateSpinButtonState();
 		this.enableBetButtons();
@@ -343,7 +339,6 @@ export class SlotController {
 			if (child && child.getData && child.getData('isBetBackground')) {
 				child.disableInteractive();
 				const suffix = reason ? ` (${reason})` : '';
-				console.log(`[SlotController] Bet background interaction disabled${suffix}`);
 			}
 		});
 		// Also disable the bet amount text so tapping it cannot open the bet options popup
@@ -364,7 +359,6 @@ export class SlotController {
 			if (child && child.getData && child.getData('isBetBackground')) {
 				child.setInteractive();
 				const suffix = reason ? ` (${reason})` : '';
-				console.log(`[SlotController] Bet background interaction re-enabled${suffix}`);
 			}
 		});
 		// Also re-enable the bet amount text
@@ -393,7 +387,6 @@ export class SlotController {
 	public suppressFreeSpinDisplay(): void {
 		this.freeSpinDisplaySuppressed = true;
 		this.hideFreeSpinDisplay();
-		console.log('[SlotController] Free spin display suppression enabled');
 	}
 
 	/**
@@ -401,7 +394,6 @@ export class SlotController {
 	 */
 	public clearFreeSpinDisplaySuppression(): void {
 		this.freeSpinDisplaySuppressed = false;
-		console.log('[SlotController] Free spin display suppression cleared');
 	}
 
 	/**
@@ -410,14 +402,12 @@ export class SlotController {
 	 */
 	public setSymbols(symbols: Symbols): void {
 		this.symbols = symbols;
-		console.log('[SlotController] Symbols component reference set');
 		
 		// Update loading spinner position at center of reel (symbols grid)
 		if (this.loadingSpinner && this.scene) {
 			const centerX = this.scene.scale.width * GRID_CENTER_X_RATIO + GRID_CENTER_X_OFFSET_PX;
 			const centerY = this.scene.scale.height * GRID_CENTER_Y_RATIO + GRID_CENTER_Y_OFFSET_PX;
 			this.loadingSpinner.updatePosition(centerX, centerY);
-			console.log('[SlotController] Loading spinner position updated to reel center');
 		}
 	}
 
@@ -427,16 +417,13 @@ export class SlotController {
 	 */
 	public setBuyFeatureReference(): void {
 		this.buyFeatureController.setSlotController(this);
-		console.log('[SlotController] BuyFeature reference set');
 	}
 
 	preload(scene: Scene): void {
 		// Assets are now loaded centrally through AssetConfig in Preloader
-		console.log(`[SlotController] Assets loaded centrally through AssetConfig`);
 	}
 
 	create(scene: Scene): void {
-		console.log("[SlotController] Creating controller elements");
 		
 		// Store scene reference for event listening
 		this.scene = scene;
@@ -488,7 +475,6 @@ export class SlotController {
 			}
 		);
 		
-		console.log(`[SlotController] Creating controller with scale: ${assetScale}x`);
 
 		// Initialize controller modules
 		this.betController = new BetController(scene, this.controllerContainer, {
@@ -506,7 +492,7 @@ export class SlotController {
 		
 		this.spinButtonController = new SpinButtonController(scene, this.controllerContainer, {
 			onSpinRequested: () => this.handleSpin(),
-			onSpinBlocked: (reason: string) => console.log('[SlotController] Spin blocked:', reason),
+			onSpinBlocked: (reason: string) => {},
 			isAutoplayActive: () => this.autoplayController?.isActive() || false,
 			stopAutoplay: () => this.stopAutoplay(),
 		});
@@ -613,7 +599,6 @@ export class SlotController {
 	 * Handle bet change from BetController
 	 */
 	private handleBetChange(newBet: number, prevBet: number): void {
-		console.log(`[SlotController] Bet changed: ${prevBet} -> ${newBet}`);
 		this.updateBetAmount(newBet);
 	}
 
@@ -621,7 +606,6 @@ export class SlotController {
 	 * Handle autoplay start from AutoplayController (called after user confirms autoplay dialog)
 	 */
 	private handleAutoplayStart(): void {
-		console.log('[SlotController] Autoplay started via controller');
 		const gameData = this.getGameData();
 		if (gameData) {
 			gameData.isAutoPlaying = true;
@@ -633,7 +617,6 @@ export class SlotController {
 	 * Handle autoplay stop from AutoplayController
 	 */
 	private handleAutoplayStop(): void {
-		console.log('[SlotController] Autoplay stopped via controller');
 		const gameData = this.getGameData();
 		if (gameData) {
 			gameData.isAutoPlaying = false;
@@ -751,7 +734,6 @@ export class SlotController {
 				this.controllerContainer.add(this.spinButtonAnimation);
 			}
 
-			console.log('[SlotController] Spin button spine animation created successfully with 1.3x speed');
 
 			if (scene.cache.json.has('fr_spin_button_animation')) {
 				try {
@@ -790,7 +772,6 @@ export class SlotController {
 						this.controllerContainer.add(this.freeRoundSpinButtonAnimation);
 					}
 
-					console.log('[SlotController] Free-round spin button spine animation created successfully');
 				} catch (e) {
 					console.warn('[SlotController] Failed to create free-round spin button animation:', e);
 					this.freeRoundSpinButtonAnimation = null;
@@ -808,7 +789,6 @@ export class SlotController {
 	 */
 	private createAutoplayButtonAnimation(scene: Scene): void {
 		// Now handled by AutoplayController
-		console.log('[SlotController] Autoplay button animation managed by AutoplayController');
 	}
 
 	/**
@@ -862,7 +842,6 @@ export class SlotController {
 			this.primaryControllers.add(this.autoplaySpinsRemainingText);
 			this.primaryControllers.bringToTop(this.autoplaySpinsRemainingText);
 		}
-		console.log('[SlotController] Autoplay spins remaining text created successfully');
 	}
 
 	/**
@@ -1016,7 +995,6 @@ export class SlotController {
 			if (this.featureButtonHitbox) {
 				this.featureButtonHitbox.disableInteractive();
 			}
-			console.log('[SlotController] Feature button disabled');
 		}
 	}
 
@@ -1029,23 +1007,19 @@ export class SlotController {
 		if (featureButton) {
 			// Keep Buy Feature disabled until the full spin/tumble/win flow is complete.
 			if (gameStateManager.isReelSpinning || this.pendingWinLock || gameStateManager.isShowingWinDialog) {
-				console.log('[SlotController] Skipping feature enable (spin/tumble/win flow still active)');
 				return;
 			}
 			// Guard: do not re-enable during bonus or before explicit allow
 			if (gameStateManager.isBonus || !this.canEnableFeatureButton) {
-				console.log('[SlotController] Skipping feature enable (bonus active or not allowed yet)');
 				return;
 			}
 			// Also keep Buy Feature disabled while enhance/amplify bet is active
 			const gameData = this.getGameData();
 			if (gameData && gameData.isEnhancedBet) {
-				console.log('[SlotController] Skipping feature enable (enhance/amplify bet is ON)');
 				return;
 			}
 			// Also keep Buy Feature disabled while buy feature flow or free spins are active
 			if (this.isBuyFeatureControlsLocked()) {
-				console.log('[SlotController] Skipping feature enable (buy feature flow active)');
 				return;
 			}
 			featureButton.setAlpha(1.0); // Restore full opacity
@@ -1053,7 +1027,6 @@ export class SlotController {
 			if (this.featureButtonHitbox) {
 				this.featureButtonHitbox.setInteractive();
 			}
-			console.log('[SlotController] Feature button enabled');
 		}
 	}
 
@@ -1089,7 +1062,6 @@ export class SlotController {
 			button.setAlpha(0.5);
 			button.setTint(0x555555);
 			button.disableInteractive();
-			console.log(`[SlotController] Button '${buttonKey}' disabled`);
 		}
 	}
 
@@ -1099,7 +1071,6 @@ export class SlotController {
 			button.setAlpha(alpha);
 			button.setTint(0x555555);
 			button.disableInteractive();
-			console.log(`[SlotController] Button '${buttonKey}' disabled (alpha=${alpha})`);
 		}
 	}
 
@@ -1113,7 +1084,6 @@ export class SlotController {
 			button.setAlpha(1.0);
 			button.clearTint();
 			button.setInteractive();
-			console.log(`[SlotController] Button '${buttonKey}' enabled`);
 		}
 	}
 
@@ -1186,7 +1156,6 @@ export class SlotController {
 				}
 			});
 			
-			console.log('[SlotController] Autoplay button spine animation played once');
 		} catch (error) {
 			console.error('[SlotController] Error playing autoplay button animation:', error);
 			// Hide the animation if there's an error
@@ -1277,11 +1246,6 @@ export class SlotController {
 					const duration: number | undefined = animData?.duration;
 					if (typeof duration === 'number' && duration > 0.01) {
 						trackEntry.animationEnd = Math.max(0, duration - 0.01);
-						console.log(
-							`[SlotController] Free-round spin animation duration=${duration.toFixed(
-								3
-							)}s, clamped to ${trackEntry.animationEnd.toFixed(3)}s (cut last 0.5s)`
-						);
 					}
 				} catch (e) {
 					console.warn('[SlotController] Failed to clamp free-round spin animationEnd:', e);
@@ -1297,7 +1261,6 @@ export class SlotController {
 				}
 			});
 			
-			console.log('[SlotController] Spin button spine animation played');
 		} catch (error) {
 			console.error('[SlotController] Error playing Spine button animation:', error);
 			// Hide the animation if there's an error
@@ -1318,7 +1281,6 @@ export class SlotController {
 	}
 
 	private createPortraitController(scene: Scene, assetScale: number): void {
-		console.log("[SlotController] Creating portrait controller layout");
 		
 		// Create primary controllers container
 		this.primaryControllers = scene.add.container(0, 0);
@@ -1403,20 +1365,16 @@ export class SlotController {
 
 		spinButton.setInteractive();
 		spinButton.on('pointerdown', async () => {
-			console.log('[SlotController] Spin button clicked');
 			// Debounce is handled by SpinButtonController, no need to check here
 			// If autoplay is active (or about to start), clicking spin will stop autoplay instead
 			if (gameStateManager.isAutoPlaying || gameStateManager.isAutoPlaySpinRequested) {
-				console.log('[SlotController] Stopping autoplay via spin button click');
 				this.stopAutoplay();
 				return;
 			}
 			if (this.isSpinLocked) {
-				console.log('[SlotController] Spin blocked - spin is locked');
 				return;
 			}
 			if (gameStateManager.isReelSpinning) {
-				console.log('[SlotController] Spin blocked - already spinning');
 				return;
 			}
 			
@@ -1467,7 +1425,6 @@ export class SlotController {
 		).setOrigin(0.5, 0.5).setScale(assetScale).setDepth(10);
 		autoplayButton.setInteractive();
 		autoplayButton.on('pointerdown', () => {
-			console.log('[SlotController] Autoplay button clicked');
 			const audioManager =
 				(this.scene as any)?.audioManager || (window as any)?.audioManager;
 			if (audioManager && typeof audioManager.playSoundEffect === 'function') {
@@ -1602,7 +1559,6 @@ export class SlotController {
 		this.controllerContainer.add(this.betAmountText);
 		this.betAmountText.setInteractive();
 		this.betAmountText.on('pointerdown', () => {
-			console.log('[SlotController] Bet amount clicked');
 			const audioManager =
 				(this.scene as any)?.audioManager || (window as any)?.audioManager;
 			if (audioManager && typeof audioManager.playSoundEffect === 'function') {
@@ -1612,9 +1568,6 @@ export class SlotController {
 			// Prevent opening bet options while spin/tumbles are in progress or autoplay is active
 			const gsm: any = gameStateManager as any;
 			if (gameStateManager.isReelSpinning || gameStateManager.isAutoPlaying || gsm?.isProcessingSpin || gameStateManager.isShowingWinDialog) {
-				console.log(
-					'[SlotController] Bet options panel disabled while spinning, tumbling, or autoplaying'
-				);
 				return;
 			}
 
@@ -1635,9 +1588,6 @@ export class SlotController {
 			}
 
 			if (gameStateManager.isScatter || isScatterAnimating) {
-				console.log(
-					'[SlotController] Bet options panel disabled while scatter animation is playing'
-				);
 				return;
 			}
 
@@ -1655,7 +1605,6 @@ export class SlotController {
 		).setOrigin(0.5, 0.5).setScale(assetScale * 0.55).setDepth(10);
 		decreaseBetButton.setInteractive();
 		decreaseBetButton.on('pointerdown', () => {
-			console.log('[SlotController] Decrease bet button clicked');
 			const audioManager = (this.scene as any)?.audioManager || (window as any)?.audioManager;
 			if (audioManager && typeof audioManager.playSoundEffect === 'function') {
 				audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
@@ -1673,7 +1622,6 @@ export class SlotController {
 		).setOrigin(0.5, 0.5).setScale(assetScale * 0.55).setDepth(10);
 		increaseBetButton.setInteractive();
 		increaseBetButton.on('pointerdown', () => {
-			console.log('[SlotController] Increase bet button clicked');
 			const audioManager = (this.scene as any)?.audioManager || (window as any)?.audioManager;
 			if (audioManager && typeof audioManager.playSoundEffect === 'function') {
 				audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
@@ -1755,7 +1703,6 @@ export class SlotController {
 		).setOrigin(0.5, 0.5).setDepth(11);
 		hitbox.setInteractive();
 		hitbox.on('pointerdown', () => {
-			console.log('[SlotController] Feature button clicked');
 			this.handleBuyFeaturePress();
 		});
 		this.featureButtonHitbox = hitbox;
@@ -1809,7 +1756,6 @@ export class SlotController {
 	}
 
 	private createLandscapeController(scene: Scene, assetScale: number): void {
-		console.log("[SlotController] Creating landscape controller layout");
 		
 		// Create primary controllers container
 		this.primaryControllers = scene.add.container(0, 0);
@@ -1857,20 +1803,16 @@ export class SlotController {
 
 		spinButton.setInteractive();
 		spinButton.on('pointerdown', async () => {
-			console.log('[SlotController] Spin button clicked');
 			// Debounce is handled by SpinButtonController, no need to check here
 			// If autoplay is active (or about to start), clicking spin will stop autoplay instead
 			if (gameStateManager.isAutoPlaying || gameStateManager.isAutoPlaySpinRequested) {
-				console.log('[SlotController] Stopping autoplay via spin button click');
 				this.stopAutoplay();
 				return;
 			}
 			if (this.isSpinLocked) {
-				console.log('[SlotController] Spin blocked - spin is locked');
 				return;
 			}
 			if (gameStateManager.isReelSpinning) {
-				console.log('[SlotController] Spin blocked - already spinning');
 				return;
 			}
 			
@@ -1902,7 +1844,6 @@ export class SlotController {
 		).setOrigin(0.5, 0.5).setScale(assetScale).setDepth(10);
 		autoplayButton.setInteractive();
 		autoplayButton.on('pointerdown', () => {
-			console.log('[SlotController] Autoplay button clicked');
 			this.handleAutoplayButtonClick();
 		});
 		this.buttons.set('autoplay', autoplayButton);
@@ -2198,10 +2139,8 @@ export class SlotController {
 	private setupAutoplayEventListeners(): void {
 		// Listen for balance initialization
 		gameEventManager.on(GameEventType.BALANCE_INITIALIZED, (data: any) => {
-			console.log('[SlotController] Balance initialized event received:', data);
 			
 			if (data && data.newBalance !== undefined) {
-				console.log(`[SlotController] Updating balance display to: $${data.newBalance}`);
 				this.updateBalanceAmount(data.newBalance);
 			}
 		});
@@ -2235,20 +2174,16 @@ export class SlotController {
 
 		// Listen for any spin to start (manual or autoplay)
 		gameEventManager.on(GameEventType.SPIN, () => {
-			console.log('[SlotController] Spin event received');
 			
 			// CRITICAL: Block autoplay spins if win dialog is showing, but allow manual spins
 			// This fixes the timing issue where manual spin button animation was blocked
 			if (gameStateManager.isShowingWinDialog && this.gameData?.isAutoPlaying) {
-				console.log('[SlotController] Autoplay SPIN event BLOCKED - win dialog is showing');
-				console.log('[SlotController] Manual spins are still allowed to proceed');
 				return;
 			}
 			
 			// Check if free spin autoplay is active - if so, don't play spin button animation
 			const symbolsComponent = (this.scene as any).symbols;
 			if (symbolsComponent && typeof symbolsComponent.isFreeSpinAutoplayActive === 'function' && symbolsComponent.isFreeSpinAutoplayActive()) {
-				console.log('[SlotController] Free spin autoplay is active - skipping spin button animation');
 				return;
 			}
 			
@@ -2267,7 +2202,6 @@ export class SlotController {
 			// Removed pulsing of autoplay spins remaining text during spin
 			
 			// Log current GameData animation values to debug turbo mode
-			console.log('[SlotController] Spin started - GameData animation values:', this.getGameDataAnimationInfo());
 			
 			// Ensure turbo speed is applied to scene GameData
 			this.forceApplyTurboToSceneGameData();
@@ -2275,7 +2209,6 @@ export class SlotController {
 
 		// Listen for reels start to disable amplify button
 		gameEventManager.on(GameEventType.REELS_START, () => {
-			console.log('[SlotController] Reels started - disabling spin button and amplify button');
 			this.balanceApiCalledThisSpin = false; // Reset guard for new spin
 			this.disableSpinButton();
 			this.disableAmplifyButton();
@@ -2295,7 +2228,6 @@ export class SlotController {
 					if (spinButton) {
 						spinButton.setInteractive();
 						this.shouldReenableSpinButtonAfterFirstAutoplay = false;
-						console.log('[SlotController] Re-enabled spin button interaction after first autoplay spin');
 					}
 				}
 			}
@@ -2320,7 +2252,6 @@ export class SlotController {
 							this.freeSpinDisplayOverride = decremented;
 							this.uiFsDecrementApplied = true;
 							this.shouldSubtractOneFromServerFsDisplay = false;
-							console.log(`[SlotController] Bonus REELS_START: decremented remaining free spins: ${currentVal} -> ${decremented}`);
 						}
 					}
 				} catch (e) {
@@ -2330,22 +2261,17 @@ export class SlotController {
 		});
 
 		gameEventManager.on(GameEventType.REELS_STOP, () => {
-			console.log('[SlotController] Reels stopped event received - updating spin button state');
 			
 			// Update balance from server once per spin (REELS_STOP can fire multiple times: Symbols + WinLineDrawer)
 			if (!gameStateManager.isScatter && !gameStateManager.isBonus) {
 				if (this.shouldDeferBalanceSyncToTotalWinDialog()) {
-					console.log('[SlotController] Skipping REELS_STOP balance sync (buy feature/TotalWin flow active)');
 				} else if (this.balanceController?.hasPendingBalanceUpdate()) {
-					console.log('[SlotController] Deferring REELS_STOP balance update (pending winnings will apply on WIN_STOP)');
 				} else if (!this.balanceApiCalledThisSpin) {
 					this.balanceApiCalledThisSpin = true;
 					this.updateBalanceFromServer();
 				} else {
-					console.log('[SlotController] Skipping duplicate balance API call (already called this spin)');
 				}
 			} else {
-				console.log('[SlotController] Skipping server balance update on REELS_STOP (scatter/bonus active)');
 			}
 			
 			// If we're in bonus mode, check if free spins are finishing now
@@ -2360,7 +2286,6 @@ export class SlotController {
 								const rem = symbolsComponent?.freeSpinAutoplaySpinsRemaining;
 								if (typeof rem === 'number') {
 									this.updateFreeSpinNumber(rem);
-									console.log(`[SlotController] REELS_STOP: synced free spin display to ${rem}`);
 								}
 							}
 						}
@@ -2379,14 +2304,12 @@ export class SlotController {
 					const hasScatterRetriggerInSpin = this.hasScatterRetriggerInSpinData();
 					
 					if (hasPendingRetrigger || hasScatterRetriggerInSpin) {
-						console.log('[SlotController] REELS_STOP: Pending scatter retrigger detected - NOT setting isBonusFinished (bonus will continue)');
 					} else {
 						// Prefer Symbols' remaining counter if available
 						if (symbolsComponent && typeof symbolsComponent.freeSpinAutoplaySpinsRemaining === 'number') {
 							const remaining: number = symbolsComponent.freeSpinAutoplaySpinsRemaining;
 							// If after this spin there are no spins remaining, flag bonus finished
 							if (remaining <= 0) {
-								console.log('[SlotController] REELS_STOP: remaining free spins <= 0 – setting isBonusFinished=true');
 								gameStateManager.isBonusFinished = true;
 							}
 						} else if (this.gameAPI && typeof this.gameAPI.getCurrentSpinData === 'function') {
@@ -2396,7 +2319,6 @@ export class SlotController {
 							if (fs?.items && Array.isArray(fs.items)) {
 								const totalRemaining = fs.items.reduce((sum: number, it: any) => sum + (it?.spinsLeft || 0), 0);
 								if (totalRemaining <= 1) {
-									console.log('[SlotController] REELS_STOP: totalRemaining free spins <= 1 – setting isBonusFinished=true');
 									gameStateManager.isBonusFinished = true;
 								}
 							}
@@ -2409,7 +2331,6 @@ export class SlotController {
 			
 			// If scatter bonus just triggered or bonus mode is active, keep buttons disabled
 			if (gameStateManager.isScatter || gameStateManager.isBonus) {
-				console.log('[SlotController] Scatter/Bonus active - keeping buttons disabled on REELS_STOP');
 				return;
 			}
 
@@ -2419,20 +2340,17 @@ export class SlotController {
 			const gsmAny: any = gameStateManager as any;
 			if (gsmAny.isInFreeSpinRound === true) {
 				this.updateSpinButtonState();
-				console.log('[SlotController] Initialization free-round mode active - re-enabled spin only on REELS_STOP');
 				return;
 			}
 			
 			// Check if free spin autoplay is active - if so, don't re-enable buttons
 			const symbolsComponent = (this.scene as any).symbols;
 			if (symbolsComponent && typeof symbolsComponent.isFreeSpinAutoplayActive === 'function' && symbolsComponent.isFreeSpinAutoplayActive()) {
-				console.log('[SlotController] Free spin autoplay is active - keeping buttons disabled');
 				return;
 			}
 
 			// If win animations are pending, defer UI re-enable until WIN_STOP
 			if (this.pendingWinLock || gameStateManager.isShowingWinDialog) {
-				console.log('[SlotController] Wins pending - keeping buttons disabled until WIN_STOP');
 				return;
 			}
 			
@@ -2463,7 +2381,6 @@ export class SlotController {
 				this.hideAutoplaySpinsRemainingText();
 				this.updateAutoplayButtonState();
 				this.updateTurboButtonState();
-				console.log('[SlotController] Manual spin - all buttons re-enabled after REELS_STOP');
 				return;
 			}
 			
@@ -2487,15 +2404,12 @@ export class SlotController {
 					this.enableBetBackgroundInteraction('after manual spin complete');
 				}
 				this.updateTurboButtonState();
-				console.log('[SlotController] All buttons enabled - manual spin completed and reels stopped');
 				return;
 			}
 			
 			// If autoplaying or reels still spinning, keep button disabled
 			if(this.gameData?.isAutoPlaying) {
-				console.log('[SlotController] Spin button remains disabled - autoplay active');
 			} else if(gameStateManager.isReelSpinning) {
-				console.log('[SlotController] Spin button remains disabled - reels still spinning');
 			}
 		});
 
@@ -2572,12 +2486,10 @@ export class SlotController {
 
 		// Listen for autoplay start
 		gameEventManager.on(GameEventType.AUTO_START, () => {
-			console.log('[SlotController] Autoplay started - changing button to ON state');
 			
 			// Update GameData autoplay state
 			if (this.gameData) {
 				this.gameData.isAutoPlaying = true;
-				console.log('[SlotController] Updated GameData.isAutoPlaying to true');
 			}
 			
 			this.setAutoplayButtonState(true);
@@ -2603,9 +2515,6 @@ export class SlotController {
 
 		// Listen for autoplay stop
 		gameEventManager.on(GameEventType.AUTO_STOP, () => {
-			console.log('[SlotController] AUTO_STOP event received');
-			console.log('[SlotController] Current state - isAutoPlaying:', gameStateManager.isAutoPlaying, 'isReelSpinning:', gameStateManager.isReelSpinning);
-			console.log('[SlotController] Autoplay counter:', this.getAutoplaySpinsRemaining());
 
 			// Sync gameData.isAutoPlaying immediately - onAutoplayStopped runs after emit,
 			// so updateSpinButtonState would see stale true and disable the button
@@ -2620,10 +2529,8 @@ export class SlotController {
 			// Always reset/disable autoplay button on AUTO_STOP; re-enabling is handled
 			// explicitly by TUMBLE_SEQUENCE_DONE / WIN_DIALOG_CLOSED once spins/tumbles
 			// and any win dialogs are fully complete.
-			console.log('[SlotController] Resetting autoplay UI on AUTO_STOP (button will remain disabled until TUMBLE_SEQUENCE_DONE / WIN_DIALOG_CLOSED)');
 			this.setAutoplayButtonState(false);
 			this.disableAutoplayButton();
-			console.log('[SlotController] Autoplay spin count hidden');
 
 			// If we are in initialization free-round mode, do not re-enable autoplay
 			// or bet controls here; they stay disabled/greyed-out until free rounds
@@ -2632,7 +2539,6 @@ export class SlotController {
 			if (gsmAny.isInFreeSpinRound === true && !gameStateManager.isBonus) {
 				// Ensure spin button itself is usable for manual free-round spins.
 				this.updateSpinButtonState();
-				console.log('[SlotController] AUTO_STOP during initialization free-round mode - kept autoplay/bet controls disabled');
 				return;
 			}
 			
@@ -2663,7 +2569,6 @@ export class SlotController {
 			if (this.autoplaySpinsRemainingText && this.primaryControllers) {
 				this.primaryControllers.bringToTop(this.autoplaySpinsRemainingText);
 			}
-			console.log('[SlotController] Autoplay UI reset completed');
 
 			// Safety fallback: force-verify all button states after a short delay
 			// to catch any edge-case where an event ordering issue left buttons disabled.
@@ -2680,7 +2585,6 @@ export class SlotController {
 				this.updateAllAuxiliaryButtonStates();
 				this.updateFeatureButtonState();
 				this.enableBetBackgroundInteraction(label);
-				console.log(`[SlotController] AUTO_STOP ${label}: verified all button states`);
 			};
 			this.scene?.time.delayedCall(200, () => runSafetyFallback('safety-200ms'));
 			this.scene?.time.delayedCall(600, () => runSafetyFallback('safety-600ms'));
@@ -2689,13 +2593,11 @@ export class SlotController {
 
 		// Listen for when reels stop spinning to enable spin button for manual spins
 		gameEventManager.on(GameEventType.WIN_STOP, () => {
-			console.log('[SlotController] WIN_STOP received - checking if spin button should be enabled');
 			this.pendingWinLock = false;
 
 			// Finalize base-spin balance only after WIN_STOP (post-tumbles).
 			if (!gameStateManager.isScatter && !gameStateManager.isBonus) {
 				if (this.shouldDeferBalanceSyncToTotalWinDialog()) {
-					console.log('[SlotController] Skipping WIN_STOP base balance finalization (buy feature/TotalWin flow active)');
 				} else if (this.balanceController?.hasPendingBalanceUpdate()) {
 					this.balanceController.applyPendingBalanceUpdateIfAny();
 				} else if (!this.balanceApiCalledThisSpin) {
@@ -2714,21 +2616,18 @@ export class SlotController {
 			
 			// If scatter bonus is in progress or bonus mode is active, keep buttons disabled
 			if (gameStateManager.isScatter || gameStateManager.isBonus) {
-				console.log('[SlotController] Scatter/Bonus in progress - skipping UI re-enable in WIN_STOP');
 				return;
 			}
 
 			// If free-round mode is active, don't re-enable buttons (only turbo and menu stay enabled)
 			const gsmWinStop: any = gameStateManager as any;
 			if (gsmWinStop.isInFreeSpinRound === true) {
-				console.log('[SlotController] Free-round mode active - skipping UI re-enable in WIN_STOP');
 				return;
 			}
 			
 			// Check if free spin autoplay is active - if so, don't re-enable buttons
 			const symbolsComponent = (this.scene as any).symbols;
 			if (symbolsComponent && typeof symbolsComponent.isFreeSpinAutoplayActive === 'function' && symbolsComponent.isFreeSpinAutoplayActive()) {
-				console.log('[SlotController] Free spin autoplay is active - skipping button re-enable in WIN_STOP');
 				return;
 			}
 			
@@ -2737,13 +2636,11 @@ export class SlotController {
 			const isAutoplayActive = spinsRemaining > 0 || gameStateManager.isAutoPlaying;
 
 			if (isAutoplayActive) {
-				console.log('[SlotController] Autoplay spin completed - handled by AutoplayController');
 				return;
 			}
 
 			// Re-enable buttons directly for manual spins instead of emitting
 			// AUTO_STOP (which AutoplayController already emits for natural completion).
-			console.log('[SlotController] Spin completed - re-enabling controls');
 			this.updateSpinButtonState();
 			if (!this.isBuyFeatureControlsLocked()) {
 				this.enableAutoplayButton();
@@ -2761,12 +2658,6 @@ export class SlotController {
 
 		// Listen for win dialog close (for high winnings case)
 		gameEventManager.on(GameEventType.WIN_DIALOG_CLOSED, () => {
-			console.log('[SlotController] WIN_DIALOG_CLOSED received');
-			console.log('[SlotController] Current autoplay state:', {
-				autoplaySpinsRemaining: this.getAutoplaySpinsRemaining(),
-				isAutoPlaying: gameStateManager.isAutoPlaying,
-				isShowingWinDialog: gameStateManager.isShowingWinDialog
-			});
 
 			// When a win dialog closes after an autoplay cancel, this is one of the final
 			// points where we can safely re-enable the autoplay button (along with
@@ -2798,11 +2689,9 @@ export class SlotController {
 		// Check if autoplay is currently active
 		if (this.autoplayController?.isActive() || gameStateManager.isAutoPlaying) {
 			// Autoplay is active, stop it
-			console.log('[SlotController] Stopping autoplay via button click');
 			this.stopAutoplay();
 		} else {
 			// Autoplay is not active, show options to start it
-			console.log('[SlotController] Showing autoplay options');
 			EventBus.emit('autoplay');
 		}
 	}
@@ -2811,7 +2700,6 @@ export class SlotController {
 	 * Start autoplay with specified number of spins
 	 */
 	public startAutoplay(spins: number): void {
-		console.log(`[SlotController] Starting autoplay with ${spins} spins`);
 
 		// Safety: if we're not in any free spin / bonus context, ensure we treat this
 		// as a normal base-game autoplay (not a leftover freeround autoplay state).
@@ -2838,7 +2726,6 @@ export class SlotController {
 			if (spinButton) {
 				spinButton.disableInteractive();
 				this.shouldReenableSpinButtonAfterFirstAutoplay = true;
-				console.log('[SlotController] Disabled spin button interaction - will re-enable after first autoplay spin');
 			}
 		} else {
 			if (this.spinIcon) {
@@ -2865,16 +2752,11 @@ export class SlotController {
 			!!gameData?.isAutoPlaying;
 
 		if (!isAutoplayActive) {
-			console.log('[SlotController] pauseAutoplay called but autoplay is not active - no-op');
 			return;
 		}
 
 		// Cache remaining spins (counter may already have been decremented for the current spin).
 		this.pausedAutoplaySpinsRemaining = spinsRemaining;
-		console.log('[SlotController] Pausing autoplay (cache stored):', {
-			pausedAutoplaySpinsRemaining: this.pausedAutoplaySpinsRemaining,
-			reason,
-		});
 
 		// Reuse existing stop logic to clear timers and reset UI/state.
 		this.stopAutoplay();
@@ -2896,7 +2778,6 @@ export class SlotController {
 		if (this.resumePausedAutoplayRetryTimer) {
 			return;
 		}
-		console.log('[SlotController] resumeAutoplayFromPause retry scheduled:', { reason, delayMs, spins });
 		this.resumePausedAutoplayRetryTimer = this.scene.time.delayedCall(delayMs, () => {
 			this.resumePausedAutoplayRetryTimer = null;
 			this.resumeAutoplayFromPause();
@@ -2920,23 +2801,12 @@ export class SlotController {
 
 		// Only resume in base mode after transitions finish.
 		if (gameStateManager.isBonus || gameStateManager.isScatter || gameStateManager.isShowingWinDialog) {
-			console.log('[SlotController] resumeAutoplayFromPause blocked (state not ready yet):', {
-				isBonus: gameStateManager.isBonus,
-				isScatter: gameStateManager.isScatter,
-				isShowingWinDialog: gameStateManager.isShowingWinDialog,
-				spins,
-			});
 			this.scheduleResumeAutoplayFromPauseRetry(450, 'waiting-for-bonus-scatter-dialog-state', spins);
 			return;
 		}
 
 		// Do not resume while a spin is still finishing.
 		if (gameStateManager.isProcessingSpin || gameStateManager.isReelSpinning) {
-			console.log('[SlotController] resumeAutoplayFromPause waiting for spin boundary:', {
-				isProcessingSpin: gameStateManager.isProcessingSpin,
-				isReelSpinning: gameStateManager.isReelSpinning,
-				spins,
-			});
 			this.scheduleResumeAutoplayFromPauseRetry(450, 'spin-in-flight', spins);
 			return;
 		}
@@ -2947,7 +2817,6 @@ export class SlotController {
 		}
 
 		this.consumePausedAutoplaySpinsRemaining();
-		console.log('[SlotController] Resuming autoplay from paused cache:', { spins });
 		this.startAutoplay(spins);
 	}
 
@@ -2957,7 +2826,6 @@ export class SlotController {
 	 * distinguish it from normal autoplay in debugging/analytics.
 	 */
 	public startFreeRoundAutoplay(spins: number): void {
-		console.log(`[SlotController] Starting freeround autoplay with ${spins} spins`);
 		this.isFreeRoundAutoplay = true;
 		this.startAutoplay(spins);
 	}
@@ -2966,8 +2834,6 @@ export class SlotController {
 	 * Stop autoplay
 	 */
 	public stopAutoplay(): void {
-		console.log('[SlotController] Stopping autoplay');
-		console.log('[SlotController] Before stopAutoplay - isAutoPlaying:', gameStateManager.isAutoPlaying, 'isReelSpinning:', gameStateManager.isReelSpinning);
 		// Immediately disable autoplay button (stays disabled until spin/tumbles finish)
 		this.setAutoplayButtonState(false);
 		this.disableAutoplayButton();
@@ -2978,7 +2844,6 @@ export class SlotController {
 		this.isFreeRoundAutoplay = false;
 		this.shouldReenableSpinButtonAfterFirstAutoplay = false;
 
-		console.log('[SlotController] After stopAutoplay - isAutoPlaying:', gameStateManager.isAutoPlaying, 'isReelSpinning:', gameStateManager.isReelSpinning);
 		
 		// Emit AUTO_STOP so UI listeners (including this controller) can re-enable
 		// appropriate buttons even if WIN_STOP already fired earlier in the spin.
@@ -3015,7 +2880,6 @@ export class SlotController {
 				this.enableFeatureButton();
 			}
 			this.updateAutoplayButtonState();
-			console.log('[SlotController] Autoplay stopped - controls re-enabled (autoplay button stays disabled until TUMBLE_SEQUENCE_DONE)');
 		} else {
 			// Safety: if the final spin had no tumbles or missed the TUMBLE_SEQUENCE_DONE path,
 			// ensure controls are re-enabled shortly after reels fully stop.
@@ -3035,7 +2899,6 @@ export class SlotController {
 				}
 				this.updateAutoplayButtonState();
 				this.updateTurboButtonStateWithLock();
-				console.log('[SlotController] Safety re-enable after stopAutoplay - controls restored after reels stopped');
 			});
 		}
 	}
@@ -3048,7 +2911,6 @@ export class SlotController {
 		if (autoplayButton) {
 			const textureKey = isOn ? 'autoplay_on' : 'autoplay_off';
 			autoplayButton.setTexture(textureKey);
-			console.log(`[SlotController] Autoplay button texture changed to: ${textureKey}`);
 		}
 		
 		// Control the autoplay animation based on state
@@ -3188,7 +3050,6 @@ export class SlotController {
 		// Even though base bet doesn't change, price uses base bet x100
 		this.updateFeatureAmountFromCurrentBet();
 		
-		console.log(`[SlotController] Amplify bet applied: $${currentBet} -> $${increasedBet.toFixed(2)} (+25%) - Base bet for API: $${this.baseBetAmount}`);
 	}
 
 	/**
@@ -3203,7 +3064,6 @@ export class SlotController {
 		// Keep Buy Feature price in sync
 		this.updateFeatureAmountFromCurrentBet();
 		
-		console.log(`[SlotController] Amplify bet removed: Display restored to base bet: $${this.baseBetAmount}`);
 	}
 
 	/**
@@ -3224,9 +3084,6 @@ export class SlotController {
 			return;
 		}
 
-		console.log(`[SlotController] Applying turbo speed modifications - isTurbo: ${gameData.isTurbo}`);
-		console.log(`[SlotController] Current GameData reference:`, gameData);
-		console.log(`[SlotController] GameData memory address:`, gameData.toString());
 
 		if (gameData.isTurbo) {
 			// Apply turbo speed to the UI GameData only.
@@ -3243,16 +3100,10 @@ export class SlotController {
 			gameData.dropReelsDuration = gameData.dropReelsDuration * TurboConfig.TURBO_DURATION_MULTIPLIER;
 			(gameData as any).compressionDelayMultiplier = TurboConfig.TURBO_DELAY_MULTIPLIER;
 			
-			console.log(`[SlotController] Turbo speed applied to animations:`);
-			console.log(`  winUpDuration: ${originalWinUp} -> ${gameData.winUpDuration}`);
-			console.log(`  dropDuration: ${originalDrop} -> ${gameData.dropDuration}`);
-			console.log(`  dropReelsDelay: ${originalDelay} -> ${gameData.dropReelsDelay}`);
-			console.log(`  dropReelsDuration: ${originalDuration} -> ${gameData.dropReelsDuration}`);
 		} else {
 			// Reset to normal speed by calling setSpeed with GameConfig delay
 			setSpeed(gameData, DELAY_BETWEEN_SPINS);
 			(gameData as any).compressionDelayMultiplier = 1;
-			console.log('[SlotController] Normal speed restored for animations');
 		}
 	}
 
@@ -3261,7 +3112,6 @@ export class SlotController {
 	 */
 	public hidePrimaryController(): void {
 		if (this.primaryControllers) {
-			console.log('[SlotController] Hiding primary controller');
 			this.primaryControllers.setVisible(false);
 		}
 		
@@ -3269,7 +3119,6 @@ export class SlotController {
 		this.controllerTexts.forEach(text => {
 			text.setVisible(false);
 		});
-		console.log(`[SlotController] Hiding ${this.controllerTexts.length} controller text labels`);
 		
 		// Hide amplify description container
 		this.amplifyBetController.setDescriptionVisible(false);
@@ -3282,7 +3131,6 @@ export class SlotController {
 			if (this.featureButtonHitbox) {
 				this.featureButtonHitbox.disableInteractive();
 			}
-			console.log('[SlotController] Feature button greyed out and disabled');
 		}
 		
 		// Grey out the bet buttons
@@ -3293,18 +3141,15 @@ export class SlotController {
 			decreaseBetButton.setAlpha(0.5); // Make it semi-transparent/greyed out
 			decreaseBetButton.setTint(0x555555); // Apply dark grey tint
 			decreaseBetButton.disableInteractive(); // Disable clicking
-			console.log('[SlotController] Decrease bet button greyed out and disabled');
 		}
 		
 		if (increaseBetButton) {
 			increaseBetButton.setAlpha(0.5); // Make it semi-transparent/greyed out
 			increaseBetButton.setTint(0x555555); // Apply dark grey tint
 			increaseBetButton.disableInteractive(); // Disable clicking
-			console.log('[SlotController] Increase bet button greyed out and disabled');
 		}
 		
 		// Note: Free spin display will be shown separately with actual scatter data
-		console.log('[SlotController] Primary controller hidden, free spin display will be shown separately');
 	}
 
 	/**
@@ -3315,7 +3160,6 @@ export class SlotController {
 		this.hidePrimaryController();
 		
 		// Note: Free spin display will be shown after dialog animations complete
-		console.log(`[SlotController] Primary controller hidden for scatter index ${scatterIndex}, free spin display will appear after dialog closes`);
 	}
 
 	/**
@@ -3323,7 +3167,6 @@ export class SlotController {
 	 */
 	public showPrimaryController(): void {
 		if (this.primaryControllers) {
-			console.log('[SlotController] Showing primary controller');
 			this.primaryControllers.setVisible(true);
 		}
 		
@@ -3331,7 +3174,6 @@ export class SlotController {
 		this.controllerTexts.forEach(text => {
 			text.setVisible(true);
 		});
-		console.log(`[SlotController] Showing ${this.controllerTexts.length} controller text labels`);
 		
 		// Show amplify description container
 		this.amplifyBetController.setDescriptionVisible(true);
@@ -3343,7 +3185,6 @@ export class SlotController {
 			if (this.featureButtonHitbox) {
 				this.featureButtonHitbox.setInteractive();
 			}
-			console.log('[SlotController] Feature button restored and enabled');
 		}
 		
 		// Restore the bet buttons
@@ -3353,13 +3194,11 @@ export class SlotController {
 		if (decreaseBetButton) {
 			decreaseBetButton.setAlpha(1.0); // Restore full opacity before applying limit logic
 			decreaseBetButton.setInteractive(); // Re-enable clicking before applying limit logic
-			console.log('[SlotController] Decrease bet button restored and enabled (pre limit check)');
 		}
 
 		if (increaseBetButton) {
 			increaseBetButton.setAlpha(1.0); // Restore full opacity before applying limit logic
 			increaseBetButton.setInteractive(); // Re-enable clicking before applying limit logic
-			console.log('[SlotController] Increase bet button restored and enabled (pre limit check)');
 		}
 
 		// Apply min/max greying based on the current base bet after bonus ends
@@ -3371,7 +3210,6 @@ export class SlotController {
 		
 		// Clear any pending free spins data
 		if (this.pendingFreeSpinsData) {
-			console.log('[SlotController] Bonus mode ended - clearing pending free spins data');
 			this.pendingFreeSpinsData = null;
 		}
 	}
@@ -3428,7 +3266,6 @@ export class SlotController {
 		this.freeSpinSubLabel.setVisible(false);
 		this.freeSpinNumber.setVisible(false);
 		
-		console.log('[SlotController] Free spin display created');
 	}
 
 	/**
@@ -3436,7 +3273,6 @@ export class SlotController {
 	 */
 	public showFreeSpinDisplay(spinsRemaining: number): void {
 		if (this.freeSpinDisplaySuppressed) {
-			console.log('[SlotController] Suppressed: skipping showFreeSpinDisplay');
 			return;
 		}
 		if (this.freeSpinLabel && this.freeSpinNumber && this.freeSpinSubLabel) {
@@ -3444,7 +3280,6 @@ export class SlotController {
 			this.freeSpinLabel.setVisible(true);
 			this.freeSpinSubLabel.setVisible(true);
 			this.freeSpinNumber.setVisible(true);
-			console.log(`[SlotController] Free spin display shown with ${spinsRemaining} spins remaining`);
 		}
 	}
 
@@ -3453,7 +3288,6 @@ export class SlotController {
 	 */
 	public showFreeSpinDisplayFromScatter(scatterIndex: number): void {
 		if (this.freeSpinDisplaySuppressed) {
-			console.log('[SlotController] Suppressed: skipping showFreeSpinDisplayFromScatter');
 			return;
 		}
 		// The actual free spins value will be passed directly from ScatterAnimationManager
@@ -3464,7 +3298,6 @@ export class SlotController {
 			this.freeSpinLabel.setVisible(true);
 			this.freeSpinSubLabel.setVisible(true);
 			this.freeSpinNumber.setVisible(true);
-			console.log(`[SlotController] Free spin display shown for scatter index ${scatterIndex}`);
 		}
 	}
 
@@ -3473,7 +3306,6 @@ export class SlotController {
 	 */
 	public showFreeSpinDisplayWithActualValue(actualFreeSpins: number): void {
 		if (this.freeSpinDisplaySuppressed) {
-			console.log('[SlotController] Suppressed: skipping showFreeSpinDisplayWithActualValue');
 			return;
 		}
 		if (this.freeSpinLabel && this.freeSpinNumber && this.freeSpinSubLabel) {
@@ -3481,7 +3313,6 @@ export class SlotController {
 			this.freeSpinLabel.setVisible(true);
 			this.freeSpinSubLabel.setVisible(true);
 			this.freeSpinNumber.setVisible(true);
-			console.log(`[SlotController] Free spin display shown with actual value: ${actualFreeSpins} spins`);
 		}
 	}
 
@@ -3491,7 +3322,6 @@ export class SlotController {
 	public updateFreeSpinDisplayWithActualValue(actualFreeSpins: number): void {
 		if (this.freeSpinLabel && this.freeSpinNumber && this.freeSpinSubLabel) {
 			this.freeSpinNumber.setText(actualFreeSpins.toString());
-			console.log(`[SlotController] Free spin display updated with actual value: ${actualFreeSpins} spins`);
 		}
 	}
 
@@ -3529,10 +3359,8 @@ export class SlotController {
 		// Disable autoplay button after cancel while spin/tumbles still running (not during active autoplay)
 		const disableBecauseSpinning = gameStateManager.isReelSpinning && !gameStateManager.isAutoPlaying;
 		if (disableBecauseSpinning || this.isBuyFeatureControlsLocked()) {
-			console.log(`[SlotController] Disabling autoplay button - isReelSpinning: ${gameStateManager.isReelSpinning}, isAutoPlaying: ${gameStateManager.isAutoPlaying}, buyFeatureControlsLocked: ${this.isBuyFeatureControlsLocked()}`);
 			this.disableAutoplayButton();
 		} else {
-			console.log(`[SlotController] Enabling autoplay button`);
 			this.enableAutoplayButton();
 		}
 	}
@@ -3545,7 +3373,6 @@ export class SlotController {
 			this.freeSpinLabel.setVisible(false);
 			this.freeSpinSubLabel.setVisible(false);
 			this.freeSpinNumber.setVisible(false);
-			console.log('[SlotController] Free spin display hidden');
 		}
 	}
 
@@ -3558,11 +3385,9 @@ export class SlotController {
 			// In bonus mode, decrement display value by 1 for frontend only
 			const displayValue = spinsRemaining;
 			if (gameStateManager.isBonus && spinsRemaining > 0) {
-				console.log(`[SlotController] Bonus mode: displaying ${displayValue} (actual: ${spinsRemaining})`);
 			}
 			
 			this.freeSpinNumber.setText(displayValue.toString());
-			console.log(`[SlotController] Free spin number updated to ${displayValue} (actual: ${spinsRemaining})`);
 		}
 	}
 
@@ -3774,7 +3599,6 @@ export class SlotController {
 	 */
 	private async handleSpin(): Promise<void> {
 		if (this.isSpinLocked || gameStateManager.isReelSpinning) {
-			console.log('[SlotController] handleSpin blocked - spin locked or reels spinning');
 			return;
 		}
 		this.isSpinLocked = true;
@@ -3847,7 +3671,6 @@ export class SlotController {
 		// Play spin sound effect
 		if ((window as any).audioManager) {
 			(window as any).audioManager.playSoundEffect(SoundEffectType.SPIN);
-			console.log('[SlotController] Playing spin sound effect');
 		}
 		
 		// Clear any stale pending balance update before starting a new spin
@@ -3863,7 +3686,6 @@ export class SlotController {
 
 				// Show loading spinner only while fetching API and when enabled
 				if (LOADING_SPINNER_ENABLED && this.loadingSpinner) {
-					console.log('[SlotController] Showing loading spinner (dijoker_loading)');
 					this.loadingSpinner.showNow();
 				} else if (!LOADING_SPINNER_ENABLED) {
 					// no-op when disabled
@@ -3875,14 +3697,12 @@ export class SlotController {
 				// Do NOT simulate free spins here, otherwise fake freeSpin.items can advance twice
 				// (especially during retriggers) and the remaining display will jump (e.g. showing 12).
 				if (gameStateManager.isBonus) {
-					console.log('[SlotController] handleSpin ignored in bonus mode (FREE_SPIN_AUTOPLAY drives free spins)');
 					try { this.symbols?.clearPreSpinDropState?.(); } catch {}
 					this.hideSpinner();
 					gameStateManager.isProcessingSpin = false;
 					return;
 				}
 				{
-					console.log('[SlotController] Normal mode - calling GameAPI.doSpin...');
 					// Use base bet amount for API calls (without amplify bet increase)
 					const currentBet = this.getBaseBetAmount() || 10;
 					const gameData = this.getGameData();
@@ -3903,33 +3723,20 @@ export class SlotController {
 						this.hideSpinner();
 					}
 					
-					console.log('[SlotController] Spin data:', spinData);
 					
 					// If spinData is null, it means the free spins have ended (422 error handled gracefully)
 					if (!spinData) {
-						console.log('[SlotController] No spin data received - free spins have ended, creating dummy spin with initial symbols');
 						
 						// Create a dummy SpinData with initial symbols so reels drop naturally
 						spinData = this.createDummySpinDataWithInitialSymbols(currentBet);
-						console.log('[SlotController] Created dummy spin data with initial symbols:', spinData);
 					}
 				}
 
 				// Display comprehensive spin data information
-				console.log('[SlotController] 🎰 ===== SPIN DATA RECEIVED =====');
-				console.log('[SlotController] 📊 Basic Info:');
-				console.log('  - Player ID:', spinData.playerId);
-				console.log('  - Bet Amount:', spinData.bet);
-				console.log('  - Total Win:', SpinDataUtils.getTotalWin(spinData));
-				console.log('  - Has Wins:', SpinDataUtils.hasWins(spinData));
-				console.log('  - Has Free Spins:', SpinDataUtils.hasFreeSpins(spinData));
-				console.log('  - Win Multiplier:', SpinDataUtils.getWinMultiplier(spinData));
 				
-            console.log('[SlotController] 🎯 Grid Layout (columns x rows):');
             if (spinData.slot?.area) {
                 // area is [column][row]
                 for (let col = 0; col < spinData.slot.area.length; col++) {
-                    console.log(`  Column ${col}: [${spinData.slot.area[col].join(', ')}]`);
                 }
                 // Also show a row-wise view for readability
                 const cols = spinData.slot.area.length;
@@ -3939,37 +3746,20 @@ export class SlotController {
                     for (let col = 0; col < cols; col++) {
                         rowValues.push(spinData.slot.area[col][row]);
                     }
-                    console.log(`  Row ${row}: [${rowValues.join(', ')}]`);
                 }
             } else {
-                console.log('  No area data available');
             }
 				
-				console.log('[SlotController] 💎 Paylines:');
 				if (spinData.slot?.paylines && spinData.slot.paylines.length > 0) {
 					spinData.slot.paylines.forEach((payline, index) => {
-						console.log(`  Payline ${index}:`, {
-							lineKey: payline.lineKey,
-							symbol: payline.symbol,
-							count: payline.count,
-							win: payline.win,
-							multipliers: payline.multipliers
-						});
 					});
 				} else {
-					console.log('  No paylines data available');
 				}
 				
-				console.log('[SlotController] 🎁 Free Spins Info:');
 				if (spinData.slot?.freespin) {
-					console.log(`  - Count: ${spinData.slot.freespin.count}`);
-					console.log(`  - Total Win: ${spinData.slot.freespin.totalWin}`);
-					console.log(`  - Items: ${spinData.slot.freespin.items.length} items`);
 				} else {
-					console.log('  No free spins data available');
 				}
 				
-				console.log('[SlotController] 🎰 ===== END SPIN DATA =====');
 
 				// Queue a pending balance update for base-game spins (apply after reels stop)
 				if (!gameStateManager.isBonus) {
@@ -3982,7 +3772,6 @@ export class SlotController {
 							bet: this.getBaseBetAmount() || 0,
 							winnings: winTotal
 						});
-						console.log(`[SlotController] Pending balance update queued: +$${winTotal} -> ${pendingBalance}`);
 					}
 				}
 
@@ -4030,12 +3819,10 @@ export class SlotController {
 			return;
 		}
 
-		console.log('[SlotController] Setting up bonus mode event listener');
 		
 		// Listen for bonus mode events from the scene
 		this.scene.events.on('setBonusMode', (isBonus: boolean) => {
 			if (isBonus) {
-				console.log('[SlotController] Bonus mode activated - hiding primary controller');
 				this.hasFinalizedBonusBalanceForCurrentRound = false;
 				this.pendingTotalWinBalanceFinalize = false;
 				this.balanceController?.clearPendingBalanceUpdate();
@@ -4046,10 +3833,8 @@ export class SlotController {
 				// If buy feature spin lock is active, mark that we're in buy feature free spins
 				if (this.buyFeatureController.isSpinLocked()) {
 					this.isBuyFeatureFreeSpinsActive = true;
-					console.log('[SlotController] Buy feature free spins activated - buttons will remain disabled until TotalWin dialog');
 				}
 			} else {
-				console.log('[SlotController] Bonus mode deactivated - showing primary controller');
 				// Do not clear TotalWin finalization flags here.
 				// For end-of-free-spin flow, Dialogs emits setBonusMode(false) before
 				// dialogAnimationsComplete, and clearing these flags here can skip
@@ -4062,14 +3847,12 @@ export class SlotController {
 					(this.buyFeatureController?.isSpinLocked?.() ?? false) || this.isBuyFeatureFreeSpinsActive;
 				this.isBuyFeatureFreeSpinsActive = false;
 				if (hadBuyFeatureLock) {
-					console.log('[SlotController] Bonus ended - releasing buy feature spin lock');
 					this.buyFeatureController.setSpinLock(false);
 					// Re-enable all auxiliary buttons now that buy feature sequence is complete
 					this.updateAllAuxiliaryButtonStates();
 				}
 				// Clear any pending free spins data when bonus mode ends
 				if (this.pendingFreeSpinsData) {
-					console.log('[SlotController] Bonus mode ended - clearing pending free spins data');
 					this.pendingFreeSpinsData = null;
 				}
 				// Allow feature button to be enabled again (now that bonus is off)
@@ -4093,55 +3876,45 @@ export class SlotController {
 
 		// Ensure free spin UI is hidden on generic bonus-reset events as well
 		this.scene.events.on('resetFreeSpinState', () => {
-			console.log('[SlotController] resetFreeSpinState received - hiding free spin display and clearing overrides');
 			this.hideFreeSpinDisplay();
 			this.freeSpinDisplayOverride = null;
 			this.pendingFreeSpinsData = null;
 			// Only release buy feature spin lock if bonus has actually finished
 			if (gameStateManager.isBonusFinished) {
-				console.log('[SlotController] Bonus finished - releasing buy feature spin lock');
 				this.buyFeatureController.setSpinLock(false);
 				// Re-enable all auxiliary buttons now that buy feature sequence is complete
 				this.updateAllAuxiliaryButtonStates();
 			} else {
-				console.log('[SlotController] Bonus ended but may retrigger - keeping spin locked');
 			}
 			this.updateSpinButtonState();
 		});
 
 		// Also hide free spin UI when bonus header is hidden (defensive in case setBonusMode is not emitted)
 		this.scene.events.on('hideBonusHeader', () => {
-			console.log('[SlotController] hideBonusHeader received - hiding free spin display');
 			this.hideFreeSpinDisplay();
 			// Only release buy feature spin lock if bonus has actually finished
 			if (gameStateManager.isBonusFinished) {
-				console.log('[SlotController] Bonus finished - releasing buy feature spin lock');
 				this.buyFeatureController.setSpinLock(false);
 				// Re-enable all auxiliary buttons now that buy feature sequence is complete
 				this.updateAllAuxiliaryButtonStates();
 			} else {
-				console.log('[SlotController] Bonus ended but may retrigger - keeping spin locked');
 			}
 			this.updateSpinButtonState();
 		});
 
 		// Listen for scatter bonus events with scatter index and actual free spins
 		this.scene.events.on('scatterBonusActivated', (data: { scatterIndex: number; actualFreeSpins: number; isRetrigger?: boolean; fromUnresolvedSpin?: boolean }) => {
-			console.log(`[SlotController] scatterBonusActivated event received with data:`, data);
-			console.log(`[SlotController] Data validation: scatterIndex=${data.scatterIndex}, actualFreeSpins=${data.actualFreeSpins}`);
 			
 			// Pause normal base-game autoplay when scatter is hit so it can be resumed
 			// after the free spin bonus completes (mirrors shuten_doji behavior).
 			const spinsRemaining = this.getAutoplaySpinsRemaining();
 			if (spinsRemaining > 0) {
-				console.log(`[SlotController] Scatter hit during autoplay - pausing normal autoplay (${spinsRemaining} spins remaining)`);
 				this.pauseAutoplay('scatterBonusActivated');
 			}
 			
 		// Keep controls disabled/greyed out while scatter/bonus sequence proceeds
 		this.lockControlsForScatterOrBonus();
 			
-			console.log(`[SlotController] Scatter bonus activated with index ${data.scatterIndex} and ${data.actualFreeSpins} free spins - hiding primary controller, free spin display will appear after dialog closes`);
 			this.hidePrimaryControllerWithScatter(data.scatterIndex);
 			// Store the free spins data for later display after dialog closes
 			this.pendingFreeSpinsData = data;
@@ -4160,15 +3933,12 @@ export class SlotController {
 				if (next > 0) {
 					this.pendingFakeDataRetriggerNextSpinsLeft = next;
 					this.pendingFakeDataRetriggerAdded = added;
-					console.log('[SlotController] Stored fake-data retrigger computed values', { nextSpinsLeft: next, added });
 				}
 			} catch {}
 		});
 
 		// Listen for dialog animations completion to show free spin display
 		this.scene.events.on('dialogAnimationsComplete', () => {
-			console.log('[SlotController] Dialog animations completed - checking if free spin display should be shown');
-			console.log('[SlotController] Current pendingFreeSpinsData:', this.pendingFreeSpinsData);
 			const isFake = !!this.gameAPI?.isFakeDataEnabled?.();
 
 			// Finalize bonus balance only after TotalWin has been closed by the player.
@@ -4238,7 +4008,6 @@ export class SlotController {
 				if (symbolsComponent && typeof symbolsComponent.isFreeSpinAutoplayActive === 'function') {
 					if (symbolsComponent.isFreeSpinAutoplayActive()) {
 						skipInitialization = true;
-						console.log('[SlotController] Free spin autoplay active - skipping free spin display reinitialization from API');
 					}
 				}
 			} catch {}
@@ -4250,17 +4019,14 @@ export class SlotController {
 					if (!isVisible) {
 						if (this.freeSpinDisplayOverride !== null) {
 							this.showFreeSpinDisplayWithActualValue(this.freeSpinDisplayOverride as number);
-							console.log(`[SlotController] Showing free spin display from override (autoplay active): ${this.freeSpinDisplayOverride}`);
 						} else if (this.pendingFreeSpinsData) {
 							this.showFreeSpinDisplayWithActualValue(this.pendingFreeSpinsData.actualFreeSpins);
-							console.log(`[SlotController] Showing free spin display from pending data (autoplay active): ${this.pendingFreeSpinsData.actualFreeSpins}`);
 							this.pendingFreeSpinsData = null;
 						} else {
 							const symbolsComponent = (this.scene as any)?.symbols;
 							const remaining = symbolsComponent?.freeSpinAutoplaySpinsRemaining;
 							if (typeof remaining === 'number') {
 								this.showFreeSpinDisplayWithActualValue(remaining);
-								console.log(`[SlotController] Showing free spin display from Symbols tracker (autoplay active): ${remaining}`);
 							}
 						}
 					}
@@ -4277,7 +4043,6 @@ export class SlotController {
 					if (this.freeSpinDisplayOverride !== null) {
 						try {
 							this.showFreeSpinDisplayWithActualValue(this.freeSpinDisplayOverride as number);
-							console.log(`[SlotController] Showing free spin display from override: ${this.freeSpinDisplayOverride}`);
 							initializedFromFreeSpinData = true;
 						} catch {}
 					}
@@ -4289,7 +4054,6 @@ export class SlotController {
 							const firstItem = fs.items[0];
 							const initialSpinsLeft = typeof firstItem?.spinsLeft === 'number' ? firstItem.spinsLeft : 0;
 							if (initialSpinsLeft > 0) {
-								console.log(`[SlotController] Initializing free spin display from first freeSpin item: spinsLeft=${initialSpinsLeft}`);
 								this.showFreeSpinDisplayWithActualValue(initialSpinsLeft);
 								initializedFromFreeSpinData = true;
 							}
@@ -4302,11 +4066,9 @@ export class SlotController {
 				// Fallback to any pending data if we couldn't initialize from freeSpin items
 				if (!initializedFromFreeSpinData) {
 					if (this.pendingFreeSpinsData) {
-						console.log(`[SlotController] Fallback: showing free spin display with ${this.pendingFreeSpinsData.actualFreeSpins} spins after dialog closed`);
 						this.showFreeSpinDisplayWithActualValue(this.pendingFreeSpinsData.actualFreeSpins);
 						this.pendingFreeSpinsData = null;
 					} else {
-						console.log('[SlotController] No free spin data available to initialize display');
 					}
 				}
 			}
@@ -4325,7 +4087,6 @@ export class SlotController {
 							const decremented = Math.max(0, currentVal - 1);
 							this.freeSpinNumber.setText(decremented.toString());
 							this.uiFsDecrementApplied = true;
-							console.log(`[SlotController] Applied deferred -1 on display after dialog: ${currentVal} -> ${decremented}`);
 						}
 					}
 				}
@@ -4336,7 +4097,6 @@ export class SlotController {
 
 		// Listen for free spin autoplay events
 		gameEventManager.on(GameEventType.FREE_SPIN_AUTOPLAY, async () => {
-			console.log('[SlotController] FREE_SPIN_AUTOPLAY event received - triggering free spin simulation');
 			try { this.symbols?.clearPreSpinDropState?.(); } catch {}
 			const isFake = !!this.gameAPI?.isFakeDataEnabled?.();
 			if (isFake && this.freeSpinAutoplaySimInFlight) {
@@ -4364,12 +4124,7 @@ export class SlotController {
 					// Get free spin data from GameAPI directly (this should have the original scatter data)
 					const gameAPISpinData = this.gameAPI.getCurrentSpinData();
 					if (gameAPISpinData && (gameAPISpinData.slot?.freespin?.items || gameAPISpinData.slot?.freeSpin?.items)) {
-						console.log('[SlotController] Found free spin data in GameAPI');
 						const freespinData = gameAPISpinData.slot?.freespin || gameAPISpinData.slot?.freeSpin;
-						console.log('[SlotController] GameAPI currentSpinData has freespin:', !!gameAPISpinData.slot?.freespin);
-						console.log('[SlotController] GameAPI currentSpinData has freeSpin:', !!gameAPISpinData.slot?.freeSpin);
-						console.log('[SlotController] GameAPI currentSpinData has items:', !!freespinData?.items);
-						console.log('[SlotController] GameAPI currentSpinData items count:', freespinData?.items?.length);
 					} else {
 						console.error('[SlotController] No free spin data available in GameAPI');
 						console.error('[SlotController] GameAPI currentSpinData:', gameAPISpinData);
@@ -4384,7 +4139,6 @@ export class SlotController {
 					// Use our free spin simulation
 					const spinData = await this.gameAPI.simulateFreeSpin();
 					// DEBUG: Log the full spinData for troubleshooting
-					console.log('[SPINDATA_DEBUG] Free spinData received:', JSON.stringify(spinData));
 					
 					// Compute spinsLeft from spin data - ALWAYS use spin data as source of truth
 					const serverSpinsLeft = this.computeDisplaySpinsLeft(spinData);
@@ -4398,13 +4152,11 @@ export class SlotController {
 						console.warn('[SlotController] Failed to sync Symbols free spin counter during autoplay:', e);
 					}
 					this.updateFreeSpinNumber(displaySpins);
-					console.log(`[SlotController] Updated free spin display to ${displaySpins} remaining (from spin data spinsLeft)`);
 
 					// Check if there are any more free spins - spinsLeft from spin data
 					const remainingAfterSpin = serverSpinsLeft;
 					if (remainingAfterSpin <= 0) {
 						// No more free spins - mark bonus finished and show total win dialog
-						console.log('[SlotController] No more free spins available - marking bonus finished');
 						gameStateManager.isBonusFinished = true;
 						this.shouldSubtractOneFromServerFsDisplay = false;
 						this.uiFsDecrementApplied = false;
@@ -4414,16 +4166,13 @@ export class SlotController {
 					if (this.scene && (this.scene as any).symbols) {
 						const symbolsComponent = (this.scene as any).symbols;
 						if (symbolsComponent && typeof symbolsComponent.processSpinData === 'function') {
-							console.log('[SlotController] Processing free spin data directly via symbols component');
 							symbolsComponent.processSpinData(spinData);
 						} else {
-							console.log('[SlotController] Symbols component not available, falling back to SPIN_DATA_RESPONSE');
 							gameEventManager.emit(GameEventType.SPIN_DATA_RESPONSE, {
 								spinData: spinData
 							});
 						}
 					} else {
-						console.log('[SlotController] Scene or symbols not available, falling back to SPIN_DATA_RESPONSE');
 						gameEventManager.emit(GameEventType.SPIN_DATA_RESPONSE, {
 							spinData: spinData
 						});
@@ -4446,20 +4195,16 @@ export class SlotController {
 			const isRetrigger = !!(data && (data as any).isRetrigger);
 			const fromUnresolvedSpin = !!(data && (data as any).fromUnresolvedSpin);
 			if (fromUnresolvedSpin) {
-				console.log('[SlotController] Scatter bonus from unresolved spin - preserving free spin index');
 				return;
 			}
 			if (isRetrigger) {
-				console.log('[SlotController] Scatter bonus retrigger detected - NOT resetting free spin index');
 				return;
 			}
-			console.log('[SlotController] Scatter bonus initial activation - resetting free spin index');
 			if (this.gameAPI) {
 				this.gameAPI.resetFreeSpinIndex();
 			}
 		});
 
-		console.log('[SlotController] Bonus mode event listener setup complete');
 	}
 
 	/**
@@ -4472,7 +4217,6 @@ export class SlotController {
 		}
 
 		// No more polling - we'll manage button state purely through events
-		console.log('[SlotController] Spin state listener setup complete - no polling');
 	}
 
 	/**
@@ -4485,7 +4229,6 @@ export class SlotController {
 		}
 
 		this.scene.events.on('dialogShown', (dialogType: string) => {
-			console.log(`[SlotController] Dialog shown: ${dialogType}, isBuyFeatureFreeSpinsActive: ${this.isBuyFeatureFreeSpinsActive}`);
 			if (dialogType === 'TotalWin') {
 				this.pendingTotalWinBalanceFinalize = true;
 			}
@@ -4506,14 +4249,12 @@ export class SlotController {
 
 	private async finalizeBonusBalanceAfterTotalWinDialog(): Promise<void> {
 		if (this.hasFinalizedBonusBalanceForCurrentRound) {
-			console.log('[SlotController] TotalWin balance finalization already performed for this bonus round');
 			return;
 		}
 
 		try {
 			const bonusTotal = this.getFinalBonusTotalForBalance();
 			if (!(bonusTotal > 0)) {
-				console.log('[SlotController] TotalWin bonus total is 0 - no balance credit applied');
 				return;
 			}
 			this.hasFinalizedBonusBalanceForCurrentRound = true;
@@ -4523,7 +4264,6 @@ export class SlotController {
 				const newBalance = oldBalance + bonusTotal;
 				this.updateBalanceAmount(newBalance);
 				this.gameAPI?.updateDemoBalance(newBalance);
-				console.log(`[SlotController] Demo bonus total credited on TotalWin: +$${bonusTotal} (${oldBalance} -> ${newBalance})`);
 				return;
 			}
 
@@ -4537,14 +4277,7 @@ export class SlotController {
 			if (afterSyncBalance + 0.01 < expectedAfterBonus) {
 				const missing = expectedAfterBonus - afterSyncBalance;
 				this.updateBalanceAmount(expectedAfterBonus);
-				console.log(
-					`[SlotController] TotalWin: server balance did not include full bonus. ` +
-					`Applied local top-up +$${missing.toFixed(2)} to reach $${expectedAfterBonus.toFixed(2)}`
-				);
 			} else {
-				console.log(
-					`[SlotController] TotalWin: server balance already includes bonus credit (${afterSyncBalance} >= ${expectedAfterBonus})`
-				);
 			}
 		} catch (e) {
 			this.hasFinalizedBonusBalanceForCurrentRound = false;
@@ -4607,7 +4340,6 @@ export class SlotController {
 		if (this.scene && this.scene.scene.key === 'Game') {
 			const newGameData = (this.scene as any).gameData;
 			if (newGameData && newGameData !== this.gameData) {
-				console.log('[SlotController] Refreshing GameData reference');
 				this.gameData = newGameData;
 			}
 		}
@@ -4649,13 +4381,11 @@ export class SlotController {
 	 */
 	public enableSpinButton(): void {
 		if (this.isSpinLocked || gameStateManager.isReelSpinning || this.isBuyFeatureControlsLocked()) {
-			console.log('[SlotController] enableSpinButton skipped - spin locked or reels still spinning');
 			this.disableSpinButton();
 			return;
 		}
 		if (this.spinButtonController) {
 			this.spinButtonController.enable();
-			console.log('[SlotController] Spin button enabled');
 		}
 		const spinButton = this.buttons.get('spin');
 		if (spinButton) {
@@ -4722,10 +4452,8 @@ export class SlotController {
 
 		// Simple logic: disable if spinning or autoplay active, enable otherwise
 		if ((gameData.isAutoPlaying && !autoplayEnded) || gameStateManager.isReelSpinning) {
-			console.log(`[SlotController] Disabling spin button - isReelSpinning: ${gameStateManager.isReelSpinning}, isAutoPlaying: ${gameData.isAutoPlaying}`);
 			this.disableSpinButton();
 		} else {
-			console.log(`[SlotController] Enabling spin button - no active game state`);
 			this.enableSpinButton();
 		}
 		// Also update feature button state whenever spin button state changes
@@ -4828,24 +4556,20 @@ export class SlotController {
 	 * Re-enable the spin button (force enable regardless of state)
 	 */
 	public reEnableSpinButton(): void {
-		console.log('[SlotController] Force re-enabling spin button');
 		
 		// Log current state for debugging
 		const gameData = this.getGameData();
 		if (gameData) {
-			console.log(`[SlotController] Current state when re-enabling: isReelSpinning=${gameStateManager.isReelSpinning}, isAutoPlaying=${gameData.isAutoPlaying}`);
 		}
 		
 		// Simply enable the button
 		this.enableSpinButton();
-		console.log('[SlotController] Spin button re-enabled');
 	}
 
 	/**
 	 * Manually trigger spin button state update (useful for external components)
 	 */
 	public forceUpdateSpinButtonState(): void {
-		console.log('[SlotController] Force updating spin button state');
 		this.updateSpinButtonState();
 	}
 
@@ -4887,7 +4611,6 @@ export class SlotController {
 		
 		if (gameData) {
 			if (gameData.isTurbo) {
-				console.log('[SlotController] Force applying turbo to scene GameData');
 				
 				// Sync scene GameData from UI GameData, then apply turbo multipliers once
 				sceneGameData.winUpDuration = gameData.winUpDuration * TurboConfig.TURBO_DURATION_MULTIPLIER;
@@ -4896,21 +4619,10 @@ export class SlotController {
 				sceneGameData.dropReelsDuration = gameData.dropReelsDuration * TurboConfig.TURBO_DURATION_MULTIPLIER;
 				(sceneGameData as any).compressionDelayMultiplier = TurboConfig.TURBO_DELAY_MULTIPLIER;
 				
-				console.log(`[SlotController] Scene GameData turbo applied:`);
-				console.log(`  winUpDuration: ${sceneGameData.winUpDuration}`);
-				console.log(`  dropDuration: ${sceneGameData.dropDuration}`);
-				console.log(`  dropReelsDelay: ${sceneGameData.dropReelsDelay}`);
-				console.log(`  dropReelsDuration: ${sceneGameData.dropReelsDuration}`);
 			} else {
-				console.log('[SlotController] Resetting scene GameData to normal speed');
 				setSpeed(sceneGameData, DELAY_BETWEEN_SPINS);
 				(sceneGameData as any).compressionDelayMultiplier = 1;
 				
-				console.log(`[SlotController] Scene GameData reset to normal speed:`);
-				console.log(`  winUpDuration: ${sceneGameData.winUpDuration}`);
-				console.log(`  dropDuration: ${sceneGameData.dropDuration}`);
-				console.log(`  dropReelsDelay: ${sceneGameData.dropReelsDelay}`);
-				console.log(`  dropReelsDuration: ${sceneGameData.dropReelsDuration}`);
 			}
 		}
 	}
@@ -4963,17 +4675,9 @@ export class SlotController {
 	public logCurrentState(): void {
 		const gameData = this.getGameData();
 		if (!gameData) {
-			console.log('[SlotController] GameData not available');
 			return;
 		}
 		
-		console.log(`[SlotController] Current State:`, {
-			spinButtonEnabled: this.isSpinButtonEnabled(),
-			isSpinning: gameData.isReelSpinning,
-			isAutoPlaying: gameData.isAutoPlaying,
-			hasSpinButton: this.buttons.has('spin'),
-			pendingBalanceUpdate: this.balanceController?.getPendingBalanceUpdate() ?? null
-		});
 	}
 
 	/**
@@ -4981,7 +4685,6 @@ export class SlotController {
 	 * Used when 422 error occurs to allow reels to drop naturally
 	 */
 	private createDummySpinDataWithInitialSymbols(bet: number): any {
-		console.log('[SlotController] Creating dummy spin data with initial symbols');
 		
 		// Initial symbols from Symbols.ts createInitialSymbols() - row-major format
 		const initialRowMajor = [
@@ -5021,7 +4724,6 @@ export class SlotController {
 			}
 		};
 		
-		console.log('[SlotController] Dummy spin data created with area:', columnMajor);
 		return dummySpinData;
 	}
 }

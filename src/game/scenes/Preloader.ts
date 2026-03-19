@@ -66,7 +66,6 @@ export class Preloader extends Scene
 		const screenConfig = this.screenModeManager.getScreenConfig();
 		const assetScale = this.networkManager.getAssetScale();
 		
-		console.log(`[Preloader] Applying asset scale: ${assetScale}x`);
 		
 		this.cameras.main.setBackgroundColor(PRELOADER_CONFIG.BACKGROUND_COLOR);
 		this.setupLoadingBackground();
@@ -135,7 +134,6 @@ export class Preloader extends Scene
 			this.load.audio('whistle', whistlePath);
 		}
 
-		console.log(`[Preloader] Loading assets for Preloader and Game scenes`);
 	}
 
 	private startBackgroundAudioLoad(): void {
@@ -160,10 +158,8 @@ export class Preloader extends Scene
 
 			if (queued <= 0) return;
 
-			console.log(`[Preloader] Background-loading ${queued} audio files (non-blocking for StudioLoading)`);
 
 			this.load.once('complete', () => {
-				console.log('[Preloader] Background audio load complete');
 			});
 
 			this.load.start();
@@ -176,30 +172,23 @@ export class Preloader extends Scene
     {
 		try {
 			const demoState = this.gameAPI.getDemoState();
-			console.log('[Preloader] Demo state:', demoState);
 		} catch (error) {
 			console.error('[Preloader] Failed to get demo state:', error);
 		}
 
 		// Initialize GameAPI, generate token, and call backend initialize endpoint (skip slot init in demo)
         try {
-            console.log('[Preloader] Initializing GameAPI...');
             const gameToken = await this.gameAPI.initializeGame();
-            console.log('[Preloader] Game URL Token:', gameToken);
 
 			const isDemo = this.gameAPI.getDemoState();
 			if (!isDemo) {
-				console.log('[Preloader] Calling backend slot initialization...');
 				const slotInitData = await this.gameAPI.initializeSlotSession();
-				console.log('[Preloader] Slot initialization data:', slotInitData);
 				unresolvedSpinManager.setFromInitializationData(slotInitData);
 				CurrencyManager.initializeFromInitData(slotInitData);
 			} else {
-				console.log('[Preloader] Demo mode active - skipping backend slot initialization');
 				unresolvedSpinManager.setFromInitializationData(null);
 			}
 
-            console.log('[Preloader] GameAPI and slot session initialized successfully!');
         } catch (error) {
             console.error('[Preloader] Failed to initialize GameAPI or slot session:', error);
         }
@@ -227,7 +216,6 @@ export class Preloader extends Scene
 		// Start game on click – use radial dimmer transition then start Game
         this.buttonSpin?.once('pointerdown', () => {
             playRadialDimmerTransition(this, () => {
-                console.log('[Preloader] Starting Game scene after radial dimmer');
                 this.scene.start('Game', {
                     networkManager: this.networkManager,
                     screenModeManager: this.screenModeManager,
@@ -251,7 +239,6 @@ export class Preloader extends Scene
 		).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(0);
 		const scale = Math.max(this.scale.width / background.width, this.scale.height / background.height);
 		background.setScale(scale);
-		console.log(`[Preloader] Background scale: ${scale}, canvas: ${this.scale.width}x${this.scale.height}`);
 
 		// Header logo at top of loading screen
 		if (this.textures.exists('preload_logo')) {
@@ -347,7 +334,6 @@ export class Preloader extends Scene
 		this.buttonSpin.setTint(0x777777).setAlpha(0.9);
 		this.buttonBg.setTint(0x777777).setAlpha(0.9);
 		this.buttonSpin.disableInteractive();
-		console.log(`[Preloader] Button scaling: ${assetScale}x`);
 		this.tweens.add({
 			targets: this.buttonSpin,
 			rotation: Math.PI * 2,

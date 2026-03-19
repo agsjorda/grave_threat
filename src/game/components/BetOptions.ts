@@ -51,7 +51,6 @@ export class BetOptions {
 	}
 
 	create(scene: Scene): void {
-		console.log("[BetOptions] Creating bet options component");
 		
 		// Create main container
 		this.container = scene.add.container(0, 0);

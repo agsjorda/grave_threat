@@ -54,7 +54,6 @@ export class TurboButtonController {
     ).setOrigin(0.5, 0.5).setScale(assetScale).setDepth(10);
     turboButton.setInteractive();
     turboButton.on('pointerdown', () => {
-      console.log('[SlotController] Turbo button clicked');
       const audioManager =
         (this.scene as any)?.audioManager || (window as any)?.audioManager;
       if (audioManager && typeof audioManager.playSoundEffect === 'function') {
@@ -114,7 +113,6 @@ export class TurboButtonController {
 
       this.primaryControllers.add(this.turboButtonAnimation);
 
-      console.log('[SlotController] Turbo button spine animation created successfully with 1.3x speed');
     } catch (error) {
       console.error('[SlotController] Error creating Spine turbo button animation:', error);
     }
@@ -136,7 +134,6 @@ export class TurboButtonController {
         fallbackToFirstAvailable: true,
         logWhenMissing: false
       });
-      console.log('[SlotController] Turbo button spine animation started (looping)');
     } catch (error) {
       console.error('[SlotController] Error starting turbo button animation:', error);
     }
@@ -151,7 +148,6 @@ export class TurboButtonController {
     try {
       this.turboButtonAnimation.setVisible(false);
       this.turboButtonAnimation.animationState.clearTracks();
-      console.log('[SlotController] Turbo button spine animation stopped');
     } catch (error) {
       console.error('[SlotController] Error stopping turbo button animation:', error);
     }
@@ -159,7 +155,6 @@ export class TurboButtonController {
 
   private ensureTurboAnimationExists(): void {
     if (!this.turboButtonAnimation && this.scene) {
-      console.log('[SlotController] Turbo animation not found, recreating...');
       const assetScale = this.networkManager.getAssetScale();
       this.createTurboButtonAnimation(this.scene, assetScale);
     }
@@ -171,7 +166,6 @@ export class TurboButtonController {
       turboButton.setAlpha(0.5);
       turboButton.setTint(0x555555);
       turboButton.disableInteractive();
-      console.log('[SlotController] Turbo button disabled and greyed out');
     }
   }
 
@@ -181,7 +175,6 @@ export class TurboButtonController {
       turboButton.setAlpha(1.0);
       turboButton.clearTint();
       turboButton.setInteractive();
-      console.log('[SlotController] Turbo button enabled');
     }
   }
 
@@ -195,10 +188,8 @@ export class TurboButtonController {
     if (!turboButton) return;
 
     if (gameStateManager.isReelSpinning) {
-      console.log(`[SlotController] Disabling turbo button - isReelSpinning: ${gameStateManager.isReelSpinning}`);
       this.disableButton();
     } else {
-      console.log('[SlotController] Enabling turbo button - not spinning');
       this.enableButton();
     }
   }
@@ -208,7 +199,6 @@ export class TurboButtonController {
     if (turboButton) {
       const textureKey = isOn ? 'turbo_on' : 'turbo_off';
       turboButton.setTexture(textureKey);
-      console.log(`[SlotController] Turbo button texture changed to: ${textureKey}`);
     }
 
     if (isOn) {
@@ -226,11 +216,9 @@ export class TurboButtonController {
     }
 
     if (gameData.isTurbo) {
-      console.log('[SlotController] Turning turbo OFF via button click');
       gameData.isTurbo = false;
       this.setTurboButtonState(false);
     } else {
-      console.log('[SlotController] Turning turbo ON via button click');
       gameData.isTurbo = true;
       this.setTurboButtonState(true);
     }
@@ -246,6 +234,5 @@ export class TurboButtonController {
       gameEventManager.emit(GameEventType.TURBO_OFF);
     }
 
-    console.log(`[SlotController] Turbo state changed to: ${gameData.isTurbo} and sent to backend`);
   }
 }

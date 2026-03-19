@@ -77,11 +77,9 @@ export class ResponseTracker {
     this.responseCount++;
     this.lastResponseTime = Date.now();
 
-    console.log(`[ResponseTracker] Response tracked: ${data.responseId} (${data.requestType}) - Status: ${data.status}`);
     
     // Log response details
     if (data.status === 'SUCCESS') {
-      console.log(`[ResponseTracker] Response successful - Payout: ${data.payout}, Balance: ${data.balance}`);
     } else if (data.status === 'ERROR') {
       this.errorCount++;
       console.error(`[ResponseTracker] Response error: ${data.message}`);
@@ -100,12 +98,9 @@ export class ResponseTracker {
       responseId: data.responseId
     };
 
-    console.log(`[ResponseTracker] Backend status: ${data.status} - ${data.message}`);
     
     if (data.status === 'BUSY') {
-      console.log(`[ResponseTracker] Backend is processing: ${data.currentOperation}`);
     } else if (data.status === 'READY') {
-      console.log(`[ResponseTracker] Backend is ready for new requests`);
     }
   }
 
@@ -248,7 +243,6 @@ export class ResponseTracker {
       this.responses.set(response.responseId, response);
     });
 
-    console.log(`[ResponseTracker] Cleared old responses, keeping ${responsesToKeep.length} most recent`);
   }
 
   /**
@@ -260,7 +254,6 @@ export class ResponseTracker {
     this.responseCount = 0;
     this.errorCount = 0;
     this.lastResponseTime = 0;
-    console.log('[ResponseTracker] Tracker reset');
   }
 
   /**
@@ -268,7 +261,6 @@ export class ResponseTracker {
    */
   public destroy(): void {
     this.reset();
-    console.log('[ResponseTracker] Tracker destroyed');
   }
 }
 

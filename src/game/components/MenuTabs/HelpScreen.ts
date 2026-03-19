@@ -277,7 +277,6 @@ export class HelpScreen {
      */
     public rebuildPayoutSections(): void {
         const currentBet = this.getBetAmount();
-        console.log('[HelpScreen] rebuildPayoutSections() called, current bet amount:', currentBet);
 
         if (this.payoutSectionsStartY === 0 || this.payoutSectionsEndY === 0) {
             console.warn('[HelpScreen] Payout section positions not tracked, falling back to full rebuild');
@@ -359,7 +358,6 @@ export class HelpScreen {
         this.contentHeight += yOffset;
         this.yPosition += yOffset;
 
-        console.log('[HelpScreen] rebuildPayoutSections() completed, new bet amount used:', this.getBetAmount());
     }
 
     /**
@@ -369,7 +367,6 @@ export class HelpScreen {
      */
     public rebuild(): void {
         const currentBet = this.getBetAmount();
-        console.log('[HelpScreen] rebuild() called, current bet amount:', currentBet);
 
         // Remove scrollView from rulesContent if it exists (without destroying yet)
         if (this.scrollView && this.scrollView.parentContainer) {
@@ -399,7 +396,6 @@ export class HelpScreen {
         this.createNewHelpScreenContent(this.scene, this.rulesContent);
         this.rulesContent.add(this.scrollView);
 
-        console.log('[HelpScreen] rebuild() completed, new bet amount used:', this.getBetAmount());
     }
 
     private createNewHelpScreenContent(_scene: GameScene, _contentArea: GameObjects.Container): void {

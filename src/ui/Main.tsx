@@ -16,9 +16,7 @@ export const Main = ({ currentScene }: MainProps) => {
 	useEffect(() => {
 		// Listen for the ScreenModeManager from the Boot scene
 		const handleScreenModeManagerReady = (screenModeManager: ScreenModeManager) => {
-			console.log('[Main] Received ScreenModeManager from Boot scene');
 			const config = screenModeManager.getScreenConfig();
-			console.log('[Main] Screen config:', config);
 			setScreenConfig(config);
 		};
 

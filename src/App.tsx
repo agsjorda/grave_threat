@@ -9,7 +9,6 @@ function App()
 
 	const currentSceneHandler = (newScene: Phaser.Scene) => {
 		setScene(newScene);
-		console.log(`App currentScene: ${newScene.scene.key}`);
 	};
 
 	return (

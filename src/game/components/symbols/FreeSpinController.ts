@@ -87,14 +87,12 @@ export class FreeSpinController {
   public setSpinsRemaining(spinsRemaining: number): void {
     const normalized = Math.max(0, Number(spinsRemaining) || 0);
     this.spinsRemaining = normalized;
-    console.log(`[FreeSpinController] Synced spins remaining to: ${normalized}`);
   }
 
   /**
    * Set pending free spins data (from scatter bonus activation)
    */
   public setPendingFreeSpinsData(data: PendingFreeSpinsData): void {
-    console.log(`[FreeSpinController] Storing pending free spins data: ${data.actualFreeSpins} spins`);
     this.pendingFreeSpinsData = data;
   }
 
@@ -121,7 +119,6 @@ export class FreeSpinController {
     // Listen for reels stop to continue autoplay
     gameEventManager.on(GameEventType.REELS_STOP, () => {
       if (this._isActive && this.waitingForReelsStop) {
-        console.log('[FreeSpinController] REELS_STOP received - continuing autoplay');
         this.waitingForReelsStop = false;
         this.continueAutoplay();
       }
@@ -148,12 +145,10 @@ export class FreeSpinController {
 
         if (derived !== null) {
           this.spinsRemaining = derived;
-          console.log(`[FreeSpinController] Counter synced from spinData: ${before} -> ${this.spinsRemaining}`);
         } else {
           if (this.spinsRemaining > 0) {
             this.spinsRemaining -= 1;
           }
-          console.log(`[FreeSpinController] Counter decremented: ${before} -> ${this.spinsRemaining}`);
         }
 
         this.awaitingReelsStart = false;
@@ -185,7 +180,6 @@ export class FreeSpinController {
   public triggerAutoplay(): void {
     // Prevent duplicate triggering
     if (this.hasTriggered || this._isActive) {
-      console.log('[FreeSpinController] Already triggered or active, skipping');
       return;
     }
 
@@ -196,20 +190,17 @@ export class FreeSpinController {
       if (typeof deferred === 'function') {
         sceneAny.__deferredBonusStart = null;
         deferred();
-        console.log('[FreeSpinController] Ran deferred bonus mode trigger');
       }
     } catch {}
     
     // Check if we're in bonus mode
     if (!gameStateManager.isBonus) {
-      console.log('[FreeSpinController] Not in bonus mode, skipping');
       return;
     }
 
     let freeSpinsCount = 0;
     let spinDataSpinsLeft = 0;
     
-    console.log('[FreeSpinController] ===== TRIGGERING AUTOPLAY =====');
 
     // Prefer authoritative spinsLeft from current spin data.
     // This avoids retrigger flows (dialogs) overwriting the remaining counter with just
@@ -232,7 +223,6 @@ export class FreeSpinController {
         freeSpinsCount = spinDataSpinsLeft;
         // Clear any stale pending data so it cannot override the counter later.
         this.pendingFreeSpinsData = null;
-        console.log(`[FreeSpinController] Using spin data: ${freeSpinsCount} spins`);
       }
     }
 
@@ -240,19 +230,15 @@ export class FreeSpinController {
     if (freeSpinsCount <= 0 && this.pendingFreeSpinsData) {
       if (this.pendingFreeSpinsData.actualFreeSpins > 0) {
         freeSpinsCount = this.pendingFreeSpinsData.actualFreeSpins;
-        console.log(`[FreeSpinController] Fallback to pending data: ${freeSpinsCount} spins`);
       } else {
-        console.log('[FreeSpinController] Pending data is 0');
       }
       this.pendingFreeSpinsData = null;
     }
     
     if (freeSpinsCount > 0) {
-      console.log(`[FreeSpinController] Starting autoplay with ${freeSpinsCount} spins`);
       this.hasTriggered = true;
       this.start(freeSpinsCount);
     } else {
-      console.log('[FreeSpinController] No free spins available');
     }
   }
 
@@ -260,7 +246,6 @@ export class FreeSpinController {
    * Start free spin autoplay
    */
   public async start(spinCount: number): Promise<void> {
-    console.log(`[FreeSpinController] ===== STARTING WITH ${spinCount} SPINS =====`);
     
     this._isActive = true;
     this.spinsRemaining = spinCount;
@@ -277,7 +262,6 @@ export class FreeSpinController {
     
     // Apply turbo mode if enabled
     if (gameStateManager.isTurbo && this.callbacks.onSetTurboMode) {
-      console.log('[FreeSpinController] Applying turbo mode');
       this.callbacks.onSetTurboMode(true);
     }
     
@@ -303,7 +287,6 @@ export class FreeSpinController {
    */
   private async performSpin(): Promise<void> {
     if (!this._isActive || this.spinsRemaining <= 0) {
-      console.log('[FreeSpinController] Stopping - no spins remaining');
       this.stop();
       return;
     }
@@ -316,20 +299,16 @@ export class FreeSpinController {
 			return;
 		}
 
-    console.log(`[FreeSpinController] ===== SPIN ${this.spinsRemaining} =====`);
     
     // Check if still in bonus mode
     if (!gameStateManager.isBonus) {
-      console.log('[FreeSpinController] No longer in bonus mode - stopping');
       this.stop();
       return;
     }
 
     // Check if win dialog is showing
     if (gameStateManager.isShowingWinDialog) {
-      console.log('[FreeSpinController] Win dialog showing - waiting');
       this.scene.events.once('dialogAnimationsComplete', () => {
-        console.log('[FreeSpinController] Dialog complete - retrying spin');
         const baseDelay = 0;
         const turboDelay = gameStateManager.isTurbo 
           ? baseDelay * TurboConfig.TURBO_DELAY_MULTIPLIER 
@@ -340,12 +319,10 @@ export class FreeSpinController {
     }
 
     try {
-      console.log('[FreeSpinController] Emitting FREE_SPIN_AUTOPLAY event');
       gameEventManager.emit(GameEventType.FREE_SPIN_AUTOPLAY);
       
       this.awaitingReelsStart = true;
       this.waitingForReelsStop = true;
-      console.log('[FreeSpinController] Waiting for reels to stop');
     } catch (error) {
       console.error('[FreeSpinController] Error during spin:', error);
       this.stop();
@@ -356,8 +333,6 @@ export class FreeSpinController {
    * Continue autoplay after reels stop
    */
   private continueAutoplay(): void {
-    console.log(`[FreeSpinController] Continuing - ${this.spinsRemaining} spins remaining`);
-    console.log('[FreeSpinController] Waiting for WIN_STOP');
     this.waitingForWinAnimation = true;
   }
 
@@ -406,7 +381,6 @@ export class FreeSpinController {
    * Handle WIN_STOP event
    */
   private handleWinStop(): void {
-    console.log('[FreeSpinController] WIN_STOP received');
 
     if (!this.waitingForWinAnimation) {
       return;
@@ -432,14 +406,12 @@ export class FreeSpinController {
       const symbol0RetriggerPending = !!(symbols && typeof symbols.hasPendingSymbol0Retrigger === 'function' && symbols.hasPendingSymbol0Retrigger());
       const retriggerAnimating = !!(symbols && typeof symbols.isScatterRetriggerAnimationInProgress === 'function' && symbols.isScatterRetriggerAnimationInProgress()) || !!(symbols && typeof symbols.isSymbol0RetriggerAnimationInProgress === 'function' && symbols.isSymbol0RetriggerAnimationInProgress());
       if (scatterRetriggerPending || symbol0RetriggerPending || retriggerAnimating) {
-        console.log('[FreeSpinController] Retrigger pending (scatter or Symbol0) - waiting for dialog completion before continuing');
         this.waitForAllDialogsToCloseThenResume();
         return;
       }
     } catch { }
 
     if (this.spinsRemaining <= 0) {
-      console.log('[FreeSpinController] Last free spin complete - waiting for BONUS_TOTAL_WIN_SHOWN before stopping');
 
       let handled = false;
 
@@ -454,7 +426,6 @@ export class FreeSpinController {
         if (handled) return;
         handled = true;
         if (fallback) fallback.destroy();
-        console.log('[FreeSpinController] BONUS_TOTAL_WIN_SHOWN received on last spin - stopping');
         this.stop();
       });
       return;
@@ -468,7 +439,6 @@ export class FreeSpinController {
 
     // Wait for BONUS_TOTAL_WIN_SHOWN event before scheduling next spin
     // This ensures the delay is measured from when "TOTAL WIN" is actually displayed on screen
-    console.log('[FreeSpinController] Waiting for BONUS_TOTAL_WIN_SHOWN before scheduling next spin');
 
     let eventHandled = false;
 
@@ -484,7 +454,6 @@ export class FreeSpinController {
           ? baseDelay * TurboConfig.TURBO_DELAY_MULTIPLIER
           : baseDelay;
 
-        console.log(`[FreeSpinController] Scheduling next spin in ${turboDelay}ms (timeout fallback)`);
 
         this.autoplayTimer = this.scene.time.delayedCall(turboDelay, () => {
           this.performSpin();
@@ -496,7 +465,6 @@ export class FreeSpinController {
       if (!eventHandled) {
         eventHandled = true;
         if (safetyTimeout) safetyTimeout.destroy();
-        console.log('[FreeSpinController] BONUS_TOTAL_WIN_SHOWN received');
 
         // Schedule next spin with appropriate delay
         const baseDelay = 300; // 300ms to allow "TOTAL WIN" to be visible
@@ -504,7 +472,6 @@ export class FreeSpinController {
           ? baseDelay * TurboConfig.TURBO_DELAY_MULTIPLIER
           : baseDelay;
 
-        console.log(`[FreeSpinController] Scheduling next spin in ${turboDelay}ms (from when TOTAL WIN appeared)`);
 
         this.autoplayTimer = this.scene.time.delayedCall(turboDelay, () => {
           this.performSpin();
@@ -525,7 +492,6 @@ export class FreeSpinController {
       const winDialogShowing = !!gameStateManager.isShowingWinDialog;
 
       if (anyDialogShowing || winDialogShowing) {
-        console.log('[FreeSpinController] Waiting for dialogs to close...');
         this.scene.events.once('dialogAnimationsComplete', () => {
           this.waitForAllDialogsToCloseThenResume();
         });
@@ -537,7 +503,6 @@ export class FreeSpinController {
       const onDialogShown = () => {
         if (settled) return;
         settled = true;
-        console.log('[FreeSpinController] Dialog shown during grace window - waiting');
         this.scene.events.once('dialogAnimationsComplete', () => {
           this.waitForAllDialogsToCloseThenResume();
         });
@@ -557,7 +522,6 @@ export class FreeSpinController {
           const symbol0RetriggerPending = !!(symbolsAny && typeof symbolsAny.hasPendingSymbol0Retrigger === 'function' && symbolsAny.hasPendingSymbol0Retrigger());
           const retriggerAnimating = !!(symbolsAny && typeof symbolsAny.isScatterRetriggerAnimationInProgress === 'function' && symbolsAny.isScatterRetriggerAnimationInProgress()) || !!(symbolsAny && typeof symbolsAny.isSymbol0RetriggerAnimationInProgress === 'function' && symbolsAny.isSymbol0RetriggerAnimationInProgress());
           if (scatterRetriggerPending || symbol0RetriggerPending || retriggerAnimating) {
-            console.log('[FreeSpinController] Retrigger pending or animating - waiting for retrigger dialog before scheduling next spin');
             this.scene.events.once('dialogAnimationsComplete', () => {
               this.waitForAllDialogsToCloseThenResume();
             });
@@ -565,7 +529,6 @@ export class FreeSpinController {
           }
           const scatterResetAnimating = !!(symbolsAny && typeof symbolsAny.isScatterResetAnimationInProgress === 'function' && symbolsAny.isScatterResetAnimationInProgress());
           if (scatterResetAnimating) {
-            console.log('[FreeSpinController] Scatter reset/unmerge still running - waiting before scheduling next spin');
             this.scene.time.delayedCall(100, () => {
               this.waitForAllDialogsToCloseThenResume();
             });
@@ -596,7 +559,6 @@ export class FreeSpinController {
    * Stop free spin autoplay
    */
   public stop(): void {
-    console.log('[FreeSpinController] ===== STOPPING =====');
     
     // Clear timer
     if (this.autoplayTimer) {
@@ -626,7 +588,6 @@ export class FreeSpinController {
         }
       } catch { }
       if (!hasPendingRetrigger) {
-        console.log('[FreeSpinController] Free spins complete - setting isBonusFinished=true');
         gameStateManager.isBonusFinished = true;
       }
     }
@@ -649,7 +610,6 @@ export class FreeSpinController {
     // Emit AUTO_STOP event
     gameEventManager.emit(GameEventType.AUTO_STOP);
     
-    console.log('[FreeSpinController] Stopped');
   }
 
   public getRetriggerIncrementFromSpinData(spinData: any): { added: number; spinsLeft: number } {
@@ -796,7 +756,6 @@ export class FreeSpinController {
    * Schedule the congrats dialog after autoplay ends
    */
   private scheduleCongratsDialog(): void {
-    console.log('[FreeSpinController] Scheduling congrats dialog');
 
     const gameScene = this.scene as any;
     const dialogs = gameScene.dialogs;
@@ -813,7 +772,6 @@ export class FreeSpinController {
 
     // If win dialog already active, defer to WIN_DIALOG_CLOSED handler
     if (isWinDialogActive()) {
-      console.log('[FreeSpinController] Win dialog active - deferring congrats');
       gameEventManager.once(GameEventType.WIN_DIALOG_CLOSED, () => {
         this.scheduleCongratsDialog();
       });
@@ -831,7 +789,6 @@ export class FreeSpinController {
 
       if (!isWinDialog) return;
 
-      console.log('[FreeSpinController] Win dialog shown - deferring congrats');
       settled = true;
       this.scene.events.off('dialogShown', onDialogShown);
       gameEventManager.once(GameEventType.WIN_DIALOG_CLOSED, () => {
@@ -849,7 +806,6 @@ export class FreeSpinController {
       this.scene.events.off('dialogShown', onDialogShown);
 
       if (isWinDialogActive()) {
-        console.log('[FreeSpinController] Win dialog active after grace - deferring');
         gameEventManager.once(GameEventType.WIN_DIALOG_CLOSED, () => {
           this.scheduleCongratsDialog();
         });
@@ -857,7 +813,6 @@ export class FreeSpinController {
       }
 
       if (gameStateManager.isBonusFinished && this.callbacks.onShowCongratsDialog) {
-        console.log('[FreeSpinController] Showing congrats dialog');
         this.callbacks.onShowCongratsDialog();
       }
     });

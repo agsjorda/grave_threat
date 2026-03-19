@@ -102,10 +102,8 @@ export class BuyFeatureController {
     this.buyFeature.show({
       featurePrice: 24000.0,
       onClose: () => {
-        console.log('[SlotController] Buy feature drawer closed');
       },
       onConfirm: () => {
-        console.log('[SlotController] Buy feature confirmed');
         this.buyFeatureSpinLock = true;
         this.lockControls('buy feature confirmed');
         this.handleBuyFeature();
@@ -114,7 +112,6 @@ export class BuyFeatureController {
   }
 
   private async handleBuyFeature(): Promise<void> {
-    console.log('[SlotController] Processing buy feature purchase');
 
     const gameAPI = this.callbacks.getGameAPI();
     if (!this.buyFeature || !gameAPI) {
@@ -141,7 +138,6 @@ export class BuyFeatureController {
       // (v.2 should display 5x card price on the feature button after confirm).
       this.callbacks.setFeatureButtonAmountOverride(calculatedPrice);
 
-      console.log(`[SlotController] Buy feature bet: $${effectiveBet.toFixed(2)} (base: $${buyFeatureBet.toFixed(2)}), calculated price: $${calculatedPrice.toFixed(2)}, selected buy feature type: ${selectedBuyFeatureType}`);
 
       const currentBalance = this.callbacks.getBalanceAmount();
       if (currentBalance < calculatedPrice) {
@@ -157,11 +153,9 @@ export class BuyFeatureController {
         gameAPI.updateDemoBalance(newBalance);
       }
       this.callbacks.updateBalanceAmount(newBalance);
-      console.log(`[SlotController] Balance deducted: $${currentBalance.toFixed(2)} -> $${newBalance.toFixed(2)}`);
 
       // Avoid pre-spin symbol clearing; only run this on explicit skip to prevent flicker.
 
-      console.log('[SlotController] Calling doSpin for buy feature...');
       gameStateManager.isBuyFeatureSpin = true;
       gameStateManager.buyFeatureStartMultiplier = buyFeat === 2 ? 2 : 0;
       const spinData = await gameAPI.doSpin(
@@ -172,9 +166,7 @@ export class BuyFeatureController {
         false,
         buyFeat,
       );
-      console.log('[BUY_FEATURE_SPIN_DATA]', spinData);
 
-      console.log('[SlotController] Buy feature spin completed:', spinData);
       const hasFreeSpinItems = !!(spinData?.slot?.freespin?.items || spinData?.slot?.freeSpin?.items);
       shouldKeepBuyFeatureFlag = hasFreeSpinItems || SpinDataUtils.hasFreeSpins(spinData);
       if (!shouldKeepBuyFeatureFlag) {
@@ -188,7 +180,6 @@ export class BuyFeatureController {
             const wasTurboGD = !!gd.isTurbo;
             const wasTurboGSM = !!gameStateManager.isTurbo;
             if (wasTurboGD || wasTurboGSM) {
-              console.log('[SlotController] Buy feature with scatter during turbo - temporarily disabling turbo for scatter sequence');
               gd.isTurbo = false;
               gameStateManager.isTurbo = false;
               const scene = this.callbacks.getScene();
@@ -201,7 +192,6 @@ export class BuyFeatureController {
                     if (wasTurboGSM) {
                       gameStateManager.isTurbo = true;
                     }
-                    console.log('[SlotController] Restored turbo after scatter sequence dialogs completed');
                   } catch (e) {
                     console.warn('[SlotController] Failed to restore turbo after dialogs:', e);
                   }

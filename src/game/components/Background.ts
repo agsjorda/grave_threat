@@ -58,11 +58,9 @@ private bgBorder: Phaser.GameObjects.Image | null = null;
 
 	preload(scene: Scene): void {
 		// Assets are now loaded centrally through AssetConfig in Preloader
-		console.log(`[Background] Assets loaded centrally through AssetConfig`);
 	}
 
 	create(scene: Scene): void {
-		console.log("[Background] Creating background elements");
 		this.sceneRef = scene;
 
 		// Create main container for all background elements
@@ -70,7 +68,6 @@ private bgBorder: Phaser.GameObjects.Image | null = null;
 
 		const assetScale = this.networkManager.getAssetScale();
 
-		console.log(`[Background] Creating background with scale: ${assetScale}x`);
 
 		// Add background layers
 		this.createBackgroundLayers(scene, assetScale);
@@ -163,7 +160,6 @@ private bgBorder: Phaser.GameObjects.Image | null = null;
 			// This is the earliest place the Spine scale is set (but layout() will recalculate it).
 			const initialScale = assetScale * Phaser.Math.Clamp(this.spineBaseScaleMultiplier, 0, 5);
 			this.normalGameSpine.setScale(initialScale);
-			console.log(`[Background] Spine initial scale set to: ${initialScale} (assetScale: ${assetScale})`);
 			const started = startAnimation(this.normalGameSpine, {
 				animationName: 'NormalGame_BZ_idle',
 				loop: true,
@@ -171,7 +167,6 @@ private bgBorder: Phaser.GameObjects.Image | null = null;
 				logWhenMissing: true
 			});
 			if (started) {
-				console.log(`[Background] Playing ${started} animation`);
 			}
 
 			// Add to container
@@ -183,7 +178,6 @@ private bgBorder: Phaser.GameObjects.Image | null = null;
 				this.layout(scene);
 			});
 
-			console.log('[Background] NormalGame_BZ Spine animation created successfully');
 		} catch (error) {
 			console.error('[Background] Error creating NormalGame_BZ Spine animation:', error);
 			// If Spine fails, keep the BG-Default fallback visible.
@@ -230,7 +224,6 @@ private bgBorder: Phaser.GameObjects.Image | null = null;
 			const baseScale = width / referenceWidth; // Scale to fit current canvas width
 			const finalScale = baseScale * Phaser.Math.Clamp(this.spineContainFitMultiplier, 0.1, 3);
 			this.normalGameSpine.setScale(finalScale);
-			console.log(`[Background] Spine scaled to ${finalScale.toFixed(3)} (base: ${baseScale.toFixed(3)} * multiplier: ${this.spineContainFitMultiplier})`);
 		}
 		if (this.normalBgCover) {
 			// Height adjuster (percentage): change `coverHeightPercentOfScene` above.
@@ -442,13 +435,11 @@ private bgBorder: Phaser.GameObjects.Image | null = null;
 			// Hide/show Spine animation based on bonus mode
 			if (this.normalGameSpine) {
 				this.normalGameSpine.setVisible(!isBonus);
-				console.log(`[Background] NormalGame_BZ Spine visibility set to: ${!isBonus} (isBonus: ${isBonus})`);
 			}
 
 			if (this.normalBgCover) {
 				// Show normal cover only when NOT in bonus mode (fallback if Spine not used)
 				this.normalBgCover.setVisible(!isBonus);
-				console.log(`[Background] Normal bg cover visibility set to: ${!isBonus} (isBonus: ${isBonus})`);
 			}
 			// Cloud middle visibility logic removed
 		});
@@ -457,11 +448,9 @@ private bgBorder: Phaser.GameObjects.Image | null = null;
 		const isBonus = gameStateManager.isBonus;
 		if (this.normalGameSpine) {
 			this.normalGameSpine.setVisible(!isBonus);
-			console.log(`[Background] Initial NormalGame_BZ Spine visibility: ${!isBonus} (isBonus: ${isBonus})`);
 		}
 		if (this.normalBgCover) {
 			this.normalBgCover.setVisible(!isBonus);
-			console.log(`[Background] Initial normal bg cover visibility: ${!isBonus} (isBonus: ${isBonus})`);
 		}
 		// Initial cloud middle visibility logic removed
 	}

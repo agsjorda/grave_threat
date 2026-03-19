@@ -129,7 +129,6 @@ export class BetController {
     
     this.decreaseBetButton.on('pointerdown', () => {
       if (this.isButtonsDisabled) {
-        console.log('[BetController] Decrease bet clicked but buttons are disabled');
         return;
       }
       const audioManager =
@@ -151,7 +150,6 @@ export class BetController {
     
     this.increaseBetButton.on('pointerdown', () => {
       if (this.isButtonsDisabled) {
-        console.log('[BetController] Increase bet clicked but buttons are disabled');
         return;
       }
       const audioManager =

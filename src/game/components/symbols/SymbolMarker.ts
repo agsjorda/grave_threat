@@ -80,7 +80,6 @@ export class SymbolMarker {
 
     this.values[col][row] = current;
     try {
-      console.log('[SymbolMarker] markCell', { col, row, value: current });
     } catch {}
     this.updateOverlay(col, row, current);
     return current;
@@ -240,7 +239,6 @@ export class SymbolMarker {
       } catch {}
       this.applyOverlayAlpha(img, value);
       try {
-        console.log('[SymbolMarker] Created overlay image', { x, y, value, key, visible: img.visible, depth: img.depth });
       } catch {}
       return img;
     }
@@ -266,7 +264,6 @@ export class SymbolMarker {
       } catch {}
       this.applyOverlayAlpha(txt, value);
       try {
-        console.log('[SymbolMarker] Created overlay text', { x, y, value, visible: txt.visible, depth: txt.depth });
       } catch {}
       return txt;
     } catch {}

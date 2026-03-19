@@ -57,7 +57,6 @@ export class AmplifyBetController {
     ).setOrigin(0.5, 0.5).setScale(assetScale).setDepth(10);
     amplifyButton.setInteractive();
     amplifyButton.on('pointerdown', () => {
-      console.log('[SlotController] Amplify button clicked');
       const audioManager =
         (this.scene as any)?.audioManager || (window as any)?.audioManager;
       if (audioManager && typeof audioManager.playSoundEffect === 'function') {
@@ -141,7 +140,6 @@ export class AmplifyBetController {
   public setDescriptionVisible(visible: boolean): void {
     if (this.amplifyDescriptionContainer) {
       this.amplifyDescriptionContainer.setVisible(visible);
-      console.log(`[SlotController] ${visible ? 'Showing' : 'Hiding'} amplify description`);
     }
   }
 
@@ -171,7 +169,6 @@ export class AmplifyBetController {
       this.amplifyBetAnimation.setVisible(false);
 
       this.controllerContainer.add(this.amplifyBetAnimation);
-      console.log('[SlotController] Amplify bet animation created');
     } catch (error) {
       console.warn('[SlotController] Failed to create amplify bet animation:', error);
     }
@@ -248,7 +245,6 @@ export class AmplifyBetController {
     }
 
     if (gameData.isEnhancedBet) {
-      console.log('[SlotController] Turning amplify bet OFF via button click');
       gameData.isEnhancedBet = false;
       this.setAmplifyButtonState(false);
       this.hideAmplifyBetAnimation();
@@ -259,7 +255,6 @@ export class AmplifyBetController {
         this.callbacks.enableFeatureButton();
       }
     } else {
-      console.log('[SlotController] Turning amplify bet ON via button click');
       gameData.isEnhancedBet = true;
       this.setAmplifyButtonState(true);
       this.triggerAmplifyBetAnimation();
@@ -270,7 +265,6 @@ export class AmplifyBetController {
 
     this.controlAmplifyBetAnimation();
     EventBus.emit('amplify', gameData.isEnhancedBet);
-    console.log(`[SlotController] Amplify bet state changed to: ${gameData.isEnhancedBet}`);
   }
 
   public disableButton(): void {
@@ -278,7 +272,6 @@ export class AmplifyBetController {
     if (amplifyButton) {
       amplifyButton.setAlpha(0.5);
       amplifyButton.removeInteractive();
-      console.log('[SlotController] Amplify button disabled');
     }
   }
 
@@ -288,7 +281,6 @@ export class AmplifyBetController {
       amplifyButton.setAlpha(1.0);
       amplifyButton.clearTint();
       amplifyButton.setInteractive();
-      console.log('[SlotController] Amplify button enabled');
     }
   }
 
@@ -300,7 +292,6 @@ export class AmplifyBetController {
       } else {
         amplifyButton.clearTint();
       }
-      console.log(`[SlotController] Amplify button state changed to: ${isOn ? 'ON' : 'OFF'}`);
     }
   }
 
@@ -317,7 +308,6 @@ export class AmplifyBetController {
       this.callbacks.disableFeatureButton();
     }
 
-    console.log(`[SlotController] Amplify button initialized with state: ${gameData.isEnhancedBet ? 'ON' : 'OFF'}`);
   }
 
   public controlAmplifyBetAnimation(): void {
@@ -354,7 +344,6 @@ export class AmplifyBetController {
       repeat: -1
     });
 
-    console.log('[SlotController] Amplify button pulsing started');
   }
 
   public stopAmplifyBetBouncing(): void {
@@ -371,7 +360,6 @@ export class AmplifyBetController {
       this.amplifyBetBounceTimer = null;
     }
 
-    console.log('[SlotController] Amplify button pulsing stopped');
   }
 
   private getAmplifyButtonOriginalScale(): number {
@@ -382,7 +370,6 @@ export class AmplifyBetController {
   public triggerAmplifyBetAnimation(): void {
     const gameData = this.callbacks.getGameData();
     if (!gameData || !gameData.isEnhancedBet) {
-      console.log('[SlotController] Amplify bet not active, skipping animation');
       return;
     }
 
@@ -425,7 +412,6 @@ export class AmplifyBetController {
       complete: (entry: any) => {
         if (entry.animation.name === playedAnimation) {
           this.amplifyBetAnimation.setVisible(false);
-          console.log('[SlotController] Amplify bet animation completed and hidden');
           const gameData = this.callbacks.getGameData();
           if (gameData && gameData.isEnhancedBet) {
             this.showEnhanceBetIdleLoop();
@@ -433,14 +419,12 @@ export class AmplifyBetController {
         }
       }
     });
-    console.log('[SlotController] Playing amplify bet animation once:', playedAnimation);
   }
 
   public hideAmplifyBetAnimation(): void {
     if (this.amplifyBetAnimation) {
       this.amplifyBetAnimation.setVisible(false);
       this.amplifyBetAnimation.animationState.clearTracks();
-      console.log('[SlotController] Amplify bet animation hidden and stopped');
     }
   }
 
@@ -450,7 +434,6 @@ export class AmplifyBetController {
       return;
     }
 
-    console.log('[SlotController] Bet amount changed externally - resetting amplify bet state');
 
     gameData.isEnhancedBet = false;
     this.setAmplifyButtonState(false);
@@ -459,6 +442,5 @@ export class AmplifyBetController {
     this.stopAmplifyBetBouncing();
     this.callbacks.updateFeatureAmountFromCurrentBet();
 
-    console.log('[SlotController] Amplify bet state reset due to bet change');
   }
 }

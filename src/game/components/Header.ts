@@ -37,12 +37,10 @@ export class Header {
 
 	preload(scene: Scene): void {
 		// Assets are now loaded centrally through AssetConfig in Preloader
-		console.log(`[Header] Assets loaded centrally through AssetConfig`);
 	}
 
 
 	create(scene: Scene): void {
-		console.log("[Header] Creating header elements");
 		
 		// Store scene reference for animations
 		this.scene = scene;
@@ -53,7 +51,6 @@ export class Header {
 		const screenConfig = this.screenModeManager.getScreenConfig();
 		const assetScale = this.networkManager.getAssetScale();
 		
-		console.log(`[Header] Creating header with scale: ${assetScale}x`);
 
 		// Add header elements
 		this.createHeaderElements(scene, assetScale);
@@ -341,19 +338,15 @@ export class Header {
 
 		// Listen for spin events to hide winnings display at start of manual spin
 		gameEventManager.on(GameEventType.SPIN, () => {
-			console.log('[Header] Manual spin started - showing winnings display');
 			
 			// CRITICAL: Block autoplay spin actions if win dialog is showing, but allow manual spins
 			// This fixes the timing issue where manual spin winnings display was blocked
 			if (gameStateManager.isShowingWinDialog && gameStateManager.isAutoPlaying) {
-				console.log('[Header] Autoplay SPIN event BLOCKED - win dialog is showing');
-				console.log('[Header] Manual spins are still allowed to proceed');
 				return;
 			}
 			
 			// Keep winnings visible during scatter/bonus transitions
 			if (gameStateManager.isScatter || gameStateManager.isBonus) {
-				console.log('[Header] Skipping hide on SPIN (scatter/bonus active)');
 			} else {
 				// Show the winnings display with the stored winnings
 				this.hideWinningsDisplay();
@@ -363,10 +356,8 @@ export class Header {
 
 		// Listen for autoplay start to hide winnings display
 		gameEventManager.on(GameEventType.AUTO_START, () => {
-			console.log('[Header] Auto play started - showing winnings display');
 			// Keep winnings visible during scatter/bonus transitions (e.g., free spin autoplay)
 			if (gameStateManager.isScatter || gameStateManager.isBonus) {
-				console.log('[Header] Skipping hide on AUTO_START (scatter/bonus active)');
 				return;
 			}
 			this.hideWinningsDisplay();
@@ -374,10 +365,8 @@ export class Header {
 
 		// Listen for reels start to hide winnings display
 		gameEventManager.on(GameEventType.REELS_START, () => {
-			console.log('[Header] Reels started - hiding winnings display');
 			// Keep winnings visible during scatter transition and bonus start
 			if (gameStateManager.isScatter || gameStateManager.isBonus) {
-				console.log('[Header] Skipping hide on REELS_START (scatter/bonus active)');
 			} else {
 				this.hideWinningsDisplay();
 			}
@@ -385,11 +374,9 @@ export class Header {
 
 		// Listen for reel done events to show winnings display
 		gameEventManager.on(GameEventType.REELS_STOP, (data: any) => {
-			console.log(`[Header] REELS_STOP received - checking for wins`);
 			
 			// Don't show winnings in header if in bonus mode (bonus header handles it)
 			if (gameStateManager.isBonus) {
-				console.log('[Header] Skipping REELS_STOP winnings update - bonus mode active');
 				this.hideWinningsDisplay();
 				return;
 			}
@@ -398,17 +385,14 @@ export class Header {
 			const symbolsComponent = (this.headerContainer.scene as any).symbols;
 			if (symbolsComponent && symbolsComponent.currentSpinData) {
 				const spinData = symbolsComponent.currentSpinData;
-				console.log(`[Header] Found current spin data:`, spinData);
 				
 				// If this spin uses tumbles, let tumble events drive the display
 				if (Array.isArray(spinData?.slot?.tumbles) && spinData.slot.tumbles.length > 0) {
-					console.log('[Header] Tumbles present - winnings display handled by tumble events');
 					return;
 				}
 
 				if (spinData.slot && spinData.slot.paylines && spinData.slot.paylines.length > 0) {
 					const totalWin = this.calculateTotalWinningsFromPaylines(spinData.slot.paylines);
-					console.log(`[Header] Total winnings calculated from paylines: ${totalWin}`);
 					
 					if (totalWin > 0) {
 						if (this.youWonText) this.youWonText.setText('YOU WON');
@@ -416,25 +400,20 @@ export class Header {
 					} else {
 						// If scatter is active, keep the winnings shown (it may have been set by scatter logic)
 						if (gameStateManager.isScatter) {
-							console.log('[Header] Skipping hide on REELS_STOP no-paylines (scatter active)');
 						} else {
 							this.hideWinningsDisplay();
 						}
 					}
 				} else {
-					console.log('[Header] No paylines in current spin data - hiding winnings display');
 					// If scatter is active, keep the winnings shown (it may have been set by scatter logic)
 					if (gameStateManager.isScatter) {
-						console.log('[Header] Skipping hide on REELS_STOP (no paylines) due to scatter');
 					} else {
 						this.hideWinningsDisplay();
 					}
 				}
 			} else {
-				console.log('[Header] No current spin data available - hiding winnings display');
 				// If scatter is active, keep the winnings shown
 				if (gameStateManager.isScatter) {
-					console.log('[Header] Skipping hide on REELS_STOP (no spin data) due to scatter');
 				} else {
 					this.hideWinningsDisplay();
 				}
@@ -448,7 +427,6 @@ export class Header {
 	public updateWinningsDisplay(winnings: number): void {
 		// Don't update winnings display if in bonus mode (bonus header handles it)
 		if (gameStateManager.isBonus) {
-			console.log('[Header] Skipping updateWinningsDisplay - bonus mode active (bonus header handles winnings)');
 			return;
 		}
 		
@@ -456,7 +434,6 @@ export class Header {
 			this.currentWinnings = winnings;
 			const formattedWinnings = this.formatCurrency(winnings);
 			this.amountText.setText(formattedWinnings);
-			console.log(`[Header] Winnings updated to: ${formattedWinnings} (raw: ${winnings})`);
 		}
 	}
 
@@ -494,7 +471,6 @@ export class Header {
 				this.amountText.setVisible(false);
 			}
 			
-			console.log('[Header] Winnings display hidden with shrink animation');
 		} else {
 			console.warn('[Header] Cannot hide winnings display - text objects not available', {
 				amountText: !!this.amountText,
@@ -509,7 +485,6 @@ export class Header {
 	public showWinningsDisplay(winnings: number): void {
 		// Don't show winnings display if in bonus mode (bonus header handles it)
 		if (gameStateManager.isBonus) {
-			console.log('[Header] Skipping showWinningsDisplay - bonus mode active (bonus header handles winnings)');
 			return;
 		}
 		
@@ -566,12 +541,10 @@ export class Header {
 							onComplete: () => { this.amountText.setScale(HEADER_CONFIG.WIN_BAR_TEXT_VALUE_SCALE); }
 						});
 					}
-					console.log(`[Header] Winnings display updated with pulse animation: ${formattedWinnings} (raw: ${winnings})`);
 				} else {
 					// Value hasn't changed - just ensure scale is correct without animation
 					this.youWonText.setScale(HEADER_CONFIG.WIN_BAR_TEXT_SCALE);
 					this.amountText.setScale(HEADER_CONFIG.WIN_BAR_TEXT_VALUE_SCALE);
-					console.log(`[Header] Winnings display value unchanged, skipping animation: ${formattedWinnings} (raw: ${winnings})`);
 				}
 			} else {
 				// Not visible or not scaled - do full scale-in animation
@@ -598,7 +571,6 @@ export class Header {
 						onComplete: () => { this.amountText.setScale(HEADER_CONFIG.WIN_BAR_TEXT_VALUE_SCALE); }
 					});
 				}
-				console.log(`[Header] Winnings display shown with scale-in animation: ${formattedWinnings} (raw: ${winnings})`);
 			}
 		} else {
 			console.warn('[Header] Cannot show winnings display - text objects not available', {
@@ -620,7 +592,6 @@ export class Header {
 
 		const totalWin = getTotalWinFromPaylines(paylines);
 		
-		console.log(`[Header] Calculated total winnings: ${totalWin} from ${paylines.length} paylines`);
 		return totalWin;
 	}
 
@@ -696,28 +667,12 @@ export class Header {
 	 * Debug method to check the current state of text objects
 	 */
 	public debugTextObjects(): void {
-		console.log('[Header] Debug - Text objects state:', {
-			amountText: {
-				exists: !!this.amountText,
-				visible: this.amountText?.visible,
-				text: this.amountText?.text,
-				alpha: this.amountText?.alpha
-			},
-			youWonText: {
-				exists: !!this.youWonText,
-				visible: this.youWonText?.visible,
-				text: this.youWonText?.text,
-				alpha: this.youWonText?.alpha
-			},
-			currentWinnings: this.currentWinnings
-		});
 	}
 
 	/**
 	 * Initialize winnings display when game starts
 	 */
 	public initializeWinnings(): void {
-		console.log('[Header] Initializing winnings display');
 		this.currentWinnings = 0;
 		
 		// Debug the text objects to make sure they exist
@@ -744,13 +699,10 @@ export class Header {
 					    (this.amountText.visible || this.youWonText.visible)) {
 						this.amountText.setVisible(false);
 						this.youWonText.setVisible(false);
-						console.log('[Header] Force-hiding winnings display - bonus mode active');
 					}
 				}
-				console.log('[Header] Winnings display hidden - bonus mode started');
 			} else {
 				
-				console.log('[Header] Bonus mode ended - winnings display can be shown again');
 			}
 		});
 
@@ -762,7 +714,6 @@ export class Header {
 				this.amountText.setVisible(false);
 				this.youWonText.setVisible(false);
 			}
-			console.log('[Header] Winnings display hidden - bonus header shown');
 		});
 	}
 

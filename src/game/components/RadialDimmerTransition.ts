@@ -70,7 +70,6 @@ export class RadialDimmerTransition {
 		// Make overlay visible
 		this.overlay.setVisible(true);
 
-		console.log('[RadialDimmerTransition] Black overlay with transparent circular hole created');
 	}
 
 	/**
@@ -79,13 +78,11 @@ export class RadialDimmerTransition {
 	private setupKeyboardInput(): void {
 		// T key - zoom in (shrink) to 35 radius
 		this.scene.input.keyboard?.on('keydown-T', () => {
-			console.log('[RadialDimmerTransition] T key pressed - zooming in to 35 radius');
 			this.zoomInToRadius(28);
 		});
 
 		// Y key - zoom out (enlarge) to 1000 radius
 		this.scene.input.keyboard?.on('keydown-Y', () => {
-			console.log('[RadialDimmerTransition] Y key pressed - zooming out to 1000 radius');
 			this.zoomInToRadius(1000);
 		});
 	}
@@ -97,7 +94,6 @@ export class RadialDimmerTransition {
 	 */
 	public zoomInToRadius(targetRadius: number, customSpeed?: number): void {
 		if (this.isAnimating) {
-			console.log('[RadialDimmerTransition] Already animating, ignoring request');
 			return;
 		}
 
@@ -105,14 +101,12 @@ export class RadialDimmerTransition {
 		targetRadius = Math.max(this.minRadius, Math.min(this.maxRadius, targetRadius));
 
 		if (targetRadius === this.currentRadius) {
-			console.log(`[RadialDimmerTransition] Already at target radius: ${targetRadius}`);
 			return;
 		}
 
 		// Use custom speed if provided, otherwise use default animation speed
 		const duration = customSpeed ?? this.animationSpeed;
 
-		console.log(`[RadialDimmerTransition] Zooming in from ${this.currentRadius} to ${targetRadius} with speed: ${duration}ms`);
 
 		this.isAnimating = true;
 
@@ -128,7 +122,6 @@ export class RadialDimmerTransition {
 			},
 			onComplete: () => {
 				this.isAnimating = false;
-				console.log(`[RadialDimmerTransition] Zoom in complete, radius: ${this.currentRadius}`);
 			}
 		});
 	}
@@ -138,7 +131,6 @@ export class RadialDimmerTransition {
 	 */
 	public changeRadius(change: number): void {
 		if (this.isAnimating) {
-			console.log('[RadialDimmerTransition] Already animating, ignoring request');
 			return;
 		}
 
@@ -146,13 +138,11 @@ export class RadialDimmerTransition {
 		const targetRadius = Math.max(this.minRadius, Math.min(this.maxRadius, this.currentRadius + change));
 
 		if (targetRadius === this.currentRadius) {
-			console.log(`[RadialDimmerTransition] Already at ${change > 0 ? 'maximum' : 'minimum'} radius`);
 			return;
 		}
 
 		this.isAnimating = true;
 		const action = change > 0 ? 'enlarging' : 'shrinking';
-		console.log(`[RadialDimmerTransition] Smoothly ${action} from ${this.currentRadius} to ${targetRadius}`);
 
 		// Create smooth tween for the radius
 		this.scene.tweens.add({
@@ -166,7 +156,6 @@ export class RadialDimmerTransition {
 			},
 			onComplete: () => {
 				this.isAnimating = false;
-				console.log(`[RadialDimmerTransition] ${action} complete, radius: ${this.currentRadius}`);
 			}
 		});
 	}
@@ -187,7 +176,6 @@ export class RadialDimmerTransition {
 	 */
 	private setRadius(targetRadius: number): void {
 		if (this.isAnimating) {
-			console.log('[RadialDimmerTransition] Cannot set radius while animating');
 			return;
 		}
 
@@ -195,11 +183,9 @@ export class RadialDimmerTransition {
 		targetRadius = Math.max(this.minRadius, Math.min(this.maxRadius, targetRadius));
 
 		if (targetRadius === this.currentRadius) {
-			console.log(`[RadialDimmerTransition] Already at target radius: ${targetRadius}`);
 			return;
 		}
 
-		console.log(`[RadialDimmerTransition] Setting radius from ${this.currentRadius} to ${targetRadius}`);
 
 		// Create smooth tween to the target radius
 		this.scene.tweens.add({
@@ -212,7 +198,6 @@ export class RadialDimmerTransition {
 				this.updateMask();
 			},
 			onComplete: () => {
-				console.log(`[RadialDimmerTransition] Set radius complete: ${this.currentRadius}`);
 			}
 		});
 	}
@@ -222,11 +207,9 @@ export class RadialDimmerTransition {
 	 */
 	private resetMask(): void {
 		if (this.isAnimating) {
-			console.log('[RadialDimmerTransition] Cannot reset while animating');
 			return;
 		}
 
-		console.log(`[RadialDimmerTransition] Resetting mask from ${this.currentRadius} to 100`);
 
 		// Create smooth tween to reset the radius
 		this.scene.tweens.add({
@@ -239,7 +222,6 @@ export class RadialDimmerTransition {
 				this.updateMask();
 			},
 			onComplete: () => {
-				console.log(`[RadialDimmerTransition] Reset complete, radius: ${this.currentRadius}`);
 			}
 		});
 	}
@@ -254,7 +236,6 @@ export class RadialDimmerTransition {
 
 		this.currentRadius = radius;
 		this.updateMask();
-		console.log(`[RadialDimmerTransition] Radius set immediately to: ${this.currentRadius}`);
 	}
 
 	/**
@@ -262,7 +243,6 @@ export class RadialDimmerTransition {
 	 */
 	public setAnimationSpeed(speed: number): void {
 		this.animationSpeed = Math.max(50, Math.min(1000, speed));
-		console.log(`[RadialDimmerTransition] Animation speed set to ${this.animationSpeed}ms`);
 	}
 
 	/**
@@ -279,7 +259,6 @@ export class RadialDimmerTransition {
 		this.minRadius = Math.max(5, min);
 		this.maxRadius = Math.max(this.minRadius + 10, max);
 		this.radiusStep = Math.max(1, step);
-		console.log(`[RadialDimmerTransition] Radius range set: min=${this.minRadius}, max=${this.maxRadius}, step=${this.radiusStep}`);
 	}
 
 	/**
@@ -307,7 +286,6 @@ export class RadialDimmerTransition {
 	 */
 	public show(): void {
 		this.overlay.setVisible(true);
-		console.log('[RadialDimmerTransition] Overlay shown');
 	}
 
 	/**
@@ -315,6 +293,5 @@ export class RadialDimmerTransition {
 	 */
 	public hide(): void {
 		this.overlay.setVisible(false);
-		console.log('[RadialDimmerTransition] Overlay hidden');
 	}
 }

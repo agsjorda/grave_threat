@@ -149,7 +149,6 @@ export class BuyFeature {
    */
   public setSlotController(slotController: SlotController): void {
     this.slotController = slotController;
-    console.log("[BuyFeature] SlotController reference set");
   }
 
   /**
@@ -234,14 +233,10 @@ export class BuyFeature {
       this.currentBetIndex = closestIndex;
       this.currentBet = this.betOptions[closestIndex];
       this.lastExternalBaseBet = this.currentBet;
-      console.log(
-        `[BuyFeature] Initialized bet index ${closestIndex} with bet $${this.currentBet.toFixed(2)}`,
-      );
     }
   }
 
   create(scene: Scene): void {
-    console.log("[BuyFeature] Creating buy feature component");
 
     // Create main container
     this.container = scene.add.container(0, 0);
@@ -1160,7 +1155,6 @@ export class BuyFeature {
   }
 
   private confirmPurchase(): void {
-    console.log(`[BuyFeature] Confirming purchase`);
 
     if (this.onConfirmCallback) {
       this.onConfirmCallback();
@@ -1200,7 +1194,6 @@ export class BuyFeature {
       duration: 300,
       ease: "Power2.easeOut",
       onComplete: () => {
-        console.log("[BuyFeature] Drawer animation completed");
       },
     });
   }
@@ -1218,7 +1211,6 @@ export class BuyFeature {
       ease: "Power2.easeIn",
       onComplete: () => {
         this.container.setVisible(false);
-        console.log("[BuyFeature] Drawer hidden");
       },
     });
   }
@@ -1331,9 +1323,6 @@ export class BuyFeature {
       this.updateBetDisplay();
       this.updatePriceDisplay();
       this.updateBetLimitButtons();
-      console.log(
-        `[BuyFeature] Previous bet selected: $${this.currentBet.toFixed(2)}`,
-      );
     } else {
       // Keep button lock/timer state correct when already at min.
       this.updateBetLimitButtons();
@@ -1347,9 +1336,6 @@ export class BuyFeature {
       this.updateBetDisplay();
       this.updatePriceDisplay();
       this.updateBetLimitButtons();
-      console.log(
-        `[BuyFeature] Next bet selected: $${this.currentBet.toFixed(2)}`,
-      );
     } else {
       // Keep button lock/timer state correct when already at max.
       this.updateBetLimitButtons();
@@ -1463,7 +1449,6 @@ export class BuyFeature {
   }
 
   public show(config?: BuyFeatureConfig): void {
-    console.log("[BuyFeature] Showing buy feature drawer");
 
     if (config) {
       if (config.featurePrice !== undefined) {
@@ -1516,7 +1501,6 @@ export class BuyFeature {
   }
 
   public hide(): void {
-    console.log("[BuyFeature] Hiding buy feature drawer");
 
     // Stop any continuous button presses
     this.stopContinuousDecrement();
@@ -1532,7 +1516,6 @@ export class BuyFeature {
   }
 
   public close(): void {
-    console.log("[BuyFeature] Closing buy feature drawer");
     this.hide();
 
     if (this.onCloseCallback) {

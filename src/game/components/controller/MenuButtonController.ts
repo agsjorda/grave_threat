@@ -34,7 +34,6 @@ export class MenuButtonController {
     ).setOrigin(0.5, 0.5).setScale(assetScale).setDepth(10);
     menuButton.setInteractive();
     menuButton.on('pointerdown', () => {
-      console.log('[SlotController] Menu button clicked');
       const audioManager =
         (this.scene as any)?.audioManager || (window as any)?.audioManager;
       if (audioManager && typeof audioManager.playSoundEffect === 'function') {

@@ -59,7 +59,6 @@ export class LoadingSpinner {
 					timeScale: LOADING_SPINNER_SPINE_TIME_SCALE,
 					logWhenMissing: false
 				});
-				console.log('[LoadingSpinner] DI JOKER spine created at', this.centerX, this.centerY);
 				return;
 			} catch (e) {
 				console.warn('[LoadingSpinner] di_joker spine create failed:', e);
@@ -74,7 +73,6 @@ export class LoadingSpinner {
 			img.setAlpha(LOADING_SPINNER_ALPHA);
 			this.container.add(img);
 			this.spinnerContent = img;
-			console.log('[LoadingSpinner] dijoker_loading image fallback at', this.centerX, this.centerY);
 			return;
 		}
 
@@ -111,7 +109,6 @@ export class LoadingSpinner {
 	private show(): void {
 		if (!this.container || this.isVisible) return;
 
-		console.log('[LoadingSpinner] Showing DI JOKER animation at depth 100001');
 		this.isVisible = true;
 		this.container.setVisible(true);
 		this.container.setDepth(100001);
@@ -159,7 +156,6 @@ export class LoadingSpinner {
 	public hide(): void {
 		if (!this.container) return;
 
-		console.log('[LoadingSpinner] Hiding spinner');
 		this.cancelDelayedShow();
 
 		setTimeout(() => {

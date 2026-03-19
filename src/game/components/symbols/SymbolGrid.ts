@@ -125,7 +125,6 @@ export class SymbolGrid {
     this.reelBorderGraphics.setDepth(10000);
     this.reelBorderGraphics.setVisible(SHOW_REEL_BORDER);
 
-    console.log(`[SymbolGrid] Mask created with padding - Left: ${GRID_MASK_PADDING.left}, Right: ${GRID_MASK_PADDING.right}, Top: ${GRID_MASK_PADDING.top}, Bottom: ${GRID_MASK_PADDING.bottom}, Gradient: ${GRID_MASK_GRADIENT_FADE_HEIGHT}px`);
   }
 
   /**
@@ -412,7 +411,6 @@ export class SymbolGrid {
       resetCount++;
     });
     
-    console.log(`[SymbolGrid] Reset depths for ${resetCount} symbols`);
   }
 
   // ============================================================================
@@ -500,7 +498,6 @@ export class SymbolGrid {
     }
     
     if (disposedCount > 0) {
-      console.log(`[SymbolGrid] Disposed ${disposedCount} symbols`);
     }
   }
 

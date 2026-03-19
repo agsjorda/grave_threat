@@ -123,18 +123,14 @@ export class Game extends Scene {
 
 		// Initialize game state manager
 		this.gameStateManager = gameStateManager;
-		console.log(`[Game] Initial isBonus state: ${this.gameStateManager.isBonus}`);
 
 		// Prefer the GameAPI instance passed from Preloader so we reuse initialization data
 		if (data.gameAPI) {
-			console.log('[Game] Using GameAPI instance from Preloader');
 			this.gameAPI = data.gameAPI as GameAPI;
 		} else {
-			console.log('[Game] No GameAPI instance passed from Preloader, creating a new one');
 			this.gameAPI = new GameAPI(this.gameData);
 		}
 
-		console.log(`[Game] Received managers from Preloader`);
 	}
 
 	public getCurrentBetAmount(): number {
@@ -161,15 +157,12 @@ export class Game extends Scene {
 
 	preload() {
 		// Assets are now loaded in Preloader scene
-		console.log(`[Game] Assets already loaded in Preloader scene`);
-		console.log(`[Game] Backend service initialized via GameStateManager`);
 
 		// Preload Menu assets specific to the Game scene
 		this.menu.preload(this);
 	}
 
 	create() {
-		console.log(`[Game] Creating game scene`);
 		try { ensureSpineFactory(this, '[Game] create'); } catch { }
 
 		const fadeOverlay = this.createFadeAndResize();
@@ -186,7 +179,6 @@ export class Game extends Scene {
 		this.initializeAndStartIdleManager();
 
 		this.initializeGameBalance();
-		console.log(`[Game] Emitting START event to initialize game...`);
 		gameEventManager.emit(GameEventType.START);
 		this.header.initializeWinnings();
 		this.setupBonusModeEventListeners();
@@ -245,7 +237,6 @@ export class Game extends Scene {
 	private createFadeAndResize(): Phaser.GameObjects.Rectangle {
 		if (this.physics?.world) {
 			this.physics.world.setBounds(0, 0, this.scale.width, this.scale.height - GAME_SCENE_PHYSICS_BOTTOM_OFFSET);
-			console.log('[Game] Physics world bounds set');
 		} else {
 			console.warn('[Game] Physics system not available');
 		}
@@ -274,11 +265,9 @@ export class Game extends Scene {
 	}
 
 	private createBonusLayers(): void {
-		console.log('[Game] Creating bonus background...');
 		this.bonusBackground = new BonusBackground(this.networkManager, this.screenModeManager);
 		this.bonusBackground.create(this);
 		this.bonusBackground.getContainer().setVisible(false);
-		console.log('[Game] Creating bonus header...');
 		this.bonusHeader = new BonusHeader(this.networkManager, this.screenModeManager);
 		this.bonusHeader.create(this);
 		this.bonusHeader.setVisible(false);
@@ -288,25 +277,21 @@ export class Game extends Scene {
 		this.winTracker = new WinTracker();
 		this.winTracker.create(this);
 		this.winTracker.setLayout(WIN_TRACKER_LAYOUT);
-		console.log(`[Game] Creating symbols...`);
 		this.symbols.create(this);
 	}
 
 	private createAudio(): void {
 		this.audioManager = new AudioManager(this);
-		console.log('[Game] AudioManager initialized');
 		this.time.delayedCall(0, () => {
 			const tryInitAudio = () => {
 				try {
 					this.audioManager.createMusicInstances();
 					this.audioManager.playBackgroundMusic(MusicType.MAIN);
-					console.log('[Game] Audio instances created and background music started');
 					return true;
 				} catch { return false; }
 			};
 			if (tryInitAudio()) return;
 			try {
-				console.log('[Game] Background-loading audio assets (fallback)...');
 				const audioAssets = new AssetConfig(this.networkManager, this.screenModeManager).getAudioAssets();
 				const audioMap = audioAssets.audio || {};
 				let queued = 0;
@@ -366,7 +351,6 @@ export class Game extends Scene {
 			this.freeRoundManager = new FreeRoundManager();
 			this.freeRoundManager.create(this, this.gameAPI, this.slotController);
 			if (initData && initData.hasFreeSpinRound && initFsRemaining > 0) {
-				console.log(`[Game] Initialization indicates free spin round available (${initFsRemaining}). Enabling FreeRoundManager UI.`);
 				if (this.slotController && initFsBet && initFsBet > 0) {
 					this.slotController.updateBetAmount(initFsBet);
 				}
@@ -385,7 +369,6 @@ export class Game extends Scene {
 			duration: GAME_SCENE_FADE_IN_DURATION_MS,
 			ease: 'Power2',
 			onComplete: () => {
-				console.log('[Game] Fade in from black complete');
 				fadeOverlay.destroy();
 			}
 		});
@@ -395,7 +378,6 @@ export class Game extends Scene {
 	private setupEventBusListeners(): void {
 		EventBus.on('spin', () => this.spin());
 		EventBus.on('menu', () => {
-			console.log('[Game] Menu button clicked - toggling menu');
 			this.menu.toggleMenu(this);
 		});
 		EventBus.on('show-bet-options', () => {
@@ -409,13 +391,6 @@ export class Game extends Scene {
 				!!this.gameData?.isAutoPlaying ||
 				gameStateManager.isShowingWinDialog
 			) {
-				console.log('[Game] show-bet-options blocked by game state', {
-					isProcessingSpin: gsm?.isProcessingSpin,
-					isReelSpinning: gsm?.isReelSpinning,
-					isAutoPlaying: gsm?.isAutoPlaying,
-					gameDataIsAutoPlaying: !!this.gameData?.isAutoPlaying,
-					isShowingWinDialog: gameStateManager.isShowingWinDialog,
-				});
 				return;
 			}
 
@@ -426,7 +401,7 @@ export class Game extends Scene {
 				currentBet: currentBaseBet,
 				currentBetDisplay: currentDisplayBet,
 				isEnhancedBet: this.gameData?.isEnhancedBet,
-				onClose: () => console.log('[Game] Bet options closed'),
+				onClose: () => {},
 				onConfirm: (betAmount: number) => {
 					this.slotController.updateBetAmount(betAmount);
 					gameEventManager.emit(GameEventType.BET_UPDATE, { newBet: betAmount, previousBet: currentBaseBet });
@@ -464,7 +439,7 @@ export class Game extends Scene {
 				betDisplayMultiplier,
 				currentBalance,
 				isEnhancedBet,
-				onClose: () => console.log('[Game] Autoplay options closed'),
+				onClose: () => {},
 				onConfirm: (autoplayCount: number) => {
 					const selectedBet = this.autoplayOptions.getCurrentBet();
 					if (Math.abs(selectedBet - baseBet) > 0.0001) {
@@ -484,7 +459,6 @@ export class Game extends Scene {
 			this.cacheUnresolvedSpinUuidFromSpinData((data as any)?.spinData);
 		});
 		gameEventManager.on(GameEventType.REELS_STOP, () => {
-			console.log('[Game] REELS_STOP event received');
 		});
 		gameEventManager.on(GameEventType.REELS_START, () => {
 			try {
@@ -494,17 +468,14 @@ export class Game extends Scene {
 			}
 		});
 		this.events.on('dialogAnimationsComplete', () => {
-			console.log('[Game] Dialog animations complete event received');
 			this.suppressWinDialogsUntilNextSpin = false;
 			gameStateManager.isShowingWinDialog = false;
 			this.symbols?.scatterAnimationManager?.tryPlayDelayedScatterAnimation();
 			this.processWinQueue();
 		});
 		gameEventManager.on(GameEventType.SPIN, () => {
-			console.log('[Game] SPIN event received - clearing win queue for new spin');
 			this.suppressWinDialogsUntilNextSpin = false;
 			if (gameStateManager.isShowingWinDialog && this.gameData?.isAutoPlaying) {
-				console.log('[Game] Autoplay SPIN event BLOCKED - win dialog is showing');
 				return;
 			}
 			try { this.winTracker?.hideWithFade(250); } catch { }
@@ -517,7 +488,6 @@ export class Game extends Scene {
 		gameEventManager.on(GameEventType.AUTO_START, () => {
 			this.suppressWinDialogsUntilNextSpin = false;
 			if (gameStateManager.isShowingWinDialog) {
-				console.log('[Game] AUTO_START blocked - win dialog is showing');
 				return;
 			}
 			try { this.winTracker?.hideWithFade(250); } catch { }
@@ -700,9 +670,7 @@ export class Game extends Scene {
 
 	/** WIN_STOP: resolve totalWin, character animation, win dialog, demo balance, balance update */
 	private onWinStop(_data: any): void {
-		console.log('[Game] WIN_STOP event received (tumble-based evaluation)');
 		if (!this.symbols?.currentSpinData) {
-			console.log('[Game] WIN_STOP: No current spin data available');
 			return;
 		}
 		const spinData = this.symbols.currentSpinData;
@@ -743,7 +711,6 @@ export class Game extends Scene {
 					gameStateManager.isShowingWinDialog = true;
 					gameStateManager.suppressTotalWinDialog = true;
 					this.dialogs.showMaxWin(this, { winAmount });
-					console.log(`[Game] WIN_STOP: MaxWin item detected - showing MaxWin dialog with slot.totalWin=$${winAmount}`);
 					this.handlePostWinStopSideEffects();
 					return;
 				}
@@ -764,11 +731,9 @@ export class Game extends Scene {
 		}
 		const hasCluster = tumbleResult.hasCluster;
 
-		console.log(`[Game] WIN_STOP: totalWin used for win dialog=$${totalWin}, hasCluster>=8=${hasCluster}`);
 		if (hasCluster && totalWin > 0) {
 			this.checkAndShowWinDialog(totalWin, betAmount);
 		} else {
-			console.log('[Game] WIN_STOP: No qualifying cluster wins (>=8) detected');
 		}
 
 		this.handlePostWinStopSideEffects();
@@ -802,7 +767,6 @@ export class Game extends Scene {
 	 */
 	private async initializeGameBalance(): Promise<void> {
 		try {
-			console.log('[Game] Initializing game balance...');
 
 			// Call the GameAPI to get the current balance
 			const balance = await this.gameAPI.initializeBalance();
@@ -810,7 +774,6 @@ export class Game extends Scene {
 			// Update the SlotController balance display
 			if (this.slotController) {
 				this.slotController.updateBalanceAmount(balance);
-				console.log(`[Game] Balance initialized and updated in SlotController: $${balance}`);
 			}
 
 			// Emit balance initialized event
@@ -820,7 +783,6 @@ export class Game extends Scene {
 				change: balance
 			});
 
-			console.log('[Game] Balance initialization completed successfully');
 
 		} catch (error) {
 			console.error('[Game] Error initializing balance:', error);
@@ -828,7 +790,6 @@ export class Game extends Scene {
 			const defaultBalance = 200000.00;
 			if (this.slotController) {
 				this.slotController.updateBalanceAmount(defaultBalance);
-				console.log(`[Game] Using default balance: $${defaultBalance}`);
 			}
 		}
 	}
@@ -839,7 +800,6 @@ export class Game extends Scene {
 	private checkAndShowWinDialog(payout: number, bet: number): void {
 		// Win dialogs should only be shown during bonus game flow.
 		if (!gameStateManager.isBonus) {
-			console.log('[Game] Skipping win dialog - not in bonus mode');
 			gameStateManager.isShowingWinDialog = false;
 			return;
 		}
@@ -860,33 +820,25 @@ export class Game extends Scene {
 	 */
 	private processWinQueue(): void {
 		if (this.suppressWinDialogsUntilNextSpin) {
-			console.log('[Game] Suppressing processing of win queue (transitioning from bonus to base)');
 			return;
 		}
-		console.log(`[Game] processWinQueue called. Queue length: ${this.winQueue.length}`);
-		console.log(`[Game] Current isShowingWinDialog state: ${gameStateManager.isShowingWinDialog}`);
-		console.log(`[Game] Current dialog showing state: ${this.dialogs.isDialogShowing()}`);
 
 		// Check dialog overlay visibility
 		const dialogContainer = this.dialogs.getContainer();
 		if (dialogContainer) {
-			console.log(`[Game] Dialog overlay visible: ${dialogContainer.visible}, alpha: ${dialogContainer.alpha}`);
 		}
 
 		if (this.winQueue.length === 0) {
-			console.log('[Game] Win queue is empty, nothing to process');
 			return;
 		}
 
 		if (this.dialogs.isDialogShowing()) {
-			console.log('[Game] Dialog still showing, cannot process win queue yet');
 			return;
 		}
 
 		// Get the next win from the queue
 		const nextWin = this.winQueue.shift();
 		if (nextWin) {
-			console.log(`[Game] Processing next win from queue: $${nextWin.payout} on $${nextWin.bet} bet. Queue remaining: ${this.winQueue.length}`);
 			this.checkAndShowWinDialog(nextWin.payout, nextWin.bet);
 		}
 	}
@@ -897,7 +849,6 @@ export class Game extends Scene {
 	public clearWinQueue(): void {
 		const queueLength = this.winQueue.length;
 		this.winQueue = [];
-		console.log(`[Game] Win queue cleared. Removed ${queueLength} pending wins`);
 	}
 
 	/**
@@ -911,8 +862,6 @@ export class Game extends Scene {
 	private setupBonusModeEventListeners(): void {
 		// Listen for bonus mode events from dialogs
 		this.events.on('setBonusMode', (isBonus: boolean) => {
-			console.log(`[Game] Setting bonus mode: ${isBonus}`);
-			console.log(`[Game] Current gameStateManager.isBonus: ${this.gameStateManager.isBonus}`);
 
 			// Ensure winnings display stays visible and transfers to bonus header on bonus start
 				if (isBonus) {
@@ -923,7 +872,6 @@ export class Game extends Scene {
 
 					if (!wasAlreadyInBonus) {
 						this.unresolvedPatchSentDuringCurrentBonus = false;
-						console.log('[Game] Bonus mode started - transferring winnings display to bonus header');
 						try {
 						const currentHeaderWin = this.header && typeof this.header.getCurrentWinnings === 'function'
 							? Number(this.header.getCurrentWinnings()) || 0
@@ -934,30 +882,25 @@ export class Game extends Scene {
 							if (typeof (this.bonusHeader as any).seedFromFirstFreeSpinItem === 'function') {
 								const spinData = this.gameAPI?.getCurrentSpinData?.() || (this.symbols as any)?.currentSpinData;
 								(this.bonusHeader as any).seedFromFirstFreeSpinItem(spinData);
-								console.log('[Game] Seeded BonusHeader from first free spin item');
 							} else if (typeof (this.bonusHeader as any).seedCumulativeWin === 'function') {
 								const seedWin = Math.max(0, Math.max(currentHeaderWin, triggerSpinWin));
 								(this.bonusHeader as any).seedCumulativeWin(seedWin);
-								console.log(`[Game] Seeded BonusHeader with base win: $${seedWin} (header=$${currentHeaderWin}, spinData=$${triggerSpinWin})`);
 
 								// In bonus mode we only show per-tumble "YOU WON" values in the bonus header.
 								// The seeded cumulative value is tracked internally; no immediate header UI update here.
 							} else if (typeof this.bonusHeader.updateWinningsDisplay === 'function') {
 								const seedWin = Math.max(0, Math.max(currentHeaderWin, triggerSpinWin));
 								this.bonusHeader.updateWinningsDisplay(seedWin);
-								console.log(`[Game] Updated BonusHeader winnings to: $${seedWin}`);
 							}
 						}
 					} catch (e) {
 						console.warn('[Game] Failed transferring winnings to BonusHeader on bonus start:', e);
 					}
 				} else {
-					console.log('[Game] Already in bonus mode (retrigger detected) - preserving accumulated winnings total');
 				}
 
 				// Music will be switched when showBonusBackground event is emitted
 			} else {
-				console.log('[Game] Bonus mode ended - enabling winningsDisplay');
 				// Ensure bonus-finished flag is cleared and bonus mode is turned off when leaving bonus
 				this.gameStateManager.isBonus = false;
 				this.gameStateManager.isBonusFinished = false;
@@ -987,7 +930,6 @@ export class Game extends Scene {
 					// Also fade out any lingering WinTracker entries when returning to base game
 					if (this.winTracker) {
 						this.winTracker.hideWithFade(250);
-						console.log('[Game] Fading out WinTracker on bonus mode end (transition to base game)');
 					}
 				} catch (e) {
 					console.warn('[Game] Failed to hide winnings displays on bonus end:', e);
@@ -997,7 +939,6 @@ export class Game extends Scene {
 				// Switch back to main background music
 				if (this.audioManager) {
 					this.audioManager.playBackgroundMusic(MusicType.MAIN);
-					console.log('[Game] Switched to main background music');
 				}
 
 				// Bonus round has ended. Send one final unresolved PATCH only as fallback
@@ -1056,21 +997,15 @@ export class Game extends Scene {
 		});
 
 		this.events.on('showBonusBackground', () => {
-			console.log('[Game] ===== SHOW BONUS BACKGROUND EVENT RECEIVED =====');
-			console.log('[Game] Background exists:', !!this.background);
-			console.log('[Game] BonusBackground exists:', !!this.bonusBackground);
 
 			// Hide normal background
 			if (this.background) {
 				this.background.getContainer().setVisible(false);
-				console.log('[Game] Normal background hidden');
 			}
 
 			// Show bonus background
 			if (this.bonusBackground) {
 				this.bonusBackground.getContainer().setVisible(true);
-				console.log('[Game] Bonus background shown');
-				console.log('[Game] Bonus background container visible:', this.bonusBackground.getContainer().visible);
 			} else {
 				console.error('[Game] BonusBackground is null!');
 			}
@@ -1080,40 +1015,30 @@ export class Game extends Scene {
 				const canPlayBonus = this.audioManager.hasMusicInstance(MusicType.BONUS);
 				if (canPlayBonus) {
 					this.audioManager.playBackgroundMusic(MusicType.BONUS);
-					console.log('[Game] Switched to bonus background music (bonusbg)');
 				} else {
-					console.log('[Game] Bonus music instance not ready yet; scheduling retry');
 					this.time.delayedCall(250, () => {
 						try {
 							const retryCanPlay = this.audioManager.hasMusicInstance(MusicType.BONUS);
 							if (this.gameStateManager.isBonus && retryCanPlay) {
 								this.audioManager.playBackgroundMusic(MusicType.BONUS);
-								console.log('[Game] Switched to bonus background music (bonusbg) after retry');
 							}
 						} catch {}
 					});
 				}
 			}
 
-			console.log('[Game] ===== BONUS BACKGROUND EVENT HANDLED =====');
 		});
 
 		this.events.on('showBonusHeader', () => {
-			console.log('[Game] ===== SHOW BONUS HEADER EVENT RECEIVED =====');
-			console.log('[Game] Header exists:', !!this.header);
-			console.log('[Game] BonusHeader exists:', !!this.bonusHeader);
 
 			// Hide normal header
 			if (this.header) {
 				this.header.setVisible(false);
-				console.log('[Game] Normal header hidden');
 			}
 
 			// Show bonus header
 			if (this.bonusHeader) {
 				this.bonusHeader.setVisible(true);
-				console.log('[Game] Bonus header shown');
-				console.log('[Game] Bonus header container visible:', this.bonusHeader.getContainer().visible);
 				// If we already have a cumulative total (e.g., buy feature trigger win), show it immediately.
 				// Fallback: if cumulative is still 0, seed once from header/spinData and show.
 				try {
@@ -1129,12 +1054,10 @@ export class Game extends Scene {
 						const spinData = this.gameAPI?.getCurrentSpinData?.() || (this.symbols as any)?.currentSpinData;
 						if (typeof bonusHeaderAny.seedFromFirstFreeSpinItem === 'function') {
 							bonusHeaderAny.seedFromFirstFreeSpinItem(spinData);
-							console.log('[Game] showBonusHeader fallback seed from first free spin item');
 						} else {
 							const seedWin = Math.max(0, Math.max(headerWin, triggerWin));
 							if (seedWin > 0 && typeof bonusHeaderAny.seedCumulativeWin === 'function') {
 								bonusHeaderAny.seedCumulativeWin(seedWin);
-								console.log(`[Game] showBonusHeader fallback seed: $${seedWin} (header=$${headerWin}, spinData=$${triggerWin})`);
 							}
 						}
 					}
@@ -1145,44 +1068,36 @@ export class Game extends Scene {
 			} else {
 				console.error('[Game] BonusHeader is null!');
 			}
-			console.log('[Game] ===== BONUS HEADER EVENT HANDLED =====');
 		});
 
 		this.events.on('hideBonusBackground', () => {
-			console.log('[Game] Hiding bonus background');
 
 			// Show normal background
 			if (this.background) {
 				this.background.getContainer().setVisible(true);
-				console.log('[Game] Normal background shown');
 			}
 
 			// Hide bonus background
 			if (this.bonusBackground) {
 				this.bonusBackground.getContainer().setVisible(false);
-				console.log('[Game] Bonus background hidden');
 			}
 		});
 
 		this.events.on('hideBonusHeader', () => {
-			console.log('[Game] Hiding bonus header');
 
 			// Show normal header
 			if (this.header) {
 				this.header.setVisible(true);
-				console.log('[Game] Normal header shown');
 			}
 
 			// Hide bonus header
 			if (this.bonusHeader) {
 				this.bonusHeader.setVisible(false);
-				console.log('[Game] Bonus header hidden');
 			}
 		});
 
 		// Reset symbols back to base state
 		this.events.on('resetSymbolsForBase', () => {
-			console.log('[Game] Resetting symbols to base state');
 			try {
 				if (this.symbols) {
 					// Do not clear Spine tracks here; keep symbols animating by forcing Idle loops
@@ -1202,13 +1117,11 @@ export class Game extends Scene {
 				}
 				// Reset any internal flags related to win dialogs
 				gameStateManager.isShowingWinDialog = false;
-				console.log('[Game] Symbols reset complete');
 			} catch (e) {
 				console.error('[Game] Error resetting symbols for base:', e);
 			}
 		});
 
-		console.log('[Game] Bonus mode event listeners setup complete');
 
 		// Add fullscreen toggle button (top-right) using shared manager
 		const assetScale = this.networkManager.getAssetScale();
@@ -1222,34 +1135,23 @@ export class Game extends Scene {
 
 		// Add a test method to manually trigger bonus mode (for debugging)
 		(window as any).testBonusMode = () => {
-			console.log('[Game] TEST: Manually triggering bonus mode');
-			console.log('[Game] TEST: Current isBonus state:', this.gameStateManager.isBonus);
 			this.gameStateManager.isBonus = true;
-			console.log('[Game] TEST: After setting isBonus to true:', this.gameStateManager.isBonus);
 			this.events.emit('showBonusBackground');
 			this.events.emit('showBonusHeader');
 		};
 
 		// Add a test method to simulate free spin dialog close
 		(window as any).testFreeSpinDialogClose = () => {
-			console.log('[Game] TEST: Simulating free spin dialog close');
 			this.events.emit('showBonusBackground');
 			this.events.emit('showBonusHeader');
 		};
 
 		// Add a method to check current state
 		(window as any).checkBonusState = () => {
-			console.log('[Game] Current game state:');
-			console.log('- isBonus:', this.gameStateManager.isBonus);
-			console.log('- isScatter:', this.gameStateManager.isScatter);
-			console.log('- Background exists:', !!this.background);
-			console.log('- BonusBackground exists:', !!this.bonusBackground);
-			console.log('- Header exists:', !!this.header);
-			console.log('- BonusHeader exists:', !!this.bonusHeader);
-			if (this.background) console.log('- Background visible:', this.background.getContainer().visible);
-			if (this.bonusBackground) console.log('- BonusBackground visible:', this.bonusBackground.getContainer().visible);
-			if (this.header) console.log('- Header visible:', this.header.getContainer().visible);
-			if (this.bonusHeader) console.log('- BonusHeader visible:', this.bonusHeader.getContainer().visible);
+			if (this.background) ;
+			if (this.bonusBackground) ;
+			if (this.header) ;
+			if (this.bonusHeader) ;
 		};
 
 		// Add a helper to adjust default win dialog auto-close from the console
@@ -1308,11 +1210,9 @@ export class Game extends Scene {
 	}
 
 	spin() {
-		console.log('Game Spin');
 
 		// Check if we're in bonus mode - if so, let the free spin autoplay system handle it
 		if (this.gameStateManager.isBonus) {
-			console.log('[Game] In bonus mode - skipping old spin system, free spin autoplay will handle it');
 			return;
 		}
 
@@ -1320,7 +1220,6 @@ export class Game extends Scene {
 	}
 
 	turbo() {
-		console.log('Game Turbo');
 		this.gameStateManager.toggleTurbo();
 	}
 
