@@ -2,6 +2,10 @@ import React, { forwardRef, useEffect, useLayoutEffect, useRef, useState } from 
 import StartGame from './game/main';
 import { EventBus } from './game/EventBus';
 
+let sharedGame: Phaser.Game | null = null;
+let pendingDestroyTimer: number | null = null;
+let mountedPhaserHosts = 0;
+
 export interface IRefPhaserGame
 {
 	game: Phaser.Game | null;
@@ -20,29 +24,46 @@ export const PhaserGame = forwardRef<IRefPhaserGame, IProps>(function PhaserGame
 
 	useLayoutEffect(() =>
 	{
-		if (game.current === null)
+		mountedPhaserHosts++;
+
+		if (pendingDestroyTimer !== null)
 		{
+			window.clearTimeout(pendingDestroyTimer);
+			pendingDestroyTimer = null;
+		}
 
-			game.current = StartGame("game-container");
+		if (sharedGame === null)
+		{
+			sharedGame = StartGame("game-container");
+		}
 
-			if (typeof ref === 'function')
-			{
-				ref({ game: game.current, scene: null });
-			} else if (ref)
-			{
-				ref.current = { game: game.current, scene: null };
-			}
+		game.current = sharedGame;
+
+		if (typeof ref === 'function')
+		{
+			ref({ game: game.current, scene: null });
+		} else if (ref)
+		{
+			ref.current = { game: game.current, scene: null };
 		}
 
 		return () =>
 		{
-			if (game.current)
+			mountedPhaserHosts = Math.max(0, mountedPhaserHosts - 1);
+			const gameToDestroy = game.current;
+			game.current = null;
+
+			if (mountedPhaserHosts === 0 && gameToDestroy)
 			{
-				game.current.destroy(true);
-				if (game.current !== null)
+				pendingDestroyTimer = window.setTimeout(() =>
 				{
-					game.current = null;
-				}
+					if (mountedPhaserHosts === 0 && sharedGame === gameToDestroy)
+					{
+						sharedGame.destroy(true);
+						sharedGame = null;
+					}
+					pendingDestroyTimer = null;
+				}, 0);
 			}
 		}
 	}, [ref]);

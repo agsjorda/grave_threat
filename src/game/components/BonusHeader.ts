@@ -151,9 +151,8 @@ export class BonusHeader {
 		this.createWinBarText(scene, scene.scale.width * 0.5, winBarTextY);
 	}
 
-	// Depth above RadialLightTransition overlay (20000) so Total win stays visible during candy/radial light
-	// Keep win bar text below dialog overlay layers (Dialogs uses ~13000+).
-	private static readonly WIN_BAR_DEPTH = 9502;
+	// Match pastry_cub: win bar text above the bar image (9499) and below dialogs/menu (9501+).
+	private static readonly WIN_BAR_DEPTH = 9500;
 	private static readonly WIN_BAR_SCALE_EPSILON = 0.01;
 
 	private createWinBarText(scene: Scene, x: number, y: number): void {
