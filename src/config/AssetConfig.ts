@@ -97,6 +97,7 @@ export class AssetConfig {
 				'button_spin': `${prefix}/loading/button_spin.png`,
 				'loading_frame': `${prefix}/loading/loading-frame.png`,
 				'loading_frame_2': `${prefix}/loading/loading-frame-2.png`,
+				'dijoker_loading': `${prefix}/dijoker_loading/DI JOKER.png`,
 				'dijoker_logo': `${prefix}/loading/DiJoker-logo.png`,
 			},
 			spine: {

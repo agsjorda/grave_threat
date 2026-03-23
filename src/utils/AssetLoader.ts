@@ -128,8 +128,17 @@ export class AssetLoader {
 	}
 
 	private preloadFont(fontFamily: string, fontPath: string): void {
-		// Only register @font-face so the font loads when first used. Avoid <link rel="preload" as="font">
-		// so we don't get "preloaded but not used within a few seconds" (game uses fonts after Boot/Preloader).
+		// Preload via <link> so fonts are fetched during Boot/Preloader,
+		// not lazily on first paint (prevents visible fallback fonts).
+		const link = document.createElement('link');
+		link.rel = 'preload';
+		link.as = 'font';
+		link.type = 'font/ttf';
+		link.href = fontPath;
+		link.crossOrigin = 'anonymous';
+		document.head.appendChild(link);
+
+		// Ensure font is registered for Phaser canvas text.
 		const style = document.createElement('style');
 		style.textContent = `
 			@font-face {

@@ -1354,8 +1354,27 @@ export class Menu {
     this.isDraggingMusic = false;
     this.isDraggingSFX = false;
 
+    const stopSliderDragging = () => {
+      this.isDraggingMusic = false;
+      this.isDraggingSFX = false;
+    };
+
+    const isPointerOutsideGameScreen = (pointer: Phaser.Input.Pointer) => {
+      return (
+        pointer.x < 0 ||
+        pointer.y < 0 ||
+        pointer.x > scene.scale.width ||
+        pointer.y > scene.scale.height
+      );
+    };
+
     // Global pointer move and up handlers
     const pointerMoveHandler = (pointer: Phaser.Input.Pointer) => {
+      if (isPointerOutsideGameScreen(pointer)) {
+        stopSliderDragging();
+        return;
+      }
+
       if (this.isDraggingMusic) {
         const sliderWidth = widthSlider * scaleFactor;
         const p = (musicSliderTrack as any).getLocalPoint(pointer.x, pointer.y);
@@ -1376,8 +1395,7 @@ export class Menu {
     };
 
     const pointerUpHandler = () => {
-      this.isDraggingMusic = false;
-      this.isDraggingSFX = false;
+      stopSliderDragging();
     };
 
     // Store handlers for cleanup

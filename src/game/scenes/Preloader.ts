@@ -264,28 +264,26 @@ export class Preloader extends Scene
 
 	private setupLoadingFrameAndText(): void {
 		const preload = PRELOADER_CONFIG;
-		const isPortrait = this.screenModeManager.getScreenConfig().isPortrait;
 		const { TAGLINE, WEBSITE, MAX_WIN } = preload;
 		const centerX = this.scale.width * 0.5;
 		const centerY = this.scale.height * 0.5;
 		const textStyle = { fontFamily: 'poppins-regular', color: '#FFFFFF', fontStyle: 'normal' as const, align: 'center' as const };
 
-		// Match pastry_cub/shuten_doji portrait ownership:
-		// in portrait the StudioLoadingScreen owns the loading frame + lower text.
-		if (!isPortrait) {
-			const loadingFrame = this.add.image(
-				this.scale.width * 0.5,
-				this.scale.height * 0.5 + preload.LOADING_FRAME_OFFSET_Y,
-				'loading_frame_2'
-			).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(10);
-			const frameScale = (Math.max(this.scale.width / loadingFrame.width, this.scale.height / loadingFrame.height)) * preload.LOADING_FRAME_SCALE_MODIFIER;
-			loadingFrame.setScale(frameScale);
+		// Match pastry_cub: build the loading frame and lower branding text directly
+		// in Preloader too, so portrait still shows the expected branding even if the
+		// StudioLoadingScreen layer is unavailable or delayed.
+		const loadingFrame = this.add.image(
+			this.scale.width * 0.5,
+			this.scale.height * 0.5 + preload.LOADING_FRAME_OFFSET_Y,
+			'loading_frame_2'
+		).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(10);
+		const frameScale = (Math.max(this.scale.width / loadingFrame.width, this.scale.height / loadingFrame.height)) * preload.LOADING_FRAME_SCALE_MODIFIER;
+		loadingFrame.setScale(frameScale);
 
-			this.taglineText = this.add.text(centerX + TAGLINE.OFFSET_X, centerY + TAGLINE.OFFSET_Y, TAGLINE.TEXT, { ...textStyle, fontSize: `${TAGLINE.FONT_SIZE_PX}px` })
-				.setOrigin(0.5, 0.5).setScrollFactor(0).setAlpha(1).setDepth(10);
-			this.websiteText = this.add.text(centerX, centerY + WEBSITE.OFFSET_Y, WEBSITE.TEXT, { ...textStyle, fontSize: `${WEBSITE.FONT_SIZE_PX}px` })
-				.setOrigin(0.5, 0.5).setScrollFactor(0).setAlpha(1).setDepth(10);
-		}
+		this.taglineText = this.add.text(centerX + TAGLINE.OFFSET_X, centerY + TAGLINE.OFFSET_Y, TAGLINE.TEXT, { ...textStyle, fontSize: `${TAGLINE.FONT_SIZE_PX}px` })
+			.setOrigin(0.5, 0.5).setScrollFactor(0).setAlpha(1).setDepth(10);
+		this.websiteText = this.add.text(centerX, centerY + WEBSITE.OFFSET_Y, WEBSITE.TEXT, { ...textStyle, fontSize: `${WEBSITE.FONT_SIZE_PX}px` })
+			.setOrigin(0.5, 0.5).setScrollFactor(0).setAlpha(1).setDepth(10);
 
 		const winTextY = MAX_WIN.OFFSET_Y_FROM_CENTER + this.preloaderVerticalOffsetModifier;
 		this.maxWinText = this.add.text(centerX, centerY + winTextY, MAX_WIN.TEXT, {

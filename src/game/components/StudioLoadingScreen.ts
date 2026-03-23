@@ -388,7 +388,7 @@ export class StudioLoadingScreen {
         const centerY = this.scene.scale.height * 0.48;
 
         const hasSpine = ensureSpineFactory(this.scene, '[StudioLoadingScreen] createLoadingCharacter');
-        if (hasSpine) {
+        if (hasSpine && this.scene.cache.json.has('di_joker')) {
             try {
                 const spine = (this.scene.add as any).spine(centerX, centerY, 'di_joker', 'di_joker-atlas');
                 spine.setOrigin?.(0.5, 0.5);

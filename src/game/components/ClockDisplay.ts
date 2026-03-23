@@ -27,6 +27,8 @@ export class ClockDisplay {
     private timeUpdateTimer?: Phaser.Time.TimerEvent;
     private options: ClockDisplayOptions;
     private suffixText: string;
+    private appliedFontFamily: string = 'poppins-regular';
+    private appliedAdditionalFontFamily: string = 'poppins-regular';
 
     constructor(scene: Scene, options?: ClockDisplayOptions) {
         this.scene = scene;
@@ -45,7 +47,7 @@ export class ClockDisplay {
         const timeX = (this.options.offsetX || 0);
         const timeY = (this.options.offsetY || 0);
         const fontSize = this.options.fontSize || 14;
-        const fontFamily = this.options.fontFamily || 'Arial';
+        const fontFamily = this.options.fontFamily || 'poppins-regular';
         const textColor = this.options.color || '#FFFFFF';
         const alpha = this.options.alpha !== undefined ? this.options.alpha : 0.50;
         const depth = this.options.depth || 30000;
@@ -90,6 +92,7 @@ export class ClockDisplay {
         }
 
         this.timeText = timeText;
+        this.appliedFontFamily = fontFamily;
 
         // Create additional text if provided
         if (this.options.additionalText) {
@@ -136,6 +139,7 @@ export class ClockDisplay {
             }
 
             this.additionalText = additionalTextObj;
+            this.appliedAdditionalFontFamily = additionalFontFamily;
         }
 
         // Update time every second
@@ -175,6 +179,16 @@ export class ClockDisplay {
                 this.additionalText = undefined;
             }
         } catch {}
+    }
+
+    public setFontFamily(fontFamily: string): void {
+        this.appliedFontFamily = fontFamily;
+        this.timeText?.setFontFamily(fontFamily);
+    }
+
+    public setAdditionalFontFamily(fontFamily: string): void {
+        this.appliedAdditionalFontFamily = fontFamily;
+        this.additionalText?.setFontFamily(fontFamily);
     }
 }
 
