@@ -213,6 +213,10 @@ export class BetOptions {
 		return formatCurrencyNumber(value, true);
 	}
 
+	private formatBetValue(value: number): string {
+		return this.formatBetOptionLabel(value);
+	}
+
 	private createBetInput(scene: Scene): void {
 		const x = scene.scale.width * 0.5;
 		const y = scene.scale.height * 0.5 + 240;
