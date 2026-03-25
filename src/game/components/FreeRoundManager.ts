@@ -6,6 +6,20 @@ import { SlotController } from './controller/SlotController';
 import { CurrencyManager } from './CurrencyManager';
 import { SoundEffectType } from '../../managers/AudioManager';
 import { formatCurrencyNumber } from '../../utils/NumberPrecisionFormatter';
+import { localizationManager } from '../../managers/LocalizationManager';
+import {
+	COMMON_OK,
+	FREEROUND_CREDITED_LINE1,
+	FREEROUND_CREDITED_LINE2,
+	FREEROUND_DONE_TITLE,
+	FREEROUND_GRANTED_SUBTITLE,
+	FREEROUND_PANEL_LABEL,
+	FREEROUND_REWARD_TITLE,
+	FREEROUND_SPIN_NOW_BUTTON,
+	FREEROUND_SPINS_LABEL,
+	FREEROUND_WITH_LABEL,
+	LOCALIZATION_DEFAULTS,
+} from '../../backend/LocalizationData';
 
 export class FreeRoundManager {
 	private container: Phaser.GameObjects.Container | null = null;
@@ -34,6 +48,10 @@ export class FreeRoundManager {
 	private accumulatedFreeRoundWin: number = 0;
 	// True while a dedicated initialization freeround session (started from this manager) is active.
 	private trackingFreeRoundAutoplay: boolean = false;
+
+	private getText(key: string): string {
+		return localizationManager.getTextByKey(key) ?? LOCALIZATION_DEFAULTS[key] ?? key;
+	}
 
 	/**
 	 * Create the free round button UI.
@@ -234,7 +252,7 @@ export class FreeRoundManager {
 		this.container.add(infoBg);
 
 		// "Free\nSpin" label on the left side of the panel
-		this.labelText = scene.add.text(infoX - infoWidth / 2 + 25, infoY, 'Free\nSpin', {
+		this.labelText = scene.add.text(infoX - infoWidth / 2 + 25, infoY, this.getText(FREEROUND_PANEL_LABEL), {
 			fontSize: '12px',
 			color: '#ffffff', // base color; will be overridden by gradient
 			fontFamily: 'poppins-bold',
@@ -761,7 +779,7 @@ export class FreeRoundManager {
 		const titleText = scene.add.text(
 			0,
 			-panelHeight / 2 + 60,
-			'Free Spin Reward',
+			this.getText(FREEROUND_REWARD_TITLE),
 			{
 				fontSize: '24px',
 				color: '#00ff00',
@@ -775,7 +793,7 @@ export class FreeRoundManager {
 		const subtitleText = scene.add.text(
 			0,
 			-panelHeight / 2 + 110,
-			'You have been Granted',
+			this.getText(FREEROUND_GRANTED_SUBTITLE),
 			{
 				fontSize: '24px',
 				color: '#ffffff',
@@ -828,7 +846,7 @@ export class FreeRoundManager {
 		const spinsLabel = scene.add.text(
 			0,
 			cardY + 15,
-			'Spins',
+			this.getText(FREEROUND_SPINS_LABEL),
 			{
 				fontSize: '20px',
 				color: '#ffffff',
@@ -853,7 +871,7 @@ export class FreeRoundManager {
 		const withText = scene.add.text(
 			0,
 			0,
-			'With',
+			this.getText(FREEROUND_WITH_LABEL),
 			{
 				fontSize: '14px',
 				color: '#ffffff',
@@ -902,7 +920,7 @@ export class FreeRoundManager {
 		const buttonLabel = scene.add.text(
 			0,
 			buttonY,
-			'SPIN NOW',
+			this.getText(FREEROUND_SPIN_NOW_BUTTON),
 			{
 				fontSize: '24px',
 				color: '#000000',
@@ -1259,7 +1277,7 @@ export class FreeRoundManager {
 		const titleText = scene.add.text(
 			0,
 			-panelHeight / 2 + 50,
-			'Free Spin Done',
+			this.getText(FREEROUND_DONE_TITLE),
 			{
 				fontSize: '24px',
 				color: '#00ff00',
@@ -1292,7 +1310,7 @@ export class FreeRoundManager {
 		const creditedStatic = scene.add.text(
 			0,
 			-15,
-			'has been credited',
+			this.getText(FREEROUND_CREDITED_LINE1),
 			{
 				fontSize: '24px',
 				color: '#ffffff',
@@ -1305,7 +1323,7 @@ export class FreeRoundManager {
 		const line2 = scene.add.text(
 			0,
 			10,
-			'to your balance',
+			this.getText(FREEROUND_CREDITED_LINE2),
 			{
 				fontSize: '22px',
 				color: '#ffffff',
@@ -1323,7 +1341,7 @@ export class FreeRoundManager {
 		const buttonLabel = scene.add.text(
 			0,
 			buttonY,
-			'OK',
+			this.getText(COMMON_OK),
 			{
 				fontSize: '24px',
 				color: '#000000',

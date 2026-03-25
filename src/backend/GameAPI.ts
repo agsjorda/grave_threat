@@ -167,8 +167,15 @@ export interface RefreshTokenResponse {
   token?: string;
 }
 
+export interface LocalizationPayload {
+  sessionId: string;
+  gameId: string;
+  lang: string;
+  locale: string;
+}
+
 export class GameAPI {
-  private static readonly GAME_ID: string = "00171225"; //change to 00171225 for pastry cub
+  private static readonly GAME_ID: string = "00090725"; //change to 00090725 for grave_threat
   private static DEMO_BALANCE: number = 10000;
   private static readonly REFRESH_TOKEN_KEY: string = "refresh_token";
 
@@ -177,6 +184,7 @@ export class GameAPI {
   private currentSpinData: SpinData | null = null;
   private currentFreeSpinIndex: number = 0; // Track current free spin item index
   private initializationData: SlotInitializeData | null = null; // Cached initialization response
+  private localizationData: LocalizationPayload | null = null;
   private remainingInitFreeSpins: number = 0; // Free spin rounds from initialization still available
   private initFreeSpinBet: number | null = null; // Bet size associated with initialization free spins
   /** Runtime unresolved-spin UUID (e.g. from scatter-triggering spin payload) */
@@ -236,6 +244,14 @@ export class GameAPI {
 
   constructor(gameData: GameData) {
     this.gameData = gameData;
+  }
+
+  private getRequestedLanguage(): string {
+    const language = getUrlParameter("lang");
+    if (language !== "") {
+      return language;
+    }
+    return this.initializationData?.lang ?? "en";
   }
 
   private getSampleDataKey(): string | null {
@@ -591,7 +607,7 @@ export class GameAPI {
       player_id: 2,
       game_id: GameAPI.GAME_ID,
       device: "mobile",
-      lang: "en",
+      lang: this.getRequestedLanguage(),
       currency: "USD",
       quit_link: "www.quit.com",
       is_demo: 0,
@@ -699,7 +715,7 @@ export class GameAPI {
         gameId: GameAPI.GAME_ID,
         playerId: "",
         sessionId: "",
-        lang: "en",
+        lang: this.getRequestedLanguage(),
         currency: "USD",
         currencySymbol: "$",
         hasFreeSpinRound: false,
@@ -847,6 +863,67 @@ export class GameAPI {
     return this.initializationData;
   }
 
+  public getLocalizationData(): LocalizationPayload | null {
+    return this.localizationData;
+  }
+
+  public async fetchLocalizationData(): Promise<void> {
+    const apiUrl = `${getApiBaseUrl()}/api/v1/slots/locale`;
+    const requestBody = this.createLocaleAPIResponseBody();
+
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `HTTP error! status: ${response.status}, message: ${errorText}`,
+      );
+    }
+
+    const raw = await response.json();
+    const data = raw?.data ?? raw;
+    const locale =
+      typeof data?.locale === "string"
+        ? data.locale
+        : data?.locale && typeof data.locale === "object"
+          ? JSON.stringify(data.locale)
+          : "";
+
+    this.localizationData = {
+      sessionId: data?.sessionId ?? requestBody.sessionId,
+      gameId: data?.gameId ?? requestBody.gameId,
+      lang: data?.lang ?? requestBody.lang,
+      locale,
+    };
+  }
+
+  private createLocaleAPIResponseBody(): Pick<
+    LocalizationPayload,
+    "sessionId" | "gameId" | "lang"
+  > {
+    const isDemo = this.getDemoState();
+    if (isDemo) {
+      return {
+        sessionId: "",
+        gameId: GameAPI.GAME_ID,
+        lang: this.getRequestedLanguage(),
+      };
+    }
+
+    const initData = this.initializationData;
+    return {
+      sessionId: initData?.sessionId ?? "",
+      gameId: initData?.gameId ?? GameAPI.GAME_ID,
+      lang: initData?.lang ?? this.getRequestedLanguage(),
+    };
+  }
+
   /**
    * Set or clear unresolved-spin UUID from runtime spin data.
    */
@@ -877,14 +954,19 @@ export class GameAPI {
    * Runtime UUID (from spin payload) takes precedence over initialization payload.
    */
   public getUnresolvedSpinUuid(): string | null {
-    if (typeof this.unresolvedSpinUuid === "string" && this.unresolvedSpinUuid.length > 0) {
+    if (
+      typeof this.unresolvedSpinUuid === "string" &&
+      this.unresolvedSpinUuid.length > 0
+    ) {
       return this.unresolvedSpinUuid;
     }
     if (this.initializationUnresolvedConsumed) {
       return null;
     }
     const fromInit = (this.initializationData as any)?.unresolvedSpin?.uuid;
-    return typeof fromInit === "string" && fromInit.length > 0 ? fromInit : null;
+    return typeof fromInit === "string" && fromInit.length > 0
+      ? fromInit
+      : null;
   }
 
   /**
@@ -939,7 +1021,11 @@ export class GameAPI {
           );
           return;
         }
-        console.warn("[GameAPI] patchUnresolvedSpin failed:", response.status, text);
+        console.warn(
+          "[GameAPI] patchUnresolvedSpin failed:",
+          response.status,
+          text,
+        );
       }
     } catch (error) {
       console.warn("[GameAPI] patchUnresolvedSpin error:", error);
@@ -1248,7 +1334,13 @@ export class GameAPI {
    * 2. Post a spin request to the server
    * This method sends a spin request and returns the server response
    */
-  public async doSpin(bet: number, isBuyFs: boolean, isEnhancedBet: boolean, isFs: boolean = false, buyFeat?: number): Promise<SpinData> {
+  public async doSpin(
+    bet: number,
+    isBuyFs: boolean,
+    isEnhancedBet: boolean,
+    isFs: boolean = false,
+    buyFeat?: number,
+  ): Promise<SpinData> {
     // Optional debug helper: first manual spin returns mocked data with 3 scatters
     // Manual spin heuristic: not autoplaying and not an autoplay-requested spin.
     // Also exclude buy feature spins and initialization free rounds.
@@ -1725,7 +1817,7 @@ export class GameAPI {
   public setFreeSpinData(spinData: SpinData): void {
     try {
       applyTruncateFreeSpinItems((spinData as any)?.slot);
-    } catch { }
+    } catch {}
     this.currentSpinData = spinData;
     this.resetFreeSpinIndex(); // Reset the index when setting new data
   }

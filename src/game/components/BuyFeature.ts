@@ -5,6 +5,13 @@ import { CurrencyManager } from './CurrencyManager';
 import { formatCurrencyNumber } from '../../utils/NumberPrecisionFormatter';
 import { SoundEffectType } from '../../managers/AudioManager';
 import { SPINE_SYMBOL_SCALES } from '../../config/GameConfig';
+import { localizationManager } from '../../managers/LocalizationManager';
+import {
+  LOCALIZATION_DEFAULTS,
+  POPUP_BUYFEAT_CARD_TITLE,
+  POPUP_BUYFEAT_RANDOM_SCATTER,
+  POPUP_BUYFEAT_START_MULTIPLIER,
+} from '../../backend/LocalizationData';
 
 export interface BuyFeatureConfig {
 	position?: { x: number; y: number };
@@ -14,9 +21,9 @@ export interface BuyFeatureConfig {
 	featurePrice?: number;
 }
 
-/** Data for each buy feature card (title, scatter, start multiplier) */
+/** Data for each buy feature card (localized title version, scatter, start multiplier) */
 export interface BuyFeatureCardItem {
-	title: string;
+	titleVersion: number;
 	scatterCount?: string;
 	startMultiplier?: number;
 	decriptionOverride? : string;
@@ -130,16 +137,25 @@ export class BuyFeature {
   private static readonly CURRENCY_LABEL = CurrencyManager.getInlinePrefix();
   private static readonly CARD_ITEMS: BuyFeatureCardItem[] = [
     {
-      title: "Nathan's Goolish Gold bonus v.1",
+      titleVersion: 1,
       scatterCount: "3-7",
       startMultiplier: 1,
     },
     {
-      title: "Nathan's Goolish Gold bonus v.2",
+      titleVersion: 2,
       scatterCount: "3-7",
       startMultiplier: 2,
     },
   ];
+
+  private static getLocalizedCardTitle(titleVersion: number): string {
+    const baseTitle =
+      localizationManager.getTextByKey(POPUP_BUYFEAT_CARD_TITLE) ??
+      LOCALIZATION_DEFAULTS[POPUP_BUYFEAT_CARD_TITLE] ??
+      "Nathan's Goolish Gold bonus v";
+
+    return `${baseTitle}.${titleVersion}`;
+  }
 
   // -1 means "no card selected yet this session"; we keep the last choice otherwise.
   private buyFeatureSelectedCardIndex: number = -1;
@@ -726,6 +742,9 @@ export class BuyFeature {
     const cardWidth =
       BuyFeature.BUY_FEATURE_TYPE_WIDTH - BuyFeature.CARD_PADDING * 2;
     const item = BuyFeature.CARD_ITEMS[index] || BuyFeature.CARD_ITEMS[0];
+    const localizedCardTitle = BuyFeature.getLocalizedCardTitle(
+      item.titleVersion,
+    );
     const cardContainer = scene.add.container(0, cardCenterY);
 
     // Background (dark card + green border)
@@ -853,7 +872,7 @@ export class BuyFeature {
     const textLeft = leftX + iconSize + BuyFeature.CARD_TEXT_OFFSET_FROM_ICON;
     const textTop = -BuyFeature.CARD_HEIGHT / 2 + 12;
     const titleText = scene.add
-      .text(textLeft, textTop + 8, item.title, {
+      .text(textLeft, textTop + 8, localizedCardTitle, {
         fontSize: `${BuyFeature.CARD_TITLE_FONT_SIZE}px`,
         fontFamily: "Poppins-Bold",
         color: "#ffffff",
@@ -891,9 +910,17 @@ export class BuyFeature {
     cardContainer.setData("priceText", priceText);
     cardContainer.setData("amountText", amountText);
 
+    const localizedRandomScatter =
+      localizationManager.getTextByKey(POPUP_BUYFEAT_RANDOM_SCATTER) ??
+      LOCALIZATION_DEFAULTS[POPUP_BUYFEAT_RANDOM_SCATTER] ??
+      'Random Scatter';
+    const localizedStartMultiplier =
+      localizationManager.getTextByKey(POPUP_BUYFEAT_START_MULTIPLIER) ??
+      LOCALIZATION_DEFAULTS[POPUP_BUYFEAT_START_MULTIPLIER] ??
+      'Start Multipliers';
     const description =
       item.decriptionOverride ||
-      `Random Scatter (${item.scatterCount}), Start Multipliers: ${item.startMultiplier}x`;
+      `${localizedRandomScatter} (${item.scatterCount}), ${localizedStartMultiplier}: ${item.startMultiplier}x`;
     const descText = scene.add
       .text(textLeft, textTop + 56, description, {
         fontSize: "12px",

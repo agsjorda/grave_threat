@@ -60,6 +60,10 @@ export class AssetConfig {
 				'dijoker_loading': `${prefix}/dijoker_loading/DI JOKER.png`
 			},
 			spine: {
+				'Bonus_BG_GT': {
+					atlas: `assets/portrait/high/vfx/Bonus_BG_GT.atlas`,
+					json: `assets/portrait/high/vfx/Bonus_BG_GT.json`
+				},
 				'di_joker': {
 					atlas: `${prefix}/dijoker_loading/DI JOKER.atlas`,
 					json: `${prefix}/dijoker_loading/DI JOKER.json`
@@ -105,6 +109,11 @@ export class AssetConfig {
 				'di_joker': {
 					atlas: `${prefix}/dijoker_loading/DI JOKER.atlas`,
 					json: `${prefix}/dijoker_loading/DI JOKER.json`
+				},
+				// Preloader background character (portrait/high only)
+				'BrittleJuiceForSpineMaxWinSpine': {
+					atlas: `assets/portrait/high/characters/BrittleJuiceForSpineMaxWinSpine.atlas`,
+					json: `assets/portrait/high/characters/BrittleJuiceForSpineMaxWinSpine.json`
 				},
 			}
 		};
@@ -283,6 +292,10 @@ export class AssetConfig {
 	
 		return {
 			spine: {
+				'BrittleJuiceVictoryForSpine': {
+					atlas: `assets/portrait/high/characters/BrittleJuiceVictoryForSpine.atlas`,
+					json: `assets/portrait/high/characters/BrittleJuiceVictoryForSpine.json`
+				},
 				'Congrats': {
 					atlas: `${prefix}/dialogs/Congrats_GT.atlas`,
 					json: `${prefix}/dialogs/Congrats_GT.json`

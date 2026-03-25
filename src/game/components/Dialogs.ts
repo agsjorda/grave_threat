@@ -11,6 +11,8 @@ import { UI_CONFIG, WIN_THRESHOLDS, TIMING_CONFIG } from '../../config/GameConfi
 import { Logger } from '../../utils/Logger';
 import { queueAnimation, startAnimation } from '../../utils/SpineAnimationHelper';
 import { CurrencyManager } from './CurrencyManager';
+import { localizationManager } from '../../managers/LocalizationManager';
+import { DIALOG_PRESS_CONTINUE, LOCALIZATION_DEFAULTS } from '../../backend/LocalizationData';
 
 export interface DialogConfig {
 	type: 'Congrats' | 'FreeSpin' | 'FreeSpinRetrigger' | 'BigWin' | 'MegaWin' | 'EpicWin' | 'SuperWin' | 'MaxWin' | 'TotalWin';
@@ -41,6 +43,17 @@ export interface CheckAndShowWinDialogContext {
 }
 
 export class Dialogs {
+	private getDialogText(key: string): string {
+		return localizationManager.getTextByKey(key) ?? LOCALIZATION_DEFAULTS[key] ?? key;
+	}
+
+	private getContinueTextPosition(scene: Scene): { x: number; y: number } {
+		return {
+			x: scene.scale.width / 2,
+			y: scene.scale.height / 2 + 300,
+		};
+	}
+
 	// Main dialog container that covers the entire screen
 	private dialogOverlay!: Phaser.GameObjects.Container;
 
@@ -68,6 +81,12 @@ export class Dialogs {
 	// Current dialog state
 	private currentDialog: any = null; // Spine object type
 	private currentDialogOverlay: any = null; // Optional overlay spine (e.g., TotalWin notes)
+	private congratsVictorySpine: any = null; // BrittleJuiceVictoryForSpine shown behind TotalWin
+
+	// TotalWin character tweaks (BrittleJuiceVictoryForSpine)
+	private totalWinCharacterOffsetX: number = 0;
+	private totalWinCharacterOffsetY: number = 200;
+	private totalWinCharacterScale: number = 0.45;
 	private isDialogActive: boolean = false;
 	private currentDialogType: string | null = null;
 	private currentDialogAssetType: DialogConfig['type'] | null = null;
@@ -125,19 +144,19 @@ export class Dialogs {
 		'EpicWin': { x: 0.5, y: 0.3 },
 		'SuperWin': { x: 0.5, y: 0.3 },
 		'MaxWin': { x: 0.5, y: 0.4 },
-		'TotalWin': { x: 0.5, y: 0.3 }
+		'TotalWin': { x: 0.5, y: 0.45 }
 	};
 
 	// Offset for number display (e.g. TotalWin amount)
 	private numberDisplayOffsetY: Record<string, number> = {
-		'Congrats': 90,
+		'Congrats': 250,
 		'FreeSpin': -20,
 		'BigWin': 90,
 		'MegaWin': 90,
 		'EpicWin': 90,
 		'SuperWin': 90,
 		'MaxWin': 120,
-		'TotalWin': 90
+		'TotalWin': 250
 	};
 
 	private dialogLoops: Record<string, boolean> = {
@@ -523,6 +542,10 @@ export class Dialogs {
 			this.currentDialogOverlay.destroy();
 			this.currentDialogOverlay = null;
 		}
+		if (this.congratsVictorySpine) {
+			this.congratsVictorySpine.destroy();
+			this.congratsVictorySpine = null;
+		}
 
 		const isTotalWinDialog = this.isTotalWinDialogType(config.type);
 		const renderType = this.getDialogRenderType(config.type);
@@ -616,8 +639,38 @@ export class Dialogs {
 
 		this.currentDialog.setDepth(103);
 
+		// TotalWin (end of free spins): show BrittleJuiceVictoryForSpine just behind the dialog, above dimmer/background overlays.
+		if (config.type === 'TotalWin') {
+			try {
+				const victoryKey = 'BrittleJuiceVictoryForSpine';
+				const victoryAtlasKey = `${victoryKey}-atlas`;
+				const vx = position.x + this.totalWinCharacterOffsetX;
+				const vy = position.y + this.totalWinCharacterOffsetY;
+				this.congratsVictorySpine = (scene.add as any).spine(vx, vy, victoryKey, victoryAtlasKey);
+				this.congratsVictorySpine.setOrigin?.(0.5, 0.5);
+				this.congratsVictorySpine.setDepth(this.currentDialog.depth - 1);
+				try {
+					const s = Number(this.totalWinCharacterScale) || 1;
+					this.congratsVictorySpine.setScale?.(s, s);
+				} catch { }
+				try {
+					const names = this.getSkeletonAnimationNames(this.congratsVictorySpine);
+					const animationName = names.includes('animation') ? 'animation' : (names[0] || 'animation');
+					startAnimation(this.congratsVictorySpine, { animationName, loop: true });
+				} catch { }
+				this.dialogOverlay.add(this.congratsVictorySpine);
+			} catch (e) {
+				console.warn('[Dialogs] Failed to create BrittleJuiceVictoryForSpine:', e);
+				this.congratsVictorySpine = null;
+			}
+		}
+
 		// Add directly to dialog overlay so it shares the same layer as number display
 		this.dialogOverlay.add(this.currentDialog);
+		// Ensure the dialog stays above the Congrats victory spine
+		if (this.congratsVictorySpine) {
+			this.dialogOverlay.bringToTop(this.currentDialog);
+		}
 		// Ensure number displays stay above dialog content even if we recreate the dialog (staged wins)
 		if (this.numberDisplayContainer) {
 			this.dialogOverlay.bringToTop(this.numberDisplayContainer);
@@ -734,6 +787,8 @@ export class Dialogs {
 	 * Create the "Press anywhere to continue" text
 	 */
 	private createContinueText(scene: Scene): void {
+		const position = this.getContinueTextPosition(scene);
+		const wrapWidth = Math.max(200, scene.scale.width * 0.9);
 
 		// Clean up existing text
 		if (this.continueText) {
@@ -743,15 +798,17 @@ export class Dialogs {
 
 		// Create the text with your original styling
 		this.continueText = scene.add.text(
-			scene.scale.width / 2,
-			scene.scale.height / 2 + 300,
-			'Press anywhere to continue',
+			position.x,
+			position.y,
+			this.getDialogText(DIALOG_PRESS_CONTINUE),
 			{
 				fontFamily: 'Poppins-Bold',
 				fontSize: '20px',
 				color: '#FFFFFF',
 				stroke: '#379557',
 				strokeThickness: 5,
+				align: 'center',
+				wordWrap: { width: wrapWidth, useAdvancedWrap: true },
 				shadow: {
 					offsetX: 2,
 					offsetY: 2,
@@ -762,7 +819,7 @@ export class Dialogs {
 			}
 		);
 
-		this.continueText.setOrigin(0.5, 0.5);
+		this.continueText.setOrigin(0.5, 0);
 		this.continueText.setDepth(104);
 		this.continueText.setAlpha(0); // Start invisible
 
@@ -1828,6 +1885,10 @@ export class Dialogs {
 			this.currentDialogOverlay.destroy();
 			this.currentDialogOverlay = null;
 		}
+		if (this.congratsVictorySpine) {
+			this.congratsVictorySpine.destroy();
+			this.congratsVictorySpine = null;
+		}
 
 		// Clean up continue text
 		if (this.continueText) {
@@ -1967,6 +2028,12 @@ export class Dialogs {
 			this.blackOverlay.clear();
 			this.blackOverlay.fillStyle(0x000000, 0.7);
 			this.blackOverlay.fillRect(0, 0, scene.scale.width, scene.scale.height);
+		}
+		if (this.continueText) {
+			const wrapWidth = Math.max(200, scene.scale.width * 0.9);
+			const position = this.getContinueTextPosition(scene);
+			this.continueText.setStyle({ wordWrap: { width: wrapWidth, useAdvancedWrap: true } });
+			this.continueText.setPosition(position.x, position.y);
 		}
 	}
 

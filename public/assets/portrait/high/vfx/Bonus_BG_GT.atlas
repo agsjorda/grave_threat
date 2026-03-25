@@ -1,0 +1,167 @@
+Bonus_BG_GT.webp
+size:2048,2048
+filter:Linear,Linear
+pma:false
+BG
+bounds:2,1313,428,733
+offsets:0,193,428,926
+Main/Will-o-wisp_00000
+bounds:2,657,420,654
+offsets:0,0,420,668
+Main/Will-o-wisp_00001
+bounds:432,1392,420,654
+offsets:0,0,420,668
+Main/Will-o-wisp_00005
+bounds:846,89,420,648
+offsets:0,0,420,668
+Main/Will-o-wisp_00006
+bounds:854,1392,420,654
+offsets:0,0,420,668
+Main/Will-o-wisp_00008
+bounds:1268,95,420,646
+offsets:0,0,420,668
+Main/Will-o-wisp_00009
+bounds:846,739,420,651
+offsets:0,0,420,668
+Main/Will-o-wisp_00011
+bounds:424,659,420,652
+offsets:0,0,420,668
+Main/Will-o-wisp_00013
+bounds:424,5,420,652
+offsets:0,0,420,668
+Main/Will-o-wisp_00015
+bounds:1268,743,420,647
+offsets:0,0,420,668
+Main/Will-o-wisp_00021
+bounds:2,2,420,653
+offsets:0,0,420,668
+Main/Will-o-wisp_00022
+bounds:1276,1392,420,654
+offsets:0,0,420,668
+Pre-comp 1/Fire_00000
+bounds:1690,870,89,101
+offsets:9,2,110,110
+Pre-comp 1/Fire_00001
+bounds:1791,1393,90,104
+offsets:10,2,110,110
+Pre-comp 1/Fire_00002
+bounds:1889,1830,92,106
+offsets:10,2,110,110
+Pre-comp 1/Fire_00003
+bounds:1794,1938,93,108
+offsets:9,2,110,110
+Pre-comp 1/Fire_00004
+bounds:1889,1938,92,108
+offsets:8,2,110,110
+Pre-comp 1/Fire_00005
+bounds:1792,1499,89,107
+offsets:8,2,110,110
+Pre-comp 1/Fire_00006
+bounds:1698,1718,93,108
+offsets:8,2,110,110
+Pre-comp 1/Fire_00007
+bounds:1690,1076,93,101
+offsets:9,2,110,110
+Pre-comp 1/Fire_00008
+bounds:1780,1288,92,103
+offsets:9,2,110,110
+Pre-comp 1/Fire_00009
+bounds:1690,1179,90,104
+offsets:10,2,110,110
+Pre-comp 1/Fire_00010
+bounds:1690,1285,88,105
+offsets:10,2,110,110
+Pre-comp 1/Fire_00011
+bounds:1698,1500,92,106
+offsets:9,2,110,110
+Pre-comp 1/Fire_00012
+bounds:1698,1938,94,108
+offsets:8,2,110,110
+Pre-comp 1/Fire_00013
+bounds:1794,1828,93,108
+offsets:8,2,110,110
+Pre-comp 1/Fire_00014
+bounds:1793,1718,91,108
+offsets:8,2,110,110
+Pre-comp 1/Fire_00015
+bounds:1690,478,90,95
+offsets:9,2,110,110
+Pre-comp 1/Fire_00016
+bounds:1690,770,92,98
+offsets:9,2,110,110
+Pre-comp 1/Fire_00017
+bounds:1690,973,92,101
+offsets:10,2,110,110
+Pre-comp 1/Fire_00018
+bounds:1698,1393,91,105
+offsets:10,2,110,110
+Pre-comp 1/Fire_00019
+bounds:1792,1608,90,108
+offsets:9,2,110,110
+Pre-comp 1/Fire_00020
+bounds:1698,1608,92,108
+offsets:8,2,110,110
+Pre-comp 1/Fire_00021
+bounds:1698,1828,94,108
+offsets:8,2,110,110
+Pre-comp 1/Fire_00022
+bounds:1690,575,94,94
+offsets:8,2,110,110
+Pre-comp 1/Fire_00023
+bounds:1690,671,92,97
+offsets:9,2,110,110
+
+Bonus_BG_GT_2.webp
+size:1944,1944
+filter:Linear,Linear
+pma:true
+Main/Will-o-wisp_00002
+bounds:424,8,420,641
+offsets:0,0,420,668
+Main/Will-o-wisp_00003
+bounds:1268,661,420,637
+offsets:0,0,420,668
+Main/Will-o-wisp_00004
+bounds:2,2,420,643
+offsets:0,0,420,668
+Main/Will-o-wisp_00007
+bounds:846,655,420,640
+offsets:0,0,420,668
+Main/Will-o-wisp_00010
+bounds:424,651,420,642
+offsets:0,0,420,668
+Main/Will-o-wisp_00012
+bounds:424,1295,420,644
+offsets:0,0,420,668
+Main/Will-o-wisp_00014
+bounds:846,1297,420,642
+offsets:0,0,420,668
+Main/Will-o-wisp_00016
+bounds:1268,1300,420,639
+offsets:0,0,420,668
+Main/Will-o-wisp_00017
+bounds:1268,25,420,634
+offsets:0,0,420,668
+Main/Will-o-wisp_00019
+bounds:846,15,420,638
+offsets:0,0,420,668
+Main/Will-o-wisp_00020
+bounds:2,1294,420,645
+offsets:0,0,420,668
+Main/Will-o-wisp_00023
+bounds:2,647,420,645
+offsets:0,0,420,668
+
+Bonus_BG_GT_3.webp
+size:856,856
+filter:Linear,Linear
+pma:true
+Main/Light_00000
+bounds:424,455,420,397
+offsets:0,0,420,434
+Main/Will-o-wisp_00018
+bounds:2,220,420,632
+offsets:0,0,420,668
+Table
+bounds:424,186,428,267
+offsets:0,0,428,367

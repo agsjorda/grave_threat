@@ -80,7 +80,6 @@ export class AudioManager {
 		// Sound effects
 		this.scene.load.audio('spinb', 'assets/sounds/SFX/spinb_BB.ogg');
 		this.scene.load.audio('click', 'assets/sounds/click_2.ogg');
-		this.scene.load.audio('reelroll', 'assets/sounds/SFX/reelroll_BB.ogg');
 		this.scene.load.audio('reeldrop', 'assets/sounds/SFX/reeldrop_BB.ogg');
 		this.scene.load.audio('turbodrop', 'assets/sounds/SFX/turbodrop_ka.ogg');
 		this.scene.load.audio('box_close', 'assets/sounds/SFX/box_close.ogg');
@@ -159,16 +158,6 @@ export class AudioManager {
 				const scatterDrop4 = this.scene.sound.add('scatterdrop4', { volume: this.sfxVolume, loop: false });
 				this.sfxInstances.set(SoundEffectType.SCATTER_DROP_4, scatterDrop4);
 			} catch (e) { console.warn('[AudioManager] Failed to create scatterdrop4 SFX instance:', e); }
-
-			try {
-				const reelRollSfx = this.scene.sound.add('reelroll', {
-					volume: this.sfxVolume,
-					loop: true
-				});
-				this.sfxInstances.set(SoundEffectType.REEL_ROLL, reelRollSfx);
-			} catch (e) {
-				console.warn('[AudioManager] Failed to create reelroll SFX instance:', e);
-			}
 
 			const turboDropSfx = this.scene.sound.add('turbodrop', {
 				volume: this.sfxVolume,
@@ -287,15 +276,7 @@ export class AudioManager {
 	private boundOnTumbleSequenceDone = (): void => this.onTumbleSequenceDone();
 
 	private onReelsStart(): void {
-		if (this.isMuted) return;
-		const sfx = this.sfxInstances.get(SoundEffectType.REEL_ROLL);
-		if (sfx && !sfx.isPlaying) {
-			try {
-				sfx.play();
-			} catch (e) {
-				console.warn('[AudioManager] Failed to play reel roll:', e);
-			}
-		}
+		// Grave Threat no longer uses the reel-roll loop ("conveyor" ambience).
 	}
 
 	private onTumbleSequenceDone(): void {

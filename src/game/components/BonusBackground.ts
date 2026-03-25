@@ -10,12 +10,14 @@ import {
 	BACKGROUND_COVER_CONFIG,
 } from "../../config/GameConfig";
 import { scaleBottomCoverImage } from "./BackgroundCoverLayout";
+import { ensureSpineFactory } from "../../utils/SpineGuard";
 
 export class BonusBackground {
 	private bonusContainer!: Phaser.GameObjects.Container;
 	private networkManager: NetworkManager;
 	private screenModeManager: ScreenModeManager;
 	private bonusBg: any = null; // Spine animation object
+	private bonusSmokeBg: any = null; // Spine background VFX
 	private bonusBgCover: Phaser.GameObjects.Image | null = null;
 	private scene: Scene | null = null;
 
@@ -24,6 +26,13 @@ export class BonusBackground {
 	private coverBottomOffsetPx: number = 0;
 	// Same layout as normal: background centered (no offset)
 	private bonusBackgroundYOffset: number = 0;
+
+	// Vertical offset (px) for Bonus_BG_GT spine VFX
+	private bonusVfxYOffset: number = 0;
+
+	// Scale multipliers for Bonus_BG_GT spine VFX (1 = no change)
+	private bonusVfxScaleX: number = 1;
+	private bonusVfxScaleY: number = .8;
 	
 	constructor(networkManager: NetworkManager, screenModeManager: ScreenModeManager) {
 		this.networkManager = networkManager;
@@ -74,6 +83,32 @@ export class BonusBackground {
 			this.bonusContainer.add(this.bonusBg);
 		}
 
+		const bonusVfxKey = "Bonus_BG_GT";
+		if (scene.cache.json.has(bonusVfxKey) && ensureSpineFactory(scene, `[BonusBackground] ${bonusVfxKey}`)) {
+			try {
+				this.bonusSmokeBg = scene.add.spine(
+					scene.scale.width * 0.5,
+					scene.scale.height * 0.5,
+					bonusVfxKey,
+					`${bonusVfxKey}-atlas`,
+				);
+				this.bonusSmokeBg.setDepth(1);
+				this.bonusSmokeBg.setOrigin?.(0.5, 0.5);
+				try {
+					const state =
+						this.bonusSmokeBg.animationState ||
+						this.bonusSmokeBg.spine?.animationState;
+					if (state && typeof state.setAnimation === "function") {
+						state.setAnimation(0, "animation", true);
+					}
+				} catch {}
+				this.bonusContainer.add(this.bonusSmokeBg);
+			} catch (e) {
+				console.warn(`[BonusBackground] Failed to create ${bonusVfxKey} spine:`, e);
+				this.bonusSmokeBg = null;
+			}
+		}
+
 		// bg_border is a single scene object in Background.ts at BG_BORDER_DEPTH (above grid); not duplicated here.
 
 		// Cover overlay - same layout as normal (ControllerNormal_PC / normal_bg_cover)
@@ -118,6 +153,27 @@ export class BonusBackground {
 				this.bonusBg.setScale(scale);
 			} catch (e) {
 				console.warn('[BonusBackground] Failed to scale bonus bg:', e);
+			}
+		}
+
+		if (this.bonusSmokeBg) {
+			this.bonusSmokeBg.setPosition(width * 0.5, height * 0.5 + this.bonusVfxYOffset);
+			try {
+				const smokeWidth =
+					this.bonusSmokeBg.width ||
+					this.bonusSmokeBg.skeleton?.data?.width ||
+					954.49;
+				const smokeHeight =
+					this.bonusSmokeBg.height ||
+					this.bonusSmokeBg.skeleton?.data?.height ||
+					1464.8;
+				const scale = Math.max(
+					width / (smokeWidth || 1),
+					height / (smokeHeight || 1),
+				);
+				this.bonusSmokeBg.setScale(scale * this.bonusVfxScaleX, scale * this.bonusVfxScaleY);
+			} catch (e) {
+				console.warn("[BonusBackground] Failed to scale bonus BG VFX:", e);
 			}
 		}
 

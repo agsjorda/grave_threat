@@ -1,0 +1,194 @@
+Smoke_BG.webp
+size:2048,2048
+filter:Linear,Linear
+pma:true
+Cigar_Smoke_00000
+bounds:1581,1476,304,567
+offsets:9,29,327,660
+Cigar_Smoke_00001
+bounds:1569,885,302,589
+offsets:10,30,327,660
+Cigar_Smoke_00028
+bounds:1541,7,282,400
+offsets:28,149,327,660
+Cigar_Smoke_00034
+bounds:1825,163,205,244
+offsets:30,301,327,660
+Cigar_Smoke_00037
+bounds:1887,1812,140,231
+offsets:95,309,327,660
+Cigar_Smoke_00038
+bounds:1887,1644,136,166
+offsets:97,375,327,660
+Cigar_Smoke_00039
+bounds:2,16,72,124
+offsets:100,394,327,660
+Pop Smoke_00001
+bounds:1557,409,486,474
+offsets:58,63,600,600
+Pop Smoke_00006
+bounds:1031,141,508,474
+offsets:37,63,600,600
+Pop Smoke_00007
+bounds:1061,1569,518,474
+offsets:30,63,600,600
+Pop Smoke_00008
+bounds:520,141,509,474
+offsets:39,63,600,600
+Pop Smoke_00010
+bounds:528,617,514,474
+offsets:33,63,600,600
+Pop Smoke_00011
+bounds:1044,617,511,474
+offsets:27,63,600,600
+Pop Smoke_00013
+bounds:2,142,516,474
+offsets:25,63,600,600
+Pop Smoke_00014
+bounds:535,1569,524,474
+offsets:21,63,600,600
+Pop Smoke_00015
+bounds:2,1569,531,474
+offsets:17,63,600,600
+Pop Smoke_00016
+bounds:2,618,524,473
+offsets:26,64,600,600
+Pop Smoke_00017
+bounds:1052,1093,515,474
+offsets:22,63,600,600
+Pop Smoke_00018
+bounds:530,1093,520,474
+offsets:21,63,600,600
+Pop Smoke_00019
+bounds:2,1093,526,474
+offsets:17,63,600,600
+
+Smoke_BG_2.webp
+size:2040,2040
+filter:Linear,Linear
+pma:true
+Cigar_Smoke_00002
+bounds:1367,353,280,614
+offsets:25,10,327,660
+Cigar_Smoke_00004
+bounds:1649,373,255,595
+offsets:45,10,327,660
+Cigar_Smoke_00010
+bounds:1383,970,285,592
+offsets:27,41,327,660
+Cigar_Smoke_00011
+bounds:1094,969,287,593
+offsets:26,39,327,660
+Cigar_Smoke_00012
+bounds:1670,973,285,589
+offsets:24,37,327,660
+Cigar_Smoke_00013
+bounds:502,412,287,575
+offsets:27,34,327,660
+Cigar_Smoke_00018
+bounds:1080,385,285,582
+offsets:28,48,327,660
+Cigar_Smoke_00019
+bounds:804,984,288,578
+offsets:25,56,327,660
+Cigar_Smoke_00020
+bounds:512,989,290,573
+offsets:23,59,327,660
+Cigar_Smoke_00021
+bounds:791,411,287,571
+offsets:23,59,327,660
+Cigar_Smoke_00029
+bounds:783,26,275,383
+offsets:35,161,327,660
+Cigar_Smoke_00030
+bounds:501,88,280,322
+offsets:31,218,327,660
+Cigar_Smoke_00031
+bounds:1060,94,280,289
+offsets:30,242,327,660
+Cigar_Smoke_00032
+bounds:1342,107,257,244
+offsets:30,296,327,660
+Cigar_Smoke_00033
+bounds:1601,104,235,247
+offsets:30,300,327,660
+Cigar_Smoke_00035
+bounds:1838,132,200,239
+offsets:32,303,327,660
+Pop Smoke_00000
+bounds:2,137,497,474
+offsets:46,63,600,600
+Pop Smoke_00002
+bounds:1008,1564,491,474
+offsets:54,63,600,600
+Pop Smoke_00003
+bounds:513,1564,493,474
+offsets:50,63,600,600
+Pop Smoke_00004
+bounds:1501,1564,490,474
+offsets:45,63,600,600
+Pop Smoke_00005
+bounds:2,613,498,474
+offsets:41,63,600,600
+Pop Smoke_00009
+bounds:2,1565,509,473
+offsets:36,63,600,600
+Pop Smoke_00012
+bounds:2,1089,508,474
+offsets:29,63,600,600
+
+Smoke_BG_3.webp
+size:1676,1676
+filter:Linear,Linear
+pma:true
+Cigar_Smoke_00003
+bounds:2,503,268,588
+offsets:31,30,327,660
+Cigar_Smoke_00005
+bounds:821,542,283,559
+offsets:31,30,327,660
+Cigar_Smoke_00006
+bounds:2,1093,278,581
+offsets:36,24,327,660
+Cigar_Smoke_00007
+bounds:547,532,272,566
+offsets:42,1,327,660
+Cigar_Smoke_00008
+bounds:1403,541,271,565
+offsets:43,21,327,660
+Cigar_Smoke_00009
+bounds:272,514,273,577
+offsets:40,38,327,660
+Cigar_Smoke_00014
+bounds:567,1103,282,571
+offsets:32,24,327,660
+Cigar_Smoke_00015
+bounds:282,1100,283,574
+offsets:31,1,327,660
+Cigar_Smoke_00016
+bounds:1135,1108,283,566
+offsets:31,21,327,660
+Cigar_Smoke_00017
+bounds:851,1103,282,571
+offsets:31,37,327,660
+Cigar_Smoke_00022
+bounds:1106,553,282,548
+offsets:32,64,327,660
+Cigar_Smoke_00023
+bounds:574,13,283,517
+offsets:31,66,327,660
+Cigar_Smoke_00024
+bounds:2,6,284,495
+offsets:30,81,327,660
+Cigar_Smoke_00025
+bounds:288,49,284,463
+offsets:30,83,327,660
+Cigar_Smoke_00026
+bounds:859,96,264,444
+offsets:31,110,327,660
+Cigar_Smoke_00027
+bounds:1125,119,276,432
+offsets:32,120,327,660
+Cigar_Smoke_00036
+bounds:1420,1445,179,229
+offsets:55,308,327,660

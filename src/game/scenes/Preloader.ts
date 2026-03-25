@@ -12,6 +12,8 @@ import { StudioLoadingScreen } from '../components/StudioLoadingScreen';
 import { ClockDisplay } from '../components/ClockDisplay';
 import { CLOCK_DISPLAY_NAME, GAME_DISPLAY_NAME, CLOCK_DISPLAY_CONFIG, PRELOADER_CONFIG } from '../../config/GameConfig';
 import { CurrencyManager } from '../components/CurrencyManager';
+import { LOCALIZATION_DEFAULTS } from '../../backend/LocalizationData';
+import { localizationManager } from '../../managers/LocalizationManager';
 import { unresolvedSpinManager } from '../../managers/UnresolvedSpinManager';
 
 export class Preloader extends Scene
@@ -32,6 +34,13 @@ export class Preloader extends Scene
 	private websiteText?: Phaser.GameObjects.Text;
 	private maxWinText?: Phaser.GameObjects.Text;
 	private fullscreenBtn?: Phaser.GameObjects.Image;
+	private preloaderCharacter: any = null;
+
+	// Preloader character tweaks (BrittleJuiceForSpineMaxWinSpine)
+	private preloaderCharacterXOffsetPx: number = 100;
+	private preloaderCharacterYOffsetPx: number = 300;
+	private preloaderCharacterScaleMultiplier: number = 1;
+	private preloaderCharacterAngleOffsetDeg: number = -8;
 
 	constructor ()
 	{
@@ -189,8 +198,23 @@ export class Preloader extends Scene
 				unresolvedSpinManager.setFromInitializationData(null);
 			}
 
+			try {
+				await this.gameAPI.fetchLocalizationData();
+				const localizationData = this.gameAPI.getLocalizationData();
+				const locale = localizationData?.locale ?? '';
+				if (locale.length > 0) {
+					localizationManager.setTranslations(locale);
+				} else {
+					localizationManager.setTranslations(JSON.stringify(LOCALIZATION_DEFAULTS));
+				}
+			} catch (localizationError) {
+				console.warn('[Preloader] Localization fetch failed, using defaults:', localizationError);
+				localizationManager.setTranslations(JSON.stringify(LOCALIZATION_DEFAULTS));
+			}
+
         } catch (error) {
             console.error('[Preloader] Failed to initialize GameAPI or slot session:', error);
+			localizationManager.setTranslations(JSON.stringify(LOCALIZATION_DEFAULTS));
         }
 
 		// Create fullscreen toggle now that assets are loaded (using shared manager)
@@ -229,6 +253,8 @@ export class Preloader extends Scene
 		if (!ensureSpineLoader(this, '[Preloader] loadPreloaderTransitionAssets')) return;
 
 		try {
+			this.load.audio('bats_transition_GT', 'assets/sounds/SFX/bats_transition_GT.ogg');
+
 			const anyLoad: any = this.load as any;
 			if (typeof anyLoad.spine === 'function') {
 				anyLoad.spine(
@@ -248,16 +274,12 @@ export class Preloader extends Scene
 
 	private startGameScene(options?: {
 		initialFadeInDurationMs?: number;
-		startupTransitionType?: 'circular_darkness_shrink';
-		startupTransitionDurationMs?: number;
 	}): void {
 		this.scene.start('Game', {
 			networkManager: this.networkManager,
 			screenModeManager: this.screenModeManager,
 			gameAPI: this.gameAPI,
-			initialFadeInDurationMs: options?.initialFadeInDurationMs,
-			startupTransitionType: options?.startupTransitionType,
-			startupTransitionDurationMs: options?.startupTransitionDurationMs
+			initialFadeInDurationMs: options?.initialFadeInDurationMs
 		});
 	}
 
@@ -285,6 +307,10 @@ export class Preloader extends Scene
 				'Bat_Transition_GT-atlas'
 			);
 
+			if (this.cache.audio.exists('bats_transition_GT')) {
+				this.sound.play('bats_transition_GT');
+			}
+
 			batTransition.setDepth(100000);
 			batTransition.setScale(Math.max(this.scale.width / 428, this.scale.height / 926));
 
@@ -295,9 +321,7 @@ export class Preloader extends Scene
 				const blackCover = this.coverPreloaderWithBlack();
 				try { batTransition.destroy(); } catch {}
 				this.startGameScene({
-					initialFadeInDurationMs: 0,
-					startupTransitionType: 'circular_darkness_shrink',
-					startupTransitionDurationMs: 1400
+					initialFadeInDurationMs: 2000
 				});
 				this.events.once('shutdown', () => {
 					try { blackCover.destroy(); } catch {}
@@ -331,6 +355,46 @@ export class Preloader extends Scene
 		).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(0);
 		const scale = Math.max(this.scale.width / background.width, this.scale.height / background.height);
 		background.setScale(scale);
+
+		// BrittleJuiceForSpineMaxWinSpine: 1 depth above the loading background
+		try {
+			const key = 'BrittleJuiceForSpineMaxWinSpine';
+			if (this.cache.json.has(key) && ensureSpineFactory(this, '[Preloader] BrittleJuiceForSpineMaxWinSpine')) {
+				this.preloaderCharacter = (this.add as any).spine(
+					this.scale.width * 0.5 + this.preloaderCharacterXOffsetPx,
+					this.scale.height * 0.5 + this.preloaderCharacterYOffsetPx,
+					key,
+					`${key}-atlas`,
+				);
+				this.preloaderCharacter.setOrigin?.(0.5, 0.5);
+				this.preloaderCharacter.setDepth(background.depth + 1);
+				try {
+					this.preloaderCharacter.setAngle?.(this.preloaderCharacterAngleOffsetDeg);
+				} catch {}
+				try {
+					const rawW = this.preloaderCharacter.width || this.preloaderCharacter.skeleton?.data?.width || 1;
+					const rawH = this.preloaderCharacter.height || this.preloaderCharacter.skeleton?.data?.height || 1;
+					const m = Number(this.preloaderCharacterScaleMultiplier) || 1;
+					const s = Math.max(this.scale.width / rawW, this.scale.height / rawH) * m;
+					this.preloaderCharacter.setScale?.(s, s);
+				} catch {}
+				try {
+					const state = this.preloaderCharacter.animationState || this.preloaderCharacter.spine?.animationState;
+					// Prefer "idle" if it exists; fall back to "animation" or the first available animation.
+					const data = this.preloaderCharacter?.skeleton?.data || this.preloaderCharacter?.skeletonData;
+					const anims: any[] = Array.isArray(data?.animations) ? data.animations : [];
+					const names = anims.map((a: any) => String(a?.name || '')).filter(Boolean);
+					const pick =
+						(names.includes('idle') && 'idle') ||
+						(names.includes('animation') && 'animation') ||
+						(names[0] || 'idle');
+					state?.setAnimation?.(0, pick, true);
+				} catch {}
+			}
+		} catch (e) {
+			console.warn('[Preloader] Failed to create BrittleJuiceForSpineMaxWinSpine:', e);
+			this.preloaderCharacter = null;
+		}
 
 		// Header logo at top of loading screen
 		if (this.textures.exists('preload_logo')) {

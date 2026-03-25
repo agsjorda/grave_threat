@@ -6,6 +6,8 @@ import { GameAPI } from "../../backend/GameAPI";
 import { HelpScreen } from "./MenuTabs/HelpScreen";
 import { CurrencyManager } from "./CurrencyManager";
 import { formatCurrencyNumber } from "../../utils/NumberPrecisionFormatter";
+import { localizationManager } from "../../managers/LocalizationManager";
+import * as LK from "../../backend/LocalizationData";
 
 interface ButtonBase {
   isButton: boolean;
@@ -14,6 +16,13 @@ interface ButtonBase {
 type ButtonContainer = GameObjects.Container & ButtonBase;
 type ButtonImage = GameObjects.Image & ButtonBase;
 type ButtonText = GameObjects.Text & ButtonBase;
+
+interface TabConfig {
+  text: string;
+  width: number;
+  x: number;
+  icon: string;
+}
 
 interface GameScene extends Scene {
   gameData: GameData;
@@ -25,6 +34,16 @@ interface GameScene extends Scene {
 }
 
 export class Menu {
+  private getMenuText(key: string): string {
+    return localizationManager.getTextByKey(key) ?? LK.LOCALIZATION_DEFAULTS[key] ?? key;
+  }
+
+  private formatHistoryPageText(page: number, totalPages: number): string {
+    return this.getMenuText(LK.MENU_HISTORY_PAGE)
+      .replace("{page}", String(page))
+      .replace("{total}", String(totalPages));
+  }
+
   private menuContainer?: ButtonContainer;
   private contentArea: GameObjects.Container;
   private isMobile: boolean = true;
@@ -64,11 +83,135 @@ export class Menu {
     /** Signature of the current top row; used so we only tween when a new spin reaches history. */
     private lastHistoryTopRowSignature: string | null = null;
     /** Cache recent history responses by page+limit to avoid redundant API requests on tab reopen. */
-    private historyCache: Map<string, { data: any; fetchedAt: number }> = new Map();
-    /** Cache TTL for history data (ms). */
-    private historyCacheTtlMs: number = 10000;
-    /** Marks history as stale after spins/bonus completion so next refresh fetches from API. */
-    private historyDirty: boolean = true;
+  private historyCache: Map<string, { data: any; fetchedAt: number }> = new Map();
+  /** Cache TTL for history data (ms). */
+  private historyCacheTtlMs: number = 10000;
+  /** Marks history as stale after spins/bonus completion so next refresh fetches from API. */
+  private historyDirty: boolean = true;
+  private readonly tabIconTargetHeight: number = 18;
+  private readonly tabTextGapFromIcon: number = 8;
+  private readonly tabTextDesiredFontSize: number = 16;
+  private readonly tabTextMinFontSize: number = 1;
+  private readonly tabDesiredPadding: number = 20;
+  private readonly tabMinPadding: number = 12;
+
+  private fitTextToWidth(
+    text: GameObjects.Text,
+    maxWidth: number,
+    desiredFontSize: number,
+    minFontSize: number = 1,
+  ): void {
+    const targetWidth = Math.max(0, maxWidth);
+    const maxSize = Math.max(1, Math.floor(desiredFontSize));
+    const minSize = Math.max(1, Math.floor(minFontSize));
+    let currentSize = Math.max(minSize, maxSize);
+
+    text.setFontSize(currentSize);
+    while (text.width > targetWidth && currentSize > minSize) {
+      currentSize -= 1;
+      text.setFontSize(currentSize);
+    }
+  }
+
+  private getTabIconKey(icon: string): string {
+    const tabIconMap: Record<string, string> = {
+      info: "menu_info",
+      history: "menu_history",
+      settings: "menu_settings",
+      close: "menu_close",
+    };
+    return tabIconMap[icon] ?? "";
+  }
+
+  private createTabIcon(
+    scene: GameScene,
+    tabContainer: ButtonContainer,
+    tabConfig: TabConfig,
+    tabHeight: number,
+  ): ButtonImage | undefined {
+    const iconKey = this.getTabIconKey(tabConfig.icon);
+    if (!iconKey) {
+      return undefined;
+    }
+
+    const icon = scene.add.image(0, tabHeight / 2, iconKey) as ButtonImage;
+    icon.setOrigin(0, 0.5);
+    const scale = this.tabIconTargetHeight / icon.height;
+    icon.setScale(scale);
+
+    if (tabConfig.icon === "close") {
+      icon.setOrigin(0.5, 0.5);
+      icon.setPosition(tabConfig.width / 2, tabHeight / 2);
+      icon.clearTint();
+    } else {
+      icon.setPosition(this.tabMinPadding, tabHeight / 2);
+      icon.setTint(0x379557);
+    }
+
+    tabContainer.add(icon);
+    return icon;
+  }
+
+  private createAndLayoutTabLabel(
+    scene: GameScene,
+    tabContainer: ButtonContainer,
+    tabConfig: TabConfig,
+    tabIcon: ButtonImage | undefined,
+    tabHeight: number,
+    isNormalTab: boolean,
+  ): void {
+    const initialTextAreaLeft = isNormalTab
+      ? (tabIcon ? tabIcon.x + tabIcon.displayWidth + this.tabTextGapFromIcon : this.tabDesiredPadding)
+      : tabConfig.width / 2;
+    const initialTextAreaWidth = isNormalTab
+      ? Math.max(0, tabConfig.width - initialTextAreaLeft - this.tabDesiredPadding)
+      : tabConfig.width;
+    const textCenterX = isNormalTab
+      ? initialTextAreaLeft + initialTextAreaWidth / 2
+      : tabConfig.width / 2;
+
+    const text = scene.add.text(textCenterX, tabHeight / 2, tabConfig.text, {
+      fontSize: `${this.tabTextDesiredFontSize}px`,
+      color: "#FFFFFF",
+      fontFamily: "Poppins-Regular",
+      align: "center",
+    }) as ButtonText;
+
+    if (tabConfig.icon === "close") {
+      text.setVisible(false);
+    }
+    text.setOrigin(0.5, 0.5);
+
+    if (tabConfig.icon !== "close") {
+      text.setFontSize(this.tabTextDesiredFontSize);
+      let resolvedPadding = this.tabDesiredPadding;
+      let resolvedTextAreaLeft = initialTextAreaLeft;
+      let resolvedTextAreaWidth = initialTextAreaWidth;
+
+      for (let currentPadding = this.tabDesiredPadding; currentPadding >= this.tabMinPadding; currentPadding--) {
+        if (tabIcon) {
+          tabIcon.setPosition(currentPadding, tabHeight / 2);
+          resolvedTextAreaLeft = tabIcon.x + tabIcon.displayWidth + this.tabTextGapFromIcon;
+        } else {
+          resolvedTextAreaLeft = currentPadding;
+        }
+
+        const maxTextWidthAtPadding = Math.max(0, tabConfig.width - resolvedTextAreaLeft - currentPadding);
+        resolvedPadding = currentPadding;
+        resolvedTextAreaWidth = maxTextWidthAtPadding;
+        text.setPosition(resolvedTextAreaLeft + maxTextWidthAtPadding / 2, tabHeight / 2);
+        if (text.width <= maxTextWidthAtPadding) {
+          break;
+        }
+      }
+
+      const maxTextWidth = Math.max(0, tabConfig.width - resolvedTextAreaLeft - resolvedPadding);
+      this.fitTextToWidth(text, maxTextWidth, this.tabTextDesiredFontSize, this.tabTextMinFontSize);
+      text.setPosition(resolvedTextAreaLeft + resolvedTextAreaWidth / 2, tabHeight / 2);
+    }
+
+    tabContainer.add(text);
+  }
 
   protected titleStyle = {
     fontSize: "24px",
@@ -179,11 +322,11 @@ export class Menu {
     const getLabel = (icon: string) => {
       switch (icon) {
         case "info":
-          return "Rules";
+          return this.getMenuText(LK.MENU_RULES);
         case "history":
-          return "History";
+          return this.getMenuText(LK.MENU_HISTORY);
         case "settings":
-          return "Settings";
+          return this.getMenuText(LK.COMMON_SETTINGS);
         case "close":
           return "X";
         default:
@@ -198,12 +341,7 @@ export class Menu {
     const closeWidth = panelWidth - normalTabWidth * normalTabCount;
 
     // Original spacing: no inter-tab gaps; close tab is smaller on the right
-    const tabConfigs: {
-      text: string;
-      width: number;
-      x: number;
-      icon: string;
-    }[] = [
+    const tabConfigs: TabConfig[] = [
       ...baseIcons.map((icon, i) => ({
         text: getLabel(icon),
         width: normalTabWidth,
@@ -242,58 +380,8 @@ export class Menu {
       activeIndicator.setVisible(index === 0);
       tabContainer.add(activeIndicator);
 
-      // Tab icon for all (including close)
-      let iconKey = "";
-      switch (tabConfig.icon) {
-        case "info":
-          iconKey = "menu_info";
-          break;
-        case "history":
-          iconKey = "menu_history";
-          break;
-        case "settings":
-          iconKey = "menu_settings";
-          break;
-        case "close":
-          iconKey = "menu_close";
-          break;
-      }
-
-      if (iconKey) {
-        const icon = scene.add.image(0, tabHeight / 2, iconKey) as ButtonImage;
-        icon.setOrigin(-0.5, 0.5);
-        // Scale to a consistent height (mobile-only)
-        const targetHeight = 18;
-        const scale = targetHeight / icon.height;
-        icon.setScale(scale);
-        if (tabConfig.icon === "close") {
-          // Center the close icon on its dark background
-          icon.setOrigin(0, 0.5);
-          icon.setPosition(tabConfig.width / 3, tabHeight / 2);
-          icon.clearTint();
-        } else {
-          // Left align icon with padding and tint green
-          icon.setPosition(12, tabHeight / 2);
-          icon.setTint(0x379557);
-        }
-        tabContainer.add(icon);
-      }
-
-      // Tab text
-      const textX = index < normalTabCount ? 45 : tabConfig.width / 2; // Offset for icon on normal tabs
-      const textAlign = index < normalTabCount ? "left" : "center";
-
-      const text = scene.add.text(textX, tabHeight / 2, tabConfig.text, {
-        fontSize: "16px",
-        color: "#FFFFFF",
-        fontFamily: "Poppins-Regular",
-        align: textAlign,
-      }) as ButtonText;
-      if (tabConfig.icon === "close") {
-        text.setVisible(false);
-      }
-      text.setOrigin(index < normalTabCount ? 0 : 0.5, 0.5);
-      tabContainer.add(text);
+      const tabIcon = this.createTabIcon(scene, tabContainer, tabConfig, tabHeight);
+      this.createAndLayoutTabLabel(scene, tabContainer, tabConfig, tabIcon, tabHeight, index < normalTabCount);
 
       // Make tab interactive
       tabContainer.setInteractive(
@@ -564,7 +652,12 @@ export class Menu {
     options?: { silent?: boolean },
   ): Promise<void> {
     const contentArea = this.historyContent;
-    const historyHeaders: string[] = ["Spin", "Currency", "Bet", "Win"];
+    const historyHeaders: string[] = [
+      this.getMenuText(LK.COMMON_SPIN),
+      this.getMenuText(LK.MENU_HISTORY_CURRENCY),
+      this.getMenuText(LK.COMMON_BET),
+      this.getMenuText(LK.MENU_HISTORY_WIN),
+    ];
     const isDemo = scene.gameAPI?.getDemoState();
     const silent = !!options?.silent;
 
@@ -574,7 +667,7 @@ export class Menu {
       const historyText = scene.add.text(
         15,
         15,
-        "History",
+        this.getMenuText(LK.MENU_HISTORY),
         this.titleStyle,
       ) as ButtonText;
       historyText.setOrigin(0, 0);
@@ -637,7 +730,7 @@ export class Menu {
       const emptyMessage = scene.add.text(
         scene.scale.width / 2,
         scene.scale.height * 0.3,
-        "History is not available in demo mode",
+        this.getMenuText(LK.MENU_DEMO_UNAVAILABLE),
         {
           fontSize: "16px",
           color: "#888888",
@@ -987,7 +1080,7 @@ export class Menu {
     const pageNumberText = scene.add.text(
       areaWidth / 2,
       y + 40, // place below the pagination buttons
-      `Page ${page} of ${totalPages}`,
+      this.formatHistoryPageText(page, totalPages),
       {
         fontSize: "20px",
         color: "#FFFFFF",
@@ -1010,7 +1103,7 @@ export class Menu {
     const title = scene.add.text(
       15,
       15,
-      "Settings",
+      this.getMenuText(LK.COMMON_SETTINGS),
       this.titleStyle,
     ) as ButtonText;
     title.setOrigin(0, 0);
@@ -1028,7 +1121,7 @@ export class Menu {
     const musicLabel = scene.add.text(
       startX + 0,
       startY + 70,
-      "Background Music",
+      this.getMenuText(LK.MENU_BACKGROUND_MUSIC),
       {
         fontSize: "18px",
         color: "#FFFFFF",
@@ -1038,7 +1131,7 @@ export class Menu {
     contentArea.add(musicLabel);
 
     // SFX section (no icon)
-    const sfxLabel = scene.add.text(startX + 0, startY + 190, "Sound FX", {
+    const sfxLabel = scene.add.text(startX + 0, startY + 190, this.getMenuText(LK.MENU_SOUND_FX), {
       fontSize: "18px",
       color: "#FFFFFF",
       fontFamily: "Poppins-Regular",
