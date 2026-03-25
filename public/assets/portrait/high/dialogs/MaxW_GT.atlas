@@ -1,0 +1,343 @@
+MaxW_GT.webp
+size:2048,2048
+filter:Linear,Linear
+Eyes
+bounds:1785,1053,167,46
+offsets:1,0,169,46
+Fairy Dust_00000
+bounds:1368,1073,1,1
+Smoke_00006
+bounds:1368,1073,1,1
+Smoke_00036
+bounds:1368,1073,1,1
+Jackpot
+bounds:2,1413,1500,633
+offsets:0,3,1500,636
+MaxWinLeg1
+bounds:1785,1101,210,945
+offsets:0,0,210,946
+MaxWinLeg2
+bounds:1504,1051,279,995
+MaxWinShoulderStar
+bounds:685,2,189,207
+offsets:1,0,190,207
+Smoke_00007
+bounds:876,68,126,141
+offsets:163,362,797,886
+Smoke_00018
+bounds:1368,210,674,839
+offsets:61,13,797,886
+Smoke_00022
+bounds:685,211,681,863
+offsets:58,8,797,886
+Smoke_00023
+bounds:2,210,681,864
+offsets:58,9,797,886
+Teeth
+bounds:1004,181,66,28
+offsets:1,0,68,29
+Teeth copy
+bounds:876,38,71,28
+offsets:1,2,73,30
+TeethDarkpart
+bounds:201,167,89,41
+TheAfterLife
+bounds:2,1076,1500,335
+offsets:0,1,1500,336
+ZombieEyes
+bounds:2,137,197,71
+ZombieTeeth
+bounds:2,35,130,100
+
+MaxW_GT_2.webp
+size:2048,2048
+filter:Linear,Linear
+Fairy Dust_00050
+bounds:683,2,388,321
+offsets:263,812,1329,1329
+Fairy Dust_00051
+bounds:1073,78,273,245
+offsets:302,849,1329,1329
+HipMaxWinGuard2
+bounds:1348,32,118,291
+MaxWinArm
+bounds:1759,79,148,254
+offsets:0,1,149,262
+MaxWinHand
+bounds:1609,72,148,261
+offsets:0,36,149,297
+MaxWinHipGuard1
+bounds:1468,40,139,293
+offsets:8,0,147,300
+MaxWinelbow
+bounds:498,78,182,244
+offsets:0,0,182,245
+Smoke_00008
+bounds:2,106,494,216
+offsets:149,346,797,886
+Smoke_00020
+bounds:1365,1192,677,854
+offsets:60,9,797,886
+Smoke_00021
+bounds:2,324,679,859
+offsets:59,8,797,886
+Smoke_00024
+bounds:2,1185,680,861
+offsets:58,11,797,886
+Smoke_00025
+bounds:684,1192,679,854
+offsets:58,13,797,886
+Smoke_00026
+bounds:1352,335,676,855
+offsets:58,15,797,886
+Smoke_00028
+bounds:683,325,667,858
+offsets:63,19,797,886
+
+MaxW_GT_3.webp
+size:2048,2048
+filter:Linear,Linear
+MaxWinHand1
+bounds:2,108,162,225
+offsets:1,0,163,225
+Smoke_00016
+bounds:1356,1206,665,815
+offsets:65,24,797,886
+Smoke_00017
+bounds:2,335,670,828
+offsets:63,18,797,886
+Smoke_00019
+bounds:677,1173,677,848
+offsets:60,10,797,886
+Smoke_00027
+bounds:2,1165,673,856
+offsets:59,17,797,886
+Smoke_00029
+bounds:674,305,600,858
+offsets:122,21,797,886
+Smoke_00030
+bounds:1276,324,586,847
+offsets:122,24,797,886
+
+MaxW_GT_4.webp
+size:2048,2048
+filter:Linear,Linear
+Fairy Dust_00022
+bounds:2,2,607,461
+offsets:446,307,1329,1329
+Fairy Dust_00040
+bounds:611,3,612,437
+offsets:435,532,1329,1329
+MaxWinBody
+bounds:654,442,558,797
+MaxWinFleshHand
+bounds:1841,505,195,699
+offsets:0,0,868,699
+Smoke_00012
+bounds:1214,654,625,550
+offsets:85,244,797,886
+Smoke_00013
+bounds:663,1289,640,749
+offsets:77,59,797,886
+Smoke_00014
+bounds:2,465,650,774
+offsets:72,46,797,886
+Smoke_00015
+bounds:2,1241,659,797
+offsets:68,33,797,886
+Smoke_00031
+bounds:1305,1206,584,832
+offsets:121,26,797,886
+Smoke_00032
+bounds:1225,106,582,546
+offsets:121,29,797,886
+
+MaxW_GT_5.webp
+size:2048,2048
+filter:Linear,Linear
+Fairy Dust_00010
+bounds:2,50,537,463
+offsets:477,321,1329,1329
+Fairy Dust_00012
+bounds:1181,367,623,406
+offsets:298,391,1329,1329
+Fairy Dust_00014
+bounds:575,1157,600,421
+offsets:201,352,1329,1329
+Fairy Dust_00021
+bounds:1181,775,622,431
+offsets:383,286,1329,1329
+Fairy Dust_00023
+bounds:2,1017,545,490
+offsets:532,333,1329,1329
+Fairy Dust_00027
+bounds:2,515,529,500
+offsets:492,523,1329,1329
+Fairy Dust_00030
+bounds:549,743,630,412
+offsets:234,631,1329,1329
+Fairy Dust_00031
+bounds:541,319,616,422
+offsets:185,608,1329,1329
+Fairy Dust_00038
+bounds:1179,1208,634,411
+offsets:310,500,1329,1329
+Fairy Dust_00039
+bounds:1179,1621,638,422
+offsets:370,514,1329,1329
+MaxWinArmFlesh
+bounds:1815,926,228,693
+offsets:0,0,228,694
+Smoke_00011
+bounds:575,1580,602,463
+offsets:95,314,797,886
+Smoke_00033
+bounds:2,1509,571,534
+offsets:122,32,797,886
+
+MaxW_GT_6.webp
+size:2048,2048
+filter:Linear,Linear
+Fairy Dust_00011
+bounds:1184,381,591,429
+offsets:385,368,1329,1329
+Fairy Dust_00013
+bounds:1198,1633,617,411
+offsets:238,377,1329,1329
+Fairy Dust_00020
+bounds:580,1630,616,414
+offsets:318,269,1329,1329
+Fairy Dust_00028
+bounds:2,1583,576,461
+offsets:407,583,1329,1329
+Fairy Dust_00029
+bounds:580,1215,615,413
+offsets:314,636,1329,1329
+Fairy Dust_00032
+bounds:2,245,572,434
+offsets:160,579,1329,1329
+Fairy Dust_00037
+bounds:579,377,603,409
+offsets:253,490,1329,1329
+Fairy Dust_00045
+bounds:2,1123,566,458
+offsets:425,701,1329,1329
+Fairy Dust_00046
+bounds:579,788,603,425
+offsets:341,745,1329,1329
+Fairy Dust_00047
+bounds:1198,1221,614,410
+offsets:268,766,1329,1329
+Fairy Dust_00048
+bounds:1197,812,609,407
+offsets:212,769,1329,1329
+Fairy Dust_00049
+bounds:576,6,517,369
+offsets:229,788,1329,1329
+MaxWinPelvis
+bounds:1095,2,406,373
+offsets:1,28,407,401
+Smoke_00010
+bounds:2,681,575,440
+offsets:108,321,797,886
+
+MaxW_GT_7.webp
+size:2048,2048
+filter:Linear,Linear
+Fairy Dust_00004
+bounds:478,1189,556,418
+offsets:427,142,1329,1329
+Fairy Dust_00005
+bounds:478,1609,561,436
+offsets:474,159,1329,1329
+Fairy Dust_00006
+bounds:1036,767,528,456
+offsets:534,180,1329,1329
+Fairy Dust_00007
+bounds:2,2,471,472
+offsets:594,206,1329,1329
+Fairy Dust_00009
+bounds:1566,616,474,480
+offsets:564,278,1329,1329
+Fairy Dust_00017
+bounds:1581,1098,462,439
+offsets:212,273,1329,1329
+Fairy Dust_00019
+bounds:1041,1634,582,411
+offsets:268,259,1329,1329
+Fairy Dust_00024
+bounds:2,1004,455,513
+offsets:623,369,1329,1329
+Fairy Dust_00025
+bounds:2,476,433,526
+offsets:633,413,1329,1329
+Fairy Dust_00026
+bounds:2,1519,474,526
+offsets:572,465,1329,1329
+Fairy Dust_00033
+bounds:1566,174,474,440
+offsets:159,551,1329,1329
+Fairy Dust_00036
+bounds:459,767,553,420
+offsets:214,491,1329,1329
+Fairy Dust_00041
+bounds:986,307,521,458
+offsets:541,555,1329,1329
+Fairy Dust_00044
+bounds:475,287,509,478
+offsets:513,657,1329,1329
+MaxwinFaceRegular
+bounds:1625,1539,417,506
+offsets:0,0,417,509
+Smoke_00009
+bounds:1041,1225,538,407
+offsets:127,332,797,886
+
+MaxW_GT_8.webp
+size:2048,2048
+filter:Linear,Linear
+Fairy Dust_00001
+bounds:1402,770,408,402
+offsets:350,131,1329,1329
+Fairy Dust_00002
+bounds:945,713,455,413
+offsets:371,126,1329,1329
+Fairy Dust_00003
+bounds:1052,1618,507,413
+offsets:398,129,1329,1329
+Fairy Dust_00008
+bounds:2,111,427,480
+offsets:628,239,1329,1329
+Fairy Dust_00015
+bounds:2,1597,521,434
+offsets:190,323,1329,1329
+Fairy Dust_00016
+bounds:1583,1178,428,441
+offsets:197,295,1329,1329
+Fairy Dust_00018
+bounds:525,1605,525,426
+offsets:234,259,1329,1329
+Fairy Dust_00034
+bounds:1147,1174,434,442
+offsets:171,526,1329,1329
+Fairy Dust_00035
+bounds:454,671,489,439
+offsets:188,501,1329,1329
+Fairy Dust_00042
+bounds:714,1128,431,475
+offsets:627,583,1329,1329
+Fairy Dust_00043
+bounds:2,593,450,483
+offsets:594,617,1329,1329
+MaxWinHeadZombie
+bounds:2,1078,424,517
+offsets:0,0,424,518
+MaxWinShoulder
+bounds:428,1112,284,483
+offsets:82,48,408,531
+Smoke_00034
+bounds:1561,1621,470,410
+offsets:123,37,797,886
+Smoke_00035
+bounds:454,284,367,385
+offsets:145,52,797,886

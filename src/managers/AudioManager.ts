@@ -75,7 +75,7 @@ export class AudioManager {
 		this.scene.load.audio('freespinbg', 'assets/sounds/BG/freespinbg_BB.ogg');
 		
 		// Ambient audio
-		//this.scene.load.audio('ambience_ka', 'assets/sounds/SFX/ambience_ka.ogg');
+		this.scene.load.audio('ambience_gt', 'assets/sounds/BG/ambience_GT.ogg');
 		
 		// Sound effects
 		this.scene.load.audio('spinb', 'assets/sounds/SFX/spinb_BB.ogg');
@@ -264,11 +264,11 @@ export class AudioManager {
 			}
 
 			// Create ambient audio instance
-			// this.ambientInstance = this.scene.sound.add('ambience_bz', {
-			// 	volume: this.ambientVolume,
-			// 	loop: true
-			// });
-			// console.log('[AudioManager] Ambient audio instance created');
+			this.ambientInstance = this.scene.sound.add('ambience_gt', {
+				volume: this.ambientVolume,
+				loop: true
+			});
+			console.log('[AudioManager] Ambient audio instance created');
 
 
 			// Reel roll: play while reels/tumble are moving, stop when sequence is done

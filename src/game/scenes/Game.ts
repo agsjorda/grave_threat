@@ -27,6 +27,7 @@ import { BonusHeader } from '../components/BonusHeader';
 import { Dialogs } from '../components/Dialogs';
 import { BetOptions } from '../components/BetOptions';
 import { AutoplayOptions } from '../components/AutoplayOptions';
+import { CircularDarknessShrinkTransition } from '../components/CircularDarknessShrinkTransition';
 import { gameEventManager, GameEventType } from '../../event/EventManager';
 import { gameStateManager } from '../../managers/GameStateManager';
 import { GameAPI } from '../../backend/GameAPI';
@@ -75,6 +76,9 @@ export class Game extends Scene {
 
 	private idleManager: IdleManager | null = null;
 	private onPointerDownResetIdle?: () => void;
+	private initialFadeInDurationMs: number = GAME_SCENE_FADE_IN_DURATION_MS;
+	private startupTransitionType: 'circular_darkness_shrink' | null = null;
+	private startupTransitionDurationMs: number = 1200;
 
 	// Queue for wins that occur while a dialog is already showing
 	private winQueue: Array<{ payout: number; bet: number }> = [];
@@ -131,6 +135,19 @@ export class Game extends Scene {
 			this.gameAPI = new GameAPI(this.gameData);
 		}
 
+		this.initialFadeInDurationMs =
+			typeof data?.initialFadeInDurationMs === 'number' && data.initialFadeInDurationMs >= 0
+				? data.initialFadeInDurationMs
+				: GAME_SCENE_FADE_IN_DURATION_MS;
+		this.startupTransitionType =
+			data?.startupTransitionType === 'circular_darkness_shrink'
+				? 'circular_darkness_shrink'
+				: null;
+		this.startupTransitionDurationMs =
+			typeof data?.startupTransitionDurationMs === 'number' && data.startupTransitionDurationMs > 0
+				? data.startupTransitionDurationMs
+				: 1200;
+
 	}
 
 	public getCurrentBetAmount(): number {
@@ -185,7 +202,7 @@ export class Game extends Scene {
 		this.initializeUnresolvedSpinFlow();
 		EventBus.emit('current-scene-ready', this);
 
-		this.runFadeIn(fadeOverlay);
+		this.runStartupTransition(fadeOverlay);
 		this.setupEventBusListeners();
 		this.setupGameEventListeners();
 	}
@@ -362,11 +379,43 @@ export class Game extends Scene {
 		}
 	}
 
+	private runStartupTransition(fadeOverlay: Phaser.GameObjects.Rectangle): void {
+		if (this.startupTransitionType === 'circular_darkness_shrink') {
+			try { fadeOverlay.destroy(); } catch {}
+			this.playCircularDarknessShrinkTransition();
+			return;
+		}
+
+		this.runFadeIn(fadeOverlay);
+	}
+
+	private playCircularDarknessShrinkTransition(): void {
+		try {
+			if (this.cache.audio.exists('whistle')) {
+				this.sound.play('whistle', { volume: 0.55 });
+			}
+		} catch {}
+
+		const transition = new CircularDarknessShrinkTransition(this);
+		transition.playTransition({
+			durationMs: this.startupTransitionDurationMs,
+			centerX: this.scale.width * 0.5,
+			centerY: this.scale.height * 0.5
+		}).finally(() => {
+			transition.destroy();
+		});
+	}
+
 	private runFadeIn(fadeOverlay: Phaser.GameObjects.Rectangle): void {
+		if (this.initialFadeInDurationMs <= 0) {
+			fadeOverlay.destroy();
+			return;
+		}
+
 		this.tweens.add({
 			targets: fadeOverlay,
 			alpha: 0,
-			duration: GAME_SCENE_FADE_IN_DURATION_MS,
+			duration: this.initialFadeInDurationMs,
 			ease: 'Power2',
 			onComplete: () => {
 				fadeOverlay.destroy();
@@ -395,12 +444,13 @@ export class Game extends Scene {
 			}
 
 			const currentBaseBet = this.slotController.getBaseBetAmount() || 0.20;
-			const currentDisplayText = this.slotController.getBetAmountText();
-			const currentDisplayBet = currentDisplayText ? parseFloat(currentDisplayText) : currentBaseBet;
+			const isEnhancedBet = this.gameData?.isEnhancedBet === true;
+			const betDisplayMultiplier = isEnhancedBet ? 1.25 : 1;
+			const currentDisplayBet = currentBaseBet * betDisplayMultiplier;
 			this.betOptions.show({
 				currentBet: currentBaseBet,
 				currentBetDisplay: currentDisplayBet,
-				isEnhancedBet: this.gameData?.isEnhancedBet,
+				isEnhancedBet: isEnhancedBet,
 				onClose: () => {},
 				onConfirm: (betAmount: number) => {
 					this.slotController.updateBetAmount(betAmount);

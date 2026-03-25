@@ -304,16 +304,16 @@ export class AssetConfig {
 					json: `${prefix}/dialogs/SuperW_GT.json`
 				},
 				'MaxWin': {
-					atlas: `${prefix}/dialogs/MaxW_PC.atlas`,
-					json: `${prefix}/dialogs/MaxW_PC.json`
+					atlas: `${prefix}/dialogs/MaxW_GT.atlas`,
+					json: `${prefix}/dialogs/MaxW_GT.json`
 				},
 				'TotalWin': {
 					atlas: `${prefix}/dialogs/Congrats_GT.atlas`,
 					json: `${prefix}/dialogs/Congrats_GT.json`
 				},
 				'FreeSpin': {
-					atlas: `${prefix}/dialogs/FreeSpin_PC.atlas`,
-					json: `${prefix}/dialogs/FreeSpin_PC.json`
+					atlas: `${prefix}/dialogs/FreeSpin_GT.atlas`,
+					json: `${prefix}/dialogs/FreeSpin_GT.json`
 				}
 			}
 		};
@@ -381,6 +381,7 @@ export class AssetConfig {
 				'mainbg': 'assets/sounds/BG/mainbg_GT.ogg',
 				'bonusbg': 'assets/sounds/BG/bonusbg_GT.ogg',
 				'freespinbg': 'assets/sounds/BG/freespin_won_GT.ogg',
+				'ambience_gt': 'assets/sounds/BG/ambience_GT.ogg',
 				'spinb': 'assets/sounds/SFX/spin_GT.ogg',
 				'reelroll': 'assets/sounds/SFX/reelroll_PC.ogg',
 				'reeldrop': 'assets/sounds/SFX/reeldrop_GT.ogg',

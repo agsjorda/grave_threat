@@ -84,7 +84,7 @@ export class Dialogs {
 	private numberYWin: number | null = 450;
 	private numberYFreeSpin: number | null = null;
 	private numberYCongrats: number | null = null;
-	private readonly defaultNumberDisplayScale: number = 0.5;
+	private readonly defaultNumberDisplayScale: number = 0.3;
 	private readonly minNumberDisplayScale: number = 0.18;
 	private readonly numberDisplayPaddingXRatio: number = 0.05;
 	private readonly numberDisplayMinPaddingX: number = 30;
@@ -119,24 +119,24 @@ export class Dialogs {
 	// Dialog positions (relative: 0.0 = left/top, 0.5 = center, 1.0 = right/bottom)
 	private dialogPositions: Record<string, { x: number; y: number }> = {
 		'Congrats': { x: 0.5, y: 0.3 },
-		'FreeSpin': { x: 0.5, y: 0.3 },
+		'FreeSpin': { x: 0.5, y: 0.4 },
 		'BigWin': { x: 0.5, y: 0.3 },
 		'MegaWin': { x: 0.5, y: 0.3 },
 		'EpicWin': { x: 0.5, y: 0.3 },
 		'SuperWin': { x: 0.5, y: 0.3 },
-		'MaxWin': { x: 0.5, y: 0.5 },
+		'MaxWin': { x: 0.5, y: 0.4 },
 		'TotalWin': { x: 0.5, y: 0.3 }
 	};
 
 	// Offset for number display (e.g. TotalWin amount)
 	private numberDisplayOffsetY: Record<string, number> = {
 		'Congrats': 90,
-		'FreeSpin': 0,
+		'FreeSpin': -20,
 		'BigWin': 90,
 		'MegaWin': 90,
 		'EpicWin': 90,
 		'SuperWin': 90,
-		'MaxWin': 0,
+		'MaxWin': 120,
 		'TotalWin': 90
 	};
 
@@ -431,8 +431,8 @@ export class Dialogs {
 	 */
 	private normalizeDialogType(type: string): DialogConfig['type'] {
 		const normalizedMap: Record<string, DialogConfig['type']> = {
-			MaxW_PC: 'MaxWin',
-			maxw_pc: 'MaxWin'
+			MaxW_GT: 'MaxWin',
+			maxw_gt: 'MaxWin'
 		};
 
 		return normalizedMap[type] || (type as DialogConfig['type']);
@@ -448,9 +448,9 @@ export class Dialogs {
 			MegaWin: ['MEgaW_GT'],
 			EpicWin: ['EpicW_GT'],
 			SuperWin: ['Super_GT', 'SuperW_GT'],
-			MaxWin: ['MaxW_PC'],
-			FreeSpin: ['FreeSpin_PC'],
-			FreeSpinRetrigger: ['FreeSpin_PC'],
+			MaxWin: ['MaxW_GT'],
+			FreeSpin: ['FreeSpin_GT'],
+			FreeSpinRetrigger: ['FreeSpin_GT'],
 			TotalWin: [],
 			Congrats: ['Congrats_GT']
 		};

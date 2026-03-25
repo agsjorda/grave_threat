@@ -1398,11 +1398,16 @@ export class Menu {
       stopSliderDragging();
     };
 
-    // Store handlers for cleanup
-    this.menuEventHandlers.push(pointerMoveHandler, pointerUpHandler);
-
     this.scene.input.on("pointermove", pointerMoveHandler);
     this.scene.input.on("pointerup", pointerUpHandler);
+    this.scene.input.on("gameout", pointerUpHandler);
+
+    // Store cleanup callbacks for the temporary slider listeners
+    this.menuEventHandlers.push(
+      () => scene.input.off("pointermove", pointerMoveHandler),
+      () => scene.input.off("pointerup", pointerUpHandler),
+      () => scene.input.off("gameout", pointerUpHandler),
+    );
 
     // Create clickable areas for the entire slider tracks
     const musicSliderTrack = scene.add.graphics();
@@ -1496,10 +1501,7 @@ export class Menu {
 
     // Clean up event handlers
     if (this.menuEventHandlers) {
-      this.menuEventHandlers.forEach((handler) => {
-        scene.input.off("pointermove", handler);
-        scene.input.off("pointerup", handler);
-      });
+      this.menuEventHandlers.forEach((cleanup) => cleanup());
       this.menuEventHandlers = [];
     }
 

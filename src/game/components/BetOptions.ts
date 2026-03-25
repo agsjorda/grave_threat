@@ -209,6 +209,10 @@ export class BetOptions {
 		return container;
 	}
 
+	private formatBetOptionLabel(value: number): string {
+		return formatCurrencyNumber(value, true);
+	}
+
 	private createBetInput(scene: Scene): void {
 		const x = scene.scale.width * 0.5;
 		const y = scene.scale.height * 0.5 + 240;
@@ -436,7 +440,7 @@ export class BetOptions {
 			const textObj = (container as any).buttonText as Phaser.GameObjects.Text | undefined;
 			if (!textObj || typeof baseValue !== 'number') continue;
 			const displayValue = baseValue * multiplier;
-			textObj.setText(this.formatBetValue(displayValue));
+			textObj.setText(this.formatBetOptionLabel(displayValue));
 
 			if (!isEnhanced) {
 				continue;
@@ -462,11 +466,6 @@ export class BetOptions {
 				textObj.setFontSize(smallestFontSize);
 			}
 		}
-	}
-
-	private formatBetValue(value: number): string {
-		const rounded = Math.round((Number(value) + Number.EPSILON) * 100) / 100;
-		return Number.isFinite(rounded) ? rounded.toString() : value.toString();
 	}
 
 	public setEnhancedBetState(isEnhanced: boolean, displayBet?: number, baseBet?: number): void {

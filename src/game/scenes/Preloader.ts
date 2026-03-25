@@ -7,12 +7,11 @@ import { AssetLoader } from '../../utils/AssetLoader';
 import { GameAPI } from '../../backend/GameAPI';
 import { GameData } from '../components/GameData';
 import { FullScreenManager } from '../../managers/FullScreenManager';
-import { ensureSpineFactory } from '../../utils/SpineGuard';
+import { ensureSpineFactory, ensureSpineLoader } from '../../utils/SpineGuard';
 import { StudioLoadingScreen } from '../components/StudioLoadingScreen';
 import { ClockDisplay } from '../components/ClockDisplay';
 import { CLOCK_DISPLAY_NAME, GAME_DISPLAY_NAME, CLOCK_DISPLAY_CONFIG, PRELOADER_CONFIG } from '../../config/GameConfig';
 import { CurrencyManager } from '../components/CurrencyManager';
-import { playRadialDimmerTransition } from '../utils/playRadialDimmerTransition';
 import { unresolvedSpinManager } from '../../managers/UnresolvedSpinManager';
 
 export class Preloader extends Scene
@@ -128,6 +127,7 @@ export class Preloader extends Scene
 		this.assetLoader.loadBuyFeatureAssets(this);
 		this.assetLoader.loadMenuAssets(this);
 		this.assetLoader.loadHelpScreenAssets(this);
+		this.loadPreloaderTransitionAssets();
 		// Whistle SFX for radial dimmer transition (Preloader → Game)
 		const whistlePath = this.assetConfig.getAudioAssets().audio?.['whistle'];
 		if (whistlePath) {
@@ -213,15 +213,9 @@ export class Preloader extends Scene
             this.buttonBg.setAlpha(1);
         }
 
-		// Start game on click – use radial dimmer transition then start Game
+		// Start game on click – play the bat transition then start Game
         this.buttonSpin?.once('pointerdown', () => {
-            playRadialDimmerTransition(this, () => {
-                this.scene.start('Game', {
-                    networkManager: this.networkManager,
-                    screenModeManager: this.screenModeManager,
-                    gameAPI: this.gameAPI
-                });
-            });
+			this.playBatTransitionThenStartGame();
         });
 
 		// Start loading audio in the background now that the main visual load is complete.
@@ -229,6 +223,104 @@ export class Preloader extends Scene
 		this.startBackgroundAudioLoad();
 
 		this.applyPreloaderFonts();
+	}
+
+	private loadPreloaderTransitionAssets(): void {
+		if (!ensureSpineLoader(this, '[Preloader] loadPreloaderTransitionAssets')) return;
+
+		try {
+			const anyLoad: any = this.load as any;
+			if (typeof anyLoad.spine === 'function') {
+				anyLoad.spine(
+					'Bat_Transition_GT',
+					'assets/portrait/high/vfx/Bat_Transition_GT.json',
+					'assets/portrait/high/vfx/Bat_Transition_GT.atlas',
+					true
+				);
+			} else {
+				this.load.spineAtlas('Bat_Transition_GT-atlas', 'assets/portrait/high/vfx/Bat_Transition_GT.atlas');
+				this.load.spineJson('Bat_Transition_GT', 'assets/portrait/high/vfx/Bat_Transition_GT.json');
+			}
+		} catch (e) {
+			console.warn('[Preloader] Failed to load bat transition assets:', e);
+		}
+	}
+
+	private startGameScene(options?: {
+		initialFadeInDurationMs?: number;
+		startupTransitionType?: 'circular_darkness_shrink';
+		startupTransitionDurationMs?: number;
+	}): void {
+		this.scene.start('Game', {
+			networkManager: this.networkManager,
+			screenModeManager: this.screenModeManager,
+			gameAPI: this.gameAPI,
+			initialFadeInDurationMs: options?.initialFadeInDurationMs,
+			startupTransitionType: options?.startupTransitionType,
+			startupTransitionDurationMs: options?.startupTransitionDurationMs
+		});
+	}
+
+	private coverPreloaderWithBlack(): Phaser.GameObjects.Rectangle {
+		return this.add.rectangle(
+			this.scale.width * 0.5,
+			this.scale.height * 0.5,
+			this.scale.width,
+			this.scale.height,
+			0x000000
+		).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(100001).setAlpha(1);
+	}
+
+	private playBatTransitionThenStartGame(): void {
+		if (!ensureSpineFactory(this, '[Preloader] playBatTransitionThenStartGame')) {
+			this.startGameScene();
+			return;
+		}
+
+		try {
+			const batTransition: any = this.add.spine(
+				this.scale.width * 0.5,
+				this.scale.height * 0.5,
+				'Bat_Transition_GT',
+				'Bat_Transition_GT-atlas'
+			);
+
+			batTransition.setDepth(100000);
+			batTransition.setScale(Math.max(this.scale.width / 428, this.scale.height / 926));
+
+			let completed = false;
+			const finish = () => {
+				if (completed) return;
+				completed = true;
+				const blackCover = this.coverPreloaderWithBlack();
+				try { batTransition.destroy(); } catch {}
+				this.startGameScene({
+					initialFadeInDurationMs: 0,
+					startupTransitionType: 'circular_darkness_shrink',
+					startupTransitionDurationMs: 1400
+				});
+				this.events.once('shutdown', () => {
+					try { blackCover.destroy(); } catch {}
+				});
+			};
+
+			const entry = batTransition?.animationState?.setAnimation?.(0, 'Bat_Transition_GT_Anim', false);
+			if (batTransition?.animationState?.addListener && entry) {
+				const listener = {
+					complete: (completedEntry: any) => {
+						if (completedEntry !== entry) return;
+						try { batTransition.animationState.removeListener(listener); } catch {}
+						finish();
+					}
+				};
+				batTransition.animationState.addListener(listener);
+			}
+
+			this.time.delayedCall(1700, finish);
+		} catch (e) {
+			console.warn('[Preloader] Failed to play bat transition, starting game directly:', e);
+			this.startGameScene();
+		}
 	}
 
 	private setupLoadingBackground(): void {

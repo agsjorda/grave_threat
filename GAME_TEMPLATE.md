@@ -189,7 +189,7 @@ All scatter flows (normal trigger, scatter retrigger in bonus, and buy-feature t
      2. **Play win animation**: on the merged Symbol0 instances, play `Symbol0_PC_win` (loop).
         - Read the Spine animation duration (e.g. via `skeleton.data.findAnimation('Symbol0_PC_win')`) and hold the scene for ~70% of that duration so the win is clearly visible.
      3. **Show dialog**:
-        - After the win hold, show `FreeSpin_PC` (or `FreeSpinRetrigger` for retrigger).
+        - After the win hold, show `FreeSpin_GT` (or `FreeSpinRetrigger` for retrigger).
         - When the dialog’s fade-in completes (`dialogFullyDisplayed`), switch the merged Symbol0 to idle (`Symbol0_PC_idle`) so it sits calmly behind the dialog.
      4. **Unmerge on dialog close**:
         - When dialog animations complete (`dialogAnimationsComplete`), run the unmerge animation: shrink merged Symbol0 and move symbols back to their original `(col,row)` cells.

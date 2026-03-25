@@ -627,6 +627,10 @@ export class SlotController {
 		return this.autoplayController?.getSpinsRemaining() ?? 0;
 	}
 
+	private getPausedAutoplaySpinsRemaining(): number {
+		return this.pausedAutoplaySpinsRemaining ?? 0;
+	}
+
 	// ============================================================================
 	// Existing Methods
 	// ============================================================================

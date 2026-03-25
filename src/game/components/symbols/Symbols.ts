@@ -1291,7 +1291,7 @@ export class Symbols {
 
   /**
    * Set all scatter (Symbol0) spines in the grid to idle.
-   * Call when FreeSpin_PC dialog shows so merged scatters show idle; when dialog closes, unmerge runs with them already in idle state.
+   * Call when FreeSpin_GT dialog shows so merged scatters show idle; when dialog closes, unmerge runs with them already in idle state.
    */
   public setAllScatterSpinesToIdle(): void {
     const idleAnimName = `Symbol${SCATTER_SYMBOL_ID}_GT_idle`;
