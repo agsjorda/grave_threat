@@ -43,8 +43,11 @@ export class AudioManager {
 	private scene: Phaser.Scene;
 	private currentMusic: MusicType | null = null;
 	private musicVolume: number = 0.2;
-	private sfxVolume: number = 0.3;
+	private sfxVolume: number = 0.2;
 	private ambientVolume: number = 0.2; // Volume for ambient audio layer
+	// Used to keep ambience "included in" the SFX slider behavior.
+	// Important: keep it stable so ambience returns after toggling SFX to 0.
+	private ambientToSfxRatio: number = this.ambientVolume / this.sfxVolume;
 	private isMuted: boolean = false;
 	private musicInstances: Map<MusicType, Phaser.Sound.BaseSound> = new Map();
 	private sfxInstances: Map<SoundEffectType, Phaser.Sound.BaseSound> = new Map();
@@ -680,6 +683,11 @@ export class AudioManager {
 	 */
 	setAmbientVolume(volume: number): void {
 		this.ambientVolume = Math.max(0, Math.min(1, volume));
+		// If ambience is set independently (not typically via UI in this game),
+		// keep the "included in SFX" ratio consistent for the next SFX update.
+		if (this.sfxVolume > 0) {
+			this.ambientToSfxRatio = this.ambientVolume / this.sfxVolume;
+		}
 		
 		if (this.ambientInstance && 'setVolume' in this.ambientInstance && typeof this.ambientInstance.setVolume === 'function') {
 			this.ambientInstance.setVolume(this.ambientVolume);
@@ -859,7 +867,10 @@ export class AudioManager {
 	 * Set sound effect volume
 	 */
 	setSfxVolume(volume: number): void {
-		this.sfxVolume = Math.max(0, Math.min(1, volume));
+		// SFX and ambience should be controlled together via the same UI slider.
+		const clamped = Math.max(0, Math.min(1, volume));
+
+		this.sfxVolume = clamped;
 		
 		this.sfxInstances.forEach((sfx, type) => {
 			const targetVolume = type === SoundEffectType.SPIN_CLICK
@@ -869,6 +880,18 @@ export class AudioManager {
 				sfx.setVolume(targetVolume);
 			}
 		});
+
+		// Apply the corresponding ambience volume immediately.
+		// This intentionally uses a stable ratio so ambience comes back after SFX -> 0.
+		this.ambientVolume = Math.max(0, Math.min(1, this.ambientToSfxRatio * this.sfxVolume));
+		// If we're currently ducking background audio, ensure the restore target reflects
+		// the latest user-selected ambience level.
+		if (this.isDucked && this.savedAmbientVolume !== null) {
+			this.savedAmbientVolume = this.ambientVolume;
+		}
+		if (this.ambientInstance && 'setVolume' in this.ambientInstance && typeof this.ambientInstance.setVolume === 'function') {
+			this.ambientInstance.setVolume(this.ambientVolume);
+		}
 		
 	}
 

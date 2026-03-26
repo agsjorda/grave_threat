@@ -228,7 +228,6 @@ export class Symbols {
   // Per-spin staged scatter reel-drop SFX counter (scatterdrop1 -> ... -> scatterdrop4 max).
   private scatterDropStageForSpin: number = 0;
   private spinDropSoundByColumn: Map<number, SoundEffectType> = new Map();
-  private spinDropSoundPlayedColumns: Set<number> = new Set();
   // Tracks whether the persistent bonus multiplier grid has been initialized for the current bonus session (so retriggers don't reset it).
   private bonusGridInitializedForSession: boolean = false;
   /** Win border graphics (scene layer) for SHOW_WIN_BORDER_SYMBOLS - cleared on new spin */
@@ -3367,7 +3366,7 @@ export class Symbols {
             ease: isTurbo ? Phaser.Math.Easing.Cubic.Out : Phaser.Math.Easing.Linear,
             onComplete: () => {
               if (!isTurbo && (window as any).audioManager) {
-                this.playSpinReelDropSoundForColumn(col);
+                this.playSpinReelDropSoundForColumn(col, symbol);
               }
             }
           },
@@ -3397,11 +3396,7 @@ export class Symbols {
           const prevOnComplete = last.onComplete;
           last.onComplete = () => {
             try { if (prevOnComplete) prevOnComplete(); } catch { }
-            // Turbo should use a single TURBO_DROP SFX (played once in dropReels),
-            // so suppress per-column drop sounds while turbo is active.
-            if (isSkip && !isTurbo && (window as any).audioManager) {
-              try { this.playSpinReelDropSoundForColumn(col); } catch { }
-            }
+            // Sound already plays from the main drop tween onComplete (first land at targetY).
             completedAnimations++;
             if (completedAnimations === totalAnimations) {
               resolve();
@@ -3436,15 +3431,25 @@ export class Symbols {
     return SoundEffectType.SCATTER_DROP_4;
   }
 
-  private playSpinReelDropSoundForColumn(colIndex: number): void {
+  /**
+   * Spin reel drop SFX: one play per column per row wave (same as sugar_wonderland / felice pattern).
+   * Trigger stays on the main drop tween landing at targetY (first land), not the post-landing bounce.
+   * Scatter brass (SCATTER_DROP_*) is only used when this row’s landing symbol is actually a scatter;
+   * otherwise REEL_DROP — avoids repeating the scatter sound on every row in a column that contains a scatter.
+   */
+  private playSpinReelDropSoundForColumn(colIndex: number, symbolAtCell: SymbolObject | null | undefined): void {
     const audioManager = (window as any).audioManager;
     if (!audioManager || typeof audioManager.playSoundEffect !== 'function') return;
-    if (this.spinDropSoundPlayedColumns.has(colIndex)) return;
 
     try {
-      const effect = this.spinDropSoundByColumn.get(colIndex) ?? SoundEffectType.REEL_DROP;
+      const isScatterCell =
+        !!symbolAtCell && this.isScatterSymbol(symbolAtCell as SymbolObject);
+      const mapped = this.spinDropSoundByColumn.get(colIndex) ?? SoundEffectType.REEL_DROP;
+      const effect =
+        isScatterCell && mapped !== SoundEffectType.REEL_DROP
+          ? mapped
+          : SoundEffectType.REEL_DROP;
       audioManager.playSoundEffect(effect);
-      this.spinDropSoundPlayedColumns.add(colIndex);
     } catch (e) {
       console.warn('[Symbols] Failed to play spin reel-drop sound:', e);
     }
@@ -3452,7 +3457,6 @@ export class Symbols {
 
   private initializeSpinDropSoundsByColumn(): void {
     this.spinDropSoundByColumn.clear();
-    this.spinDropSoundPlayedColumns.clear();
     this.scatterDropStageForSpin = 0;
 
     if (!this.newSymbols || this.newSymbols.length === 0) return;
@@ -4500,7 +4504,7 @@ export class Symbols {
               const tweensArr: any[] = [];
               const playReelDropOnMainLand = () => {
                 try {
-                  if (!self.scene.gameData.isTurbo && (window as any).audioManager) {
+                  if (!isTurbo && (window as any).audioManager) {
                     (window as any).audioManager.playSoundEffect(SoundEffectType.REEL_DROP);
                   }
                 } catch { }
@@ -4646,7 +4650,7 @@ export class Symbols {
               const tweensArr: any[] = [];
               const playReelDropOnMainLand2 = () => {
                 try {
-                  if (!self.scene.gameData.isTurbo && (window as any).audioManager) {
+                  if (!isTurbo && (window as any).audioManager) {
                     (window as any).audioManager.playSoundEffect(SoundEffectType.REEL_DROP);
                   }
                 } catch { }

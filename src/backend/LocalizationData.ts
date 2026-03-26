@@ -53,6 +53,18 @@ export const POPUP_BUYFEAT_CARD_TITLE = 'popup_buyfeat-card-title';
 export const POPUP_BUYFEAT_RANDOM_SCATTER = 'popup_buyfeat-random-scatter';
 export const POPUP_BUYFEAT_START_MULTIPLIER = 'popup_buyfeat-start-multiplier';
 
+// ----- Buy Feature (drawer) -----
+export const BUY_FEATURE_TITLE = 'buy-feature_title';
+export const BUY_FEATURE_FEATURE_NAME = 'buy-feature_feature-name';
+export const BUY_FEATURE_BUY_BUTTON = 'buy-feature_buy-button';
+export const BUY_FEATURE_BET_LABEL = 'buy-feature_bet-label';
+
+// ----- Bet Options -----
+export const BET_OPTIONS_TITLE = 'bet-options_title';
+export const BET_OPTIONS_SELECT_SIZE = 'bet-options_select-size';
+export const BET_OPTIONS_BET_LABEL = 'bet-options_bet-label';
+export const BET_OPTIONS_CONFIRM_BUTTON = 'bet-options_confirm-button';
+
 // ----- Free Round Manager -----
 export const FREEROUND_PANEL_LABEL = 'freeround_panel-label';
 export const FREEROUND_REWARD_TITLE = 'freeround_reward-title';
@@ -66,6 +78,17 @@ export const FREEROUND_CREDITED_LINE2 = 'freeround_credited-line2';
 
 // ----- Dialogs -----
 export const DIALOG_PRESS_CONTINUE = 'dialog_press-continue';
+
+// ----- Autoplay Options -----
+export const AUTOPLAY_SETTINGS_TITLE = 'autoplay_settings-title';
+export const AUTOPLAY_BALANCE_LABEL = 'autoplay_balance-label';
+export const AUTOPLAY_NUMBER_OF_AUTOSPINS = 'autoplay_number-of-autospins';
+export const AUTOPLAY_BET_LABEL = 'autoplay_bet-label';
+export const AUTOPLAY_START_BUTTON = 'autoplay_start-button';
+
+// ----- Preloader / Clock -----
+export const PRELOADER_MAX_WIN = 'preloader_max-win';
+export const CLOCK_DEMO = 'clock_demo';
 
 // ----- Help -----
 export const HELP_GAME_RULES_TITLE = 'help_game-rules-title';
@@ -88,21 +111,34 @@ export const HELP_GAME_SETTINGS_TITLE = 'help_game-settings-title';
 export const HELP_PAYLINES_TITLE = 'help_paylines-title';
 export const HELP_PAYLINES_DESC0 = 'help_paylines-desc0';
 export const HELP_PAYLINES_DESC1 = 'help_paylines-desc1';
+export const HELP_PAYLINES_WIN = 'help_paylines-win';
+export const HELP_PAYLINES_NO_WIN = 'help_paylines-no-win';
+export const PAYLINE_MOBILE_WIN = 'paylineMobileWin';
+export const PAYLINE_MOBILE_NO_WIN = 'paylineMobileNoWin';
 export const HELP_HOW_PLAY_TITLE = 'help_how-play-title';
 export const HELP_BET_CONTROLS_TITLE = 'help_bet-controls-title';
 export const HELP_BUTTONS_LABEL = 'help_buttons-label';
 export const HELP_BET_CONTROLS_DESC = 'help_bet-controls-desc';
 export const HELP_GAME_ACTIONS_TITLE = 'help_game-actions-title';
+export const SPIN_BUTTON = 'spin_button';
 export const HELP_SPIN_LABEL = 'help_spin-label';
 export const HELP_SPIN_DESC = 'help_spin-desc';
 export const HELP_BUY_FEATURE_LABEL = 'help_buy-feature-label';
 export const HELP_BUY_FEATURE_DESC = 'help_buy-feature-desc';
+export const FEATURE = 'feature';
+export const HELP_BUY_LABEL = 'help_buy-label';
+export const HELP_BUY_DESC = 'help_buy-desc';
+export const AMPLIFY_BET_BUTTON = 'amplify_bet_button';
 export const HELP_AMPLIFY_LABEL = 'help_amplify-label';
 export const HELP_AMPLIFY_DESC = 'help_amplify-desc';
+export const AUTOPLAY_BUTTON = 'autoplay_button';
 export const HELP_AUTOPLAY_LABEL = 'help_autoplay-label';
 export const HELP_AUTOPLAY_DESC = 'help_autoplay-desc';
+export const TURBO_BUTTON = 'turbo_button';
 export const HELP_TURBO_LABEL = 'help_turbo-label';
 export const HELP_TURBO_DESC = 'help_turbo-desc';
+export const BET_CONTROLS_MINUS = 'betControlsMinus';
+export const BET_CONTROLS_PLUS = 'betControlsPlus';
 export const HELP_DISPLAY_STATS_TITLE = 'help_display-stats-title';
 export const HELP_BALANCE_LABEL = 'help_balance-label';
 export const HELP_BALANCE_DESC = 'help_balance-desc';
@@ -111,10 +147,14 @@ export const HELP_TOTALWIN_DESC = 'help_totalwin-desc';
 export const HELP_BET_LABEL = 'help_bet-label';
 export const HELP_BET_DESC = 'help_bet-desc';
 export const HELP_GENERAL_CONTROLS_TITLE = 'help_general-controls-title';
+export const SOUND_ICON_ON = 'sound_icon_on';
+export const SOUND_ICON_OFF = 'sound_icon_off';
 export const HELP_SOUNDS_LABEL = 'help_sounds-label';
 export const HELP_SOUNDS_DESC = 'help_sounds-desc';
+export const SETTINGS_ICON = 'settings_icon';
 export const HELP_SETTINGS_LABEL = 'help_settings-label';
 export const HELP_SETTINGS_DESC = 'help_settings-desc';
+export const INFO_ICON = 'info_icon';
 export const HELP_INFO_LABEL = 'help_info-label';
 export const HELP_INFO_DESC = 'help_info-desc';
 
@@ -164,6 +204,18 @@ export const LOCALIZATION_DEFAULTS: Record<string, string> = {
   [POPUP_BUYFEAT_RANDOM_SCATTER]: 'Random Scatter',
   [POPUP_BUYFEAT_START_MULTIPLIER]: 'Start Multipliers',
 
+  // Buy Feature (drawer)
+  [BUY_FEATURE_TITLE]: 'Buy Feature',
+  [BUY_FEATURE_FEATURE_NAME]: 'Buy Feature',
+  [BUY_FEATURE_BUY_BUTTON]: 'BUY FEATURE',
+  [BUY_FEATURE_BET_LABEL]: 'Bet',
+
+  // Bet Options
+  [BET_OPTIONS_TITLE]: 'Bet Options',
+  [BET_OPTIONS_SELECT_SIZE]: 'Select size',
+  [BET_OPTIONS_BET_LABEL]: 'Bet',
+  [BET_OPTIONS_CONFIRM_BUTTON]: 'CONFIRM',
+
   [FREEROUND_PANEL_LABEL]: 'Free\nSpin',
   [FREEROUND_REWARD_TITLE]: 'Free Spin Reward',
   [FREEROUND_GRANTED_SUBTITLE]: 'You have been Granted',
@@ -175,6 +227,17 @@ export const LOCALIZATION_DEFAULTS: Record<string, string> = {
   [FREEROUND_CREDITED_LINE2]: 'to your balance',
 
   [DIALOG_PRESS_CONTINUE]: 'Press anywhere to continue',
+
+  // Autoplay Options
+  [AUTOPLAY_SETTINGS_TITLE]: 'AUTOPLAY SETTINGS',
+  [AUTOPLAY_BALANCE_LABEL]: 'Balance',
+  [AUTOPLAY_NUMBER_OF_AUTOSPINS]: 'Number of autospins',
+  [AUTOPLAY_BET_LABEL]: 'Bet',
+  [AUTOPLAY_START_BUTTON]: 'START AUTOPLAY',
+
+  // Preloader / Clock
+  [PRELOADER_MAX_WIN]: 'Win up to',
+  [CLOCK_DEMO]: 'DEMO',
 
   [HELP_GAME_RULES_TITLE]: 'Game Rules',
   [HELP_GAME_RULES_DESC]: 'Wins are awarded for clusters of 5 or more matching symbols connected horizontally or vertically.',
@@ -207,6 +270,8 @@ export const LOCALIZATION_DEFAULTS: Record<string, string> = {
   [HELP_PAYLINES_DESC0]: 'Symbols can land anywhere on the 7x7 grid.',
   [HELP_PAYLINES_DESC1]:
     'A win is formed by a cluster of 5 or more matching symbols connected horizontally or vertically.\nAfter a win, winning symbols are removed and new symbols tumble in.\nTumbles continue while new wins are formed.\nAll wins are multiplied by your total bet.\nSCATTER symbols award Free Spins.',
+  [HELP_PAYLINES_WIN]: 'Win',
+  [HELP_PAYLINES_NO_WIN]: 'No Win',
   [HELP_HOW_PLAY_TITLE]: 'How to Play',
   [HELP_BET_CONTROLS_TITLE]: 'Bet Controls',
   [HELP_BUTTONS_LABEL]: 'Buttons',
@@ -214,6 +279,8 @@ export const LOCALIZATION_DEFAULTS: Record<string, string> = {
   [HELP_GAME_ACTIONS_TITLE]: 'Game Actions',
   [HELP_SPIN_LABEL]: 'Spin',
   [HELP_SPIN_DESC]: 'Starts the game round.',
+  [HELP_BUY_LABEL]: 'Buy Feature',
+  [HELP_BUY_DESC]: 'Lets you buy the free spins round for 100x your total bet.',
   [HELP_BUY_FEATURE_LABEL]: 'Buy Feature',
   [HELP_BUY_FEATURE_DESC]: 'Lets you buy the free spins round for 100x your total bet.',
   [HELP_AMPLIFY_LABEL]: 'Amplify Bet',

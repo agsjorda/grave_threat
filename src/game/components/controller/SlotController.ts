@@ -21,6 +21,8 @@ import { BuyFeatureController } from './BuyFeatureController';
 import { BalanceController } from './BalanceController';
 import { CurrencyManager } from '../CurrencyManager';
 import { formatCurrencyNumber } from '../../../utils/NumberPrecisionFormatter';
+import { localizationManager } from "../../../managers/LocalizationManager";
+import * as LK from "../../../backend/LocalizationData";
 import { 
 	BetController, 
 	AutoplayController, 
@@ -61,6 +63,7 @@ export class SlotController {
 	private featureAmountText!: Phaser.GameObjects.Text;
 	private featureDollarText!: Phaser.GameObjects.Text;
 	private featureLabelText: Phaser.GameObjects.Text | null = null;
+	private featureLabelContainer: Phaser.GameObjects.Container | null = null;
 	private featureButtonHitbox: Phaser.GameObjects.Rectangle | null = null;
 	private featureButtonAmountOverride: number | null = null;
 	private primaryControllers!: Phaser.GameObjects.Container;
@@ -95,6 +98,87 @@ export class SlotController {
 	private isBuyFeatureFreeSpinsActive: boolean = false;
 	
 	private buyFeatureController!: BuyFeatureController;
+
+	private getLocalizedText(key: string): string {
+		return localizationManager.getTextByKey(key) ?? LK.LOCALIZATION_DEFAULTS[key] ?? key;
+	}
+
+	private rebuildFeatureLabel(): void {
+		if (!this.scene) return;
+		if (!this.featureLabelContainer) return;
+
+		const scene = this.scene;
+		const featureX = scene.scale.width * 0.5;
+		const featureY = scene.scale.height * 0.724;
+		const isDemo = this.gameAPI?.getDemoState();
+
+		this.featureLabelContainer.removeAll(true);
+
+		const buyText = this.getLocalizedText(LK.CONTROLLER_BUY_FEATURE);
+		const currencyCode = isDemo ? '' : CurrencyManager.getCurrencyCode();
+
+		let currentX = 0;
+
+		// "BUY" - white, poppins-bold
+		const buyWordText = scene.add.text(
+			currentX,
+			0,
+			buyText,
+			{
+				fontSize: '12px',
+				color: '#ffffff',
+				fontFamily: 'poppins-bold'
+			}
+		).setOrigin(0, 0.5);
+		this.featureLabelContainer.add(buyWordText);
+		currentX += buyWordText.width;
+
+		// Add currency code in parentheses if available
+		if (currencyCode) {
+			const leftParenText = scene.add.text(
+				currentX,
+				0,
+				' (',
+				{
+					fontSize: '12px',
+					color: '#ffffff',
+					fontFamily: 'poppins-regular'
+				}
+			).setOrigin(0, 0.5);
+			this.featureLabelContainer.add(leftParenText);
+			currentX += leftParenText.width;
+
+			const currencyText = scene.add.text(
+				currentX,
+				0,
+				currencyCode,
+				{
+					fontSize: '12px',
+					color: '#ffffff',
+					fontFamily: 'poppins-regular'
+				}
+			).setOrigin(0, 0.5);
+			this.featureLabelContainer.add(currencyText);
+			currentX += currencyText.width;
+
+			const rightParenText = scene.add.text(
+				currentX,
+				0,
+				')',
+				{
+					fontSize: '12px',
+					color: '#ffffff',
+					fontFamily: 'poppins-regular'
+				}
+			).setOrigin(0, 0.5);
+			this.featureLabelContainer.add(rightParenText);
+			currentX += rightParenText.width;
+		}
+
+		// Center the container by adjusting its position
+		this.featureLabelContainer.setX(featureX - currentX / 2);
+		this.featureLabelContainer.setY(featureY - 8);
+	}
 	private hasScatterRetriggerInSpinData(): boolean {
 		try {
 			if (!gameStateManager.isBonus) return false;
@@ -378,6 +462,7 @@ export class SlotController {
 		if (this.featureAmountText) this.featureAmountText.setVisible(visible);
 		if (this.featureDollarText) this.featureDollarText.setVisible(visible);
 		if (this.featureLabelText) this.featureLabelText.setVisible(visible);
+		if (this.featureLabelContainer) this.featureLabelContainer.setVisible(visible);
 	}
 
 	/**
@@ -1712,19 +1797,15 @@ export class SlotController {
 		this.featureButtonHitbox = hitbox;
 		this.controllerContainer.add(hitbox);
 
-		// "BUY FEATURE" label (1st line)
-		const featureLabel1 = scene.add.text(
-			featureX,
-			featureY - 8,
-			'BUY FEATURE',
-			{
-				fontSize: '12px',
-				color: '#000000',
-				fontFamily: 'poppins-regular'
-			}
-		).setOrigin(0.5, 0.5).setDepth(9);
-		this.controllerContainer.add(featureLabel1);
-		this.featureLabelText = featureLabel1;
+		// "BUY (CUR)" label (1st line) - Shuten Doji style (separate text parts)
+		this.featureLabelContainer = scene.add.container(featureX, featureY - 8);
+		this.featureLabelContainer.setDepth(9);
+		this.controllerContainer.add(this.featureLabelContainer);
+		// Keep legacy label hidden (it may still be referenced by other code paths)
+		if (this.featureLabelText) {
+			try { this.featureLabelText.setVisible(false); } catch {}
+		}
+		this.rebuildFeatureLabel();
 
 		// Amount (2nd line, right part) - bound to current bet x100
 		this.featureAmountText = scene.add.text(
@@ -1733,13 +1814,13 @@ export class SlotController {
 			'0',
 			{
 				fontSize: '14px',
-				color: '#000000',
+				color: '#ffffff',
 				fontFamily: 'poppins-bold'
 			}
 		).setOrigin(0.5, 0.5).setDepth(9);
 		this.controllerContainer.add(this.featureAmountText);
 
-		// "$" symbol (2nd line, left part) - positioned dynamically
+		// Currency glyph moved into label; keep this hidden (used by legacy layoutCurrencyPair helpers).
 		this.featureDollarText = scene.add.text(
 			featureX,
 			featureY + 8,
@@ -1750,10 +1831,10 @@ export class SlotController {
 				fontFamily: 'poppins-regular'
 			}
 		).setOrigin(0.5, 0.5).setDepth(9);
-		// Hide currency symbol in demo mode
-		this.featureDollarText.setVisible(!isDemoFeature);
+		this.featureDollarText.setVisible(false);
 		this.controllerContainer.add(this.featureDollarText);
-		this.layoutCurrencyPair(featureX, featureY + 8, this.featureDollarText, this.featureAmountText, !!isDemoFeature, 5);
+		// Amount stays centered now (no currency glyph on this line).
+		this.featureAmountText.setPosition(featureX, featureY + 8);
 
 		// Initialize amount from current bet
 		this.updateFeatureAmountFromCurrentBet();
@@ -2028,14 +2109,10 @@ export class SlotController {
 		const price = hasOverride
 			? this.featureButtonAmountOverride!
 			: baseBet * 100;
-		// Format with thousands separators and 2 decimals
-		this.featureAmountText.setText(price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-		const isDemo = this.gameAPI?.getDemoState();
+		this.featureAmountText.setText(formatCurrencyNumber(price));
 		if (this.scene) {
 			const featureX = this.scene.scale.width * 0.5;
-			const y = this.featureAmountText.y;
-			this.featureDollarText.setColor && this.featureDollarText.setColor('#000000');
-			this.layoutCurrencyPair(featureX, y, this.featureDollarText, this.featureAmountText, !!isDemo, 5);
+			this.featureAmountText.setPosition(featureX, this.featureAmountText.y);
 		}
 	}
 
@@ -2055,13 +2132,7 @@ export class SlotController {
 			const currencyCode = isDemo ? '' : CurrencyManager.getCurrencyCode();
 			this.betLabelText.setText(currencyCode ? `BET (${currencyCode})` : 'BET');
 		}
-		if (this.scene && this.featureAmountText && this.featureDollarText) {
-			const isDemo = this.gameAPI?.getDemoState();
-			const featureX = this.scene.scale.width * 0.5;
-			const featureY = this.featureAmountText.y;
-			this.featureDollarText.setColor && this.featureDollarText.setColor('#000000');
-			this.layoutCurrencyPair(featureX, featureY, this.featureDollarText, this.featureAmountText, !!isDemo, 5);
-		}
+		this.rebuildFeatureLabel();
 	}
 
 	private layoutCurrencyPair(
