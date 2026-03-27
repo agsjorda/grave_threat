@@ -942,7 +942,7 @@ export class BonusHeader {
 			this.hideWinningsDisplay();
 		});
 
-		// After radial light transition (dialogAnimationsComplete), re-show cumulative total
+		// After bat transition (dialogAnimationsComplete), re-show cumulative total
 		// so it stays visible when transitioning from Free Spin dialog to first bonus spin
 		if (this.scene) {
 			this.scene.events.on('dialogAnimationsComplete', () => {

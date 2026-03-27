@@ -87,11 +87,6 @@ export const SYMBOL_GRID_BASE_DEPTH = 600;
 /** bg_border sits just above the symbol grid so the frame is not covered by symbols. */
 export const BG_BORDER_DEPTH = SYMBOL_GRID_BASE_DEPTH + 1;
 
-/** Bonus cover (bonus_bg_cover): scale multipliers and Y offset for BonusBackground.ts. */
-export const BONUS_BG_COVER_SCALE_X = .85;
-export const BONUS_BG_COVER_SCALE_Y = .8;
-/** Y offset (px) applied after layout for bonus_bg_cover. Positive = down, negative = up. */
-export const BONUS_BG_COVER_OFFSET_Y = 0;
 
 /** Normal and bonus bottom cover (controller overlay) scale multipliers. */
 export const BACKGROUND_COVER_CONFIG = {

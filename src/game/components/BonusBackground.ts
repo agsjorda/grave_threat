@@ -4,20 +4,20 @@ import { ScreenModeManager } from "../../managers/ScreenModeManager";
 import { gameStateManager } from "../../managers/GameStateManager";
 import { gameEventManager, GameEventType } from "../../event/EventManager";
 import {
-	BONUS_BG_COVER_OFFSET_Y,
-	BONUS_BG_COVER_SCALE_X,
-	BONUS_BG_COVER_SCALE_Y,
 	BACKGROUND_COVER_CONFIG,
 } from "../../config/GameConfig";
 import { scaleBottomCoverImage } from "./BackgroundCoverLayout";
 import { ensureSpineFactory } from "../../utils/SpineGuard";
+import { ClippingAttachment } from "@esotericsoftware/spine-core";
 
 export class BonusBackground {
 	private bonusContainer!: Phaser.GameObjects.Container;
 	private networkManager: NetworkManager;
 	private screenModeManager: ScreenModeManager;
 	private bonusBg: any = null; // Spine animation object
-	private bonusSmokeBg: any = null; // Spine background VFX
+	private fireBg1: any = null; // Fire VFX instance 1 over bonus background
+	private fireBg2: any = null; // Fire VFX instance 2 over bonus background
+	private willOWispBg: any = null; // Spine VFX over bonus background
 	private bonusBgCover: Phaser.GameObjects.Image | null = null;
 	private scene: Scene | null = null;
 
@@ -27,12 +27,25 @@ export class BonusBackground {
 	// Same layout as normal: background centered (no offset)
 	private bonusBackgroundYOffset: number = 0;
 
-	// Vertical offset (px) for Bonus_BG_GT spine VFX
-	private bonusVfxYOffset: number = 0;
+	// BonusBackground-local tuning (moved from GameConfig for isolated bonus VFX iteration).
+	private readonly bonusBgCoverScaleX = 0.85;
+	private readonly bonusBgCoverScaleY = 0.8;
+	private readonly bonusBgCoverOffsetY = 0;
 
-	// Scale multipliers for Bonus_BG_GT spine VFX (1 = no change)
-	private bonusVfxScaleX: number = 1;
-	private bonusVfxScaleY: number = .8;
+	private readonly fireBg1ScaleMultiplierX = 0.17;
+	private readonly fireBg1ScaleMultiplierY = 0.17;
+	private readonly fireBg1OffsetX = -147;
+	private readonly fireBg1OffsetY = -207;
+
+	private readonly fireBg2ScaleMultiplierX = 0.17;
+	private readonly fireBg2ScaleMultiplierY = 0.17;
+	private readonly fireBg2OffsetX = -100;
+	private readonly fireBg2OffsetY = -180;
+
+	private readonly willOWispScaleMultiplierX = 0.75;
+	private readonly willOWispScaleMultiplierY = 0.8;
+	private readonly willOWispOffsetY = -170;
+	private readonly willOWispRemoveRootClip = true;
 	
 	constructor(networkManager: NetworkManager, screenModeManager: ScreenModeManager) {
 		this.networkManager = networkManager;
@@ -83,29 +96,79 @@ export class BonusBackground {
 			this.bonusContainer.add(this.bonusBg);
 		}
 
-		const bonusVfxKey = "Bonus_BG_GT";
-		if (scene.cache.json.has(bonusVfxKey) && ensureSpineFactory(scene, `[BonusBackground] ${bonusVfxKey}`)) {
+		// Will-o-wisp bonus VFX (2 layers above BonusGame image depth 0).
+		const fireBgKey = "Fire_BG_GT";
+		if (scene.cache.json.has(fireBgKey) && ensureSpineFactory(scene, `[BonusBackground] ${fireBgKey}`)) {
 			try {
-				this.bonusSmokeBg = scene.add.spine(
+				const createFireInstance = (opts?: { timeScale?: number; startOffsetSec?: number }): any => {
+					const fire: any = scene.add.spine(
+						scene.scale.width * 0.5,
+						scene.scale.height * 0.5,
+						fireBgKey,
+						`${fireBgKey}-atlas`,
+					);
+					// 1 depth above BonusGame image (bonusBg depth 0)
+					fire.setDepth(1);
+					fire.setOrigin?.(0.5, 0.5);
+					try {
+						const state =
+							fire.animationState ||
+							fire.spine?.animationState;
+						if (state && typeof state.setAnimation === "function") {
+							const entry = state.setAnimation(0, "animation", true);
+							// De-sync duplicate instances by allowing per-instance speed/phase.
+							if (entry) {
+								if (typeof opts?.timeScale === "number") {
+									entry.timeScale = opts.timeScale;
+								}
+								if (typeof opts?.startOffsetSec === "number") {
+									entry.trackTime = Math.max(0, opts.startOffsetSec);
+								}
+							}
+						}
+					} catch {}
+					this.bonusContainer.add(fire);
+					return fire;
+				};
+
+				this.fireBg1 = createFireInstance();
+				this.fireBg2 = createFireInstance({
+					// Slightly different speed and phase so it doesn't mirror FIRE_BG_1.
+					timeScale: 0.9 + Math.random() * 0.25,
+					startOffsetSec: Math.random() * 2.5,
+				});
+			} catch (e) {
+				console.warn(`[BonusBackground] Failed to create ${fireBgKey} spine:`, e);
+				this.fireBg1 = null;
+				this.fireBg2 = null;
+			}
+		}
+
+		// Will-o-wisp bonus VFX (2 layers above BonusGame image depth 0).
+		const willOWispKey = "Will-o-wisp_BG_GT";
+		if (scene.cache.json.has(willOWispKey) && ensureSpineFactory(scene, `[BonusBackground] ${willOWispKey}`)) {
+			try {
+				this.willOWispBg = scene.add.spine(
 					scene.scale.width * 0.5,
 					scene.scale.height * 0.5,
-					bonusVfxKey,
-					`${bonusVfxKey}-atlas`,
+					willOWispKey,
+					`${willOWispKey}-atlas`,
 				);
-				this.bonusSmokeBg.setDepth(1);
-				this.bonusSmokeBg.setOrigin?.(0.5, 0.5);
+				this.willOWispBg.setDepth(2);
+				this.willOWispBg.setOrigin?.(0.5, 0.5);
 				try {
 					const state =
-						this.bonusSmokeBg.animationState ||
-						this.bonusSmokeBg.spine?.animationState;
+						this.willOWispBg.animationState ||
+						this.willOWispBg.spine?.animationState;
 					if (state && typeof state.setAnimation === "function") {
 						state.setAnimation(0, "animation", true);
 					}
 				} catch {}
-				this.bonusContainer.add(this.bonusSmokeBg);
+				this.mitigateWillOWispClipArtifacts(this.willOWispBg);
+				this.bonusContainer.add(this.willOWispBg);
 			} catch (e) {
-				console.warn(`[BonusBackground] Failed to create ${bonusVfxKey} spine:`, e);
-				this.bonusSmokeBg = null;
+				console.warn(`[BonusBackground] Failed to create ${willOWispKey} spine:`, e);
+				this.willOWispBg = null;
 			}
 		}
 
@@ -121,6 +184,29 @@ export class BonusBackground {
 			.setOrigin(0.5, 0)
 			.setDepth(850);
 		this.bonusBgCover.setVisible(false);
+	}
+
+	/**
+	 * Will-o-wisp_BG_GT (grave_threat only): root slot uses a ClippingAttachment. That clip edge
+	 * can read as white lines at the top; toggling atlas PMA does not fix it. Removing the clip
+	 * matches other pma:false assets that do not use this skeleton-specific clip.
+	 */
+	private mitigateWillOWispClipArtifacts(spineGo: any): void {
+		if (!this.willOWispRemoveRootClip) return;
+		try {
+			const skel = spineGo?.skeleton;
+			if (!skel || typeof skel.findSlot !== "function") return;
+			const rootSlot = skel.findSlot("root");
+			const att = rootSlot?.getAttachment();
+			if (rootSlot && att instanceof ClippingAttachment) {
+				rootSlot.setAttachment(null);
+			}
+			if (typeof spineGo.updatePose === "function") {
+				spineGo.updatePose(0);
+			}
+		} catch {
+			/* ignore */
+		}
 	}
 
 	private scaleImageToCover(image: Phaser.GameObjects.Image, targetWidth: number, targetHeight: number): void {
@@ -156,24 +242,84 @@ export class BonusBackground {
 			}
 		}
 
-		if (this.bonusSmokeBg) {
-			this.bonusSmokeBg.setPosition(width * 0.5, height * 0.5 + this.bonusVfxYOffset);
+		if (this.willOWispBg) {
+			this.willOWispBg.setPosition(
+				width * 0.5,
+					height * 0.5 + this.willOWispOffsetY,
+			);
 			try {
-				const smokeWidth =
-					this.bonusSmokeBg.width ||
-					this.bonusSmokeBg.skeleton?.data?.width ||
+				const vfxWidth =
+					this.willOWispBg.width ||
+					this.willOWispBg.skeleton?.data?.width ||
 					954.49;
-				const smokeHeight =
-					this.bonusSmokeBg.height ||
-					this.bonusSmokeBg.skeleton?.data?.height ||
+				const vfxHeight =
+					this.willOWispBg.height ||
+					this.willOWispBg.skeleton?.data?.height ||
+					1464.8;
+				const base = Math.max(
+					width / (vfxWidth || 1),
+					height / (vfxHeight || 1),
+				);
+				this.willOWispBg.setScale(
+					base * this.willOWispScaleMultiplierX,
+					base * this.willOWispScaleMultiplierY,
+				);
+			} catch (e) {
+				console.warn("[BonusBackground] Failed to scale Will-o-wisp BG VFX:", e);
+			}
+		}
+
+		if (this.fireBg1) {
+			this.fireBg1.setPosition(
+				width * 0.5 + this.fireBg1OffsetX,
+				height * 0.5 + this.fireBg1OffsetY,
+			);
+			try {
+				const vfxWidth =
+					this.fireBg1.width ||
+					this.fireBg1.skeleton?.data?.width ||
+					954.49;
+				const vfxHeight =
+					this.fireBg1.height ||
+					this.fireBg1.skeleton?.data?.height ||
 					1464.8;
 				const scale = Math.max(
-					width / (smokeWidth || 1),
-					height / (smokeHeight || 1),
+					width / (vfxWidth || 1),
+					height / (vfxHeight || 1),
 				);
-				this.bonusSmokeBg.setScale(scale * this.bonusVfxScaleX, scale * this.bonusVfxScaleY);
+				this.fireBg1.setScale(
+					scale * this.fireBg1ScaleMultiplierX,
+					scale * this.fireBg1ScaleMultiplierY,
+				);
 			} catch (e) {
-				console.warn("[BonusBackground] Failed to scale bonus BG VFX:", e);
+				console.warn("[BonusBackground] Failed to scale FIRE_BG_1 VFX:", e);
+			}
+		}
+
+		if (this.fireBg2) {
+			this.fireBg2.setPosition(
+				width * 0.5 + this.fireBg2OffsetX,
+				height * 0.5 + this.fireBg2OffsetY,
+			);
+			try {
+				const vfxWidth =
+					this.fireBg2.width ||
+					this.fireBg2.skeleton?.data?.width ||
+					954.49;
+				const vfxHeight =
+					this.fireBg2.height ||
+					this.fireBg2.skeleton?.data?.height ||
+					1464.8;
+				const scale = Math.max(
+					width / (vfxWidth || 1),
+					height / (vfxHeight || 1),
+				);
+				this.fireBg2.setScale(
+					scale * this.fireBg2ScaleMultiplierX,
+					scale * this.fireBg2ScaleMultiplierY,
+				);
+			} catch (e) {
+				console.warn("[BonusBackground] Failed to scale FIRE_BG_2 VFX:", e);
 			}
 		}
 
@@ -185,8 +331,8 @@ export class BonusBackground {
 				scene,
 				this.bonusBgCover,
 				this.coverHeightPercentOfScene,
-				BACKGROUND_COVER_CONFIG.BONUS_WIDTH_MULTIPLIER * BONUS_BG_COVER_SCALE_X,
-				BACKGROUND_COVER_CONFIG.BONUS_HEIGHT_MULTIPLIER * BONUS_BG_COVER_SCALE_Y,
+				BACKGROUND_COVER_CONFIG.BONUS_WIDTH_MULTIPLIER * this.bonusBgCoverScaleX,
+				BACKGROUND_COVER_CONFIG.BONUS_HEIGHT_MULTIPLIER * this.bonusBgCoverScaleY,
 			);
 
 			// Align the visual bottom edge of the cover with the bottom of the screen
@@ -195,7 +341,7 @@ export class BonusBackground {
 			const coverHeight = this.bonusBgCover.displayHeight;
 			const originY = this.bonusBgCover.originY ?? 0;
 			const bottomY = height - this.coverBottomOffsetPx;
-			const y = bottomY - coverHeight * (1 - originY) + BONUS_BG_COVER_OFFSET_Y;
+			const y = bottomY - coverHeight * (1 - originY) + this.bonusBgCoverOffsetY;
 			this.bonusBgCover.setPosition(width * 0.5, y);
 		}
 

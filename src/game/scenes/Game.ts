@@ -734,8 +734,11 @@ export class Game extends Scene {
 			}
 		}
 
+		// Base-game only: use current spin payload total for win-dialog tiering.
 		const slotTotalWin = Number((spinData.slot as any)?.totalWin);
-		if (totalWin === 0 && Number.isFinite(slotTotalWin) && slotTotalWin > 0) totalWin = slotTotalWin;
+		if (!gameStateManager.isBonus && Number.isFinite(slotTotalWin) && slotTotalWin > 0) {
+			totalWin = slotTotalWin;
+		}
 
 		const slotTumbles = spinData.slot?.tumbles || [];
 		const bonusTumbles = freeSpinItem?.tumbles;

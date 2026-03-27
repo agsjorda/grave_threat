@@ -386,9 +386,9 @@ export class ScatterAnimationManager {
         if (completionHandled) return;
         const dialogsAny = this.dialogsComponent as any;
         const dialogShowing = typeof dialogsAny?.isDialogShowing === 'function' && dialogsAny.isDialogShowing();
-        const radialLightRunning = typeof dialogsAny?.isRadialLightTransitionInProgress === 'function'
-          && dialogsAny.isRadialLightTransitionInProgress();
-        if (dialogShowing || radialLightRunning) {
+        const batTransitionRunning = typeof dialogsAny?.isBatTransitionInProgress === 'function'
+          && dialogsAny.isBatTransitionInProgress();
+        if (dialogShowing || batTransitionRunning) {
           pollUntilDialogClosed();
           return;
         }

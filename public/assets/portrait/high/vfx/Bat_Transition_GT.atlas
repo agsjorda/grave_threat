@@ -24,7 +24,7 @@ bounds:1292,5,428,926
 Bat_Transition_GT_2.webp
 size:1860,1860
 filter:Linear,Linear
-pma:true
+pma:false
 Transition_00020
 bounds:2,930,428,926
 Transition_00021
@@ -45,7 +45,7 @@ bounds:1292,2,428,926
 Bat_Transition_GT_3.webp
 size:2048,2048
 filter:Linear,Linear
-pma:true
+pma:false
 Transition_00001
 bounds:1715,650,330,320
 offsets:57,316,428,926
@@ -86,7 +86,7 @@ bounds:432,1119,428,926
 Bat_Transition_GT_4.webp
 size:372,372
 filter:Linear,Linear
-pma:true
+pma:false
 Transition_00002
 bounds:2,2,346,365
 offsets:57,313,428,926

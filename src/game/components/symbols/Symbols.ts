@@ -201,7 +201,7 @@ export class Symbols {
   private scatterRetriggerAnimationInProgress: boolean = false;
   private pendingScatterRetrigger: PendingScatterRetrigger | null = null;
   private pendingSymbol0Retrigger: { symbol0Grids: GridPosition[] } | null = null;
-  private radialLightPromise: Promise<void> | null = null;
+  private batTransitionPromise: Promise<void> | null = null;
   private mergeLeadSymbol: SymbolObject | null = null;
   // Active scatter symbols used for merge/win flow (normal trigger / retrigger).
   private activeScatterMergeSymbols: SymbolObject[] = [];
@@ -225,9 +225,20 @@ export class Symbols {
   // Column-major snapshots used to validate cluster checks at WIN_STOP.
   private clusterWinGridSnapshots: number[][][] = [];
   private readonly skipTweenTimeScale: number = 1;
+  // Column-wave drop cadence (C0 at 0ms, C1 at +value, ...).
+  private readonly columnDropStaggerMs: number = 120;
+  // Per-symbol row offset inside each column wave (e.g. 10ms between rows in C0).
+  private readonly symbolDropStaggerMs: number = 30;
+  // Pre-spin only: move-up hop multiplier against gameData.winUpHeight.
+  private readonly preSpinDropMoveUpMultiplier: number = 0;
+  // Minimum delay from pre-spin start to main reel drop start.
+  // Main drop begins when BOTH are satisfied: spin data has arrived and this delay elapsed.
+  private readonly preSpinToReelDropMinDelayMs: number = 1500;
+  private preSpinDropStartAtMs: number = 0;
   // Per-spin staged scatter reel-drop SFX counter (scatterdrop1 -> ... -> scatterdrop4 max).
   private scatterDropStageForSpin: number = 0;
   private spinDropSoundByColumn: Map<number, SoundEffectType> = new Map();
+  private spinDropSoundPlayedColumns: Set<number> = new Set();
   // Tracks whether the persistent bonus multiplier grid has been initialized for the current bonus session (so retriggers don't reset it).
   private bonusGridInitializedForSession: boolean = false;
   /** Win border graphics (scene layer) for SHOW_WIN_BORDER_SYMBOLS - cleared on new spin */
@@ -2390,28 +2401,28 @@ export class Symbols {
       gameScene?.bonusHeader?.hideWinningsDisplay?.();
     } catch {}
     await this.playBuyFeatureScatterMerge(scatterSymbols, winAnimName, idleAnimName);
-    // Run radial light after merge for Sugar Rush-style reveal.
-    if (!this.radialLightPromise) {
-      this.radialLightPromise = (async () => {
+    // Run bat transition after merge for Sugar Rush-style reveal.
+    if (!this.batTransitionPromise) {
+      this.batTransitionPromise = (async () => {
         try {
           const dialogs: any = (this.scene as any)?.dialogs;
-          if (dialogs?.playRadialLightTransition) {
-            await dialogs.playRadialLightTransition({
+          if (dialogs?.playBatTransition) {
+            await dialogs.playBatTransition({
               durationMs: 1200,
               centerX: this.scene.scale.width * 0.5,
               centerY: this.scene.scale.height * 0.5
             });
           }
         } catch (e) {
-          console.warn('[Symbols] Radial light transition failed:', e);
+          console.warn('[Symbols] Bat transition failed:', e);
         }
       })();
     }
-    if (this.radialLightPromise) {
+    if (this.batTransitionPromise) {
       try {
-        await this.radialLightPromise;
+        await this.batTransitionPromise;
       } catch { }
-      this.radialLightPromise = null;
+      this.batTransitionPromise = null;
     }
     this.isBuyFeatureTransitionComplete = true;
     try {
@@ -2701,35 +2712,22 @@ export class Symbols {
 
 
     this.preSpinDropInProgress = true;
+    this.preSpinDropStartAtMs = Date.now();
     this.preSpinDropRowPromises.clear();
     const runPromise = (async () => {
       const rowPromises: Promise<void>[] = [];
-      const bonusPreDropDelay = gameStateManager.isBonus
-        ? (dropTimingSnapshot.winUpDuration * 2)
-        : 0.3;
+      const preSpinStartDelay = 0.3;
 
-      if (isTurbo) {
-        const sharedStartGate = this.delayOrSkip(bonusPreDropDelay);
-        for (let step = 0; step < numRows; step++) {
-          const actualRow = (numRows - 1) - step;
-          const rowPromise = sharedStartGate.then(() =>
-            this.dropOldSymbols(actualRow, isTurbo, dropTimingSnapshot)
-          );
-          this.preSpinDropRowPromises.set(actualRow, rowPromise);
-          rowPromises.push(rowPromise);
-        }
-      } else {
-        for (let step = 0; step < numRows; step++) {
-          const actualRow = (numRows - 1) - step;
-          const startDelay = bonusPreDropDelay + (dropTimingSnapshot.dropReelsDelay * step);
-
-          const rowPromise = (async () => {
-            await this.delayOrSkip(startDelay);
-            await this.dropOldSymbols(actualRow, isTurbo, dropTimingSnapshot);
-          })();
-          this.preSpinDropRowPromises.set(actualRow, rowPromise);
-          rowPromises.push(rowPromise);
-        }
+      // Column-wave pre-spin behavior:
+      // start all rows together so each column drops as a full vertical slice.
+      const sharedStartGate = this.delayOrSkip(preSpinStartDelay);
+      for (let step = 0; step < numRows; step++) {
+        const actualRow = (numRows - 1) - step;
+        const rowPromise = sharedStartGate.then(() =>
+          this.dropOldSymbols(actualRow, isTurbo, dropTimingSnapshot, true)
+        );
+        this.preSpinDropRowPromises.set(actualRow, rowPromise);
+        rowPromises.push(rowPromise);
       }
 
       await Promise.all(rowPromises);
@@ -2741,6 +2739,7 @@ export class Symbols {
       })
       .finally(() => {
         this.preSpinDropInProgress = false;
+        this.preSpinDropPromise = null;
       });
   }
 
@@ -2838,115 +2837,53 @@ export class Symbols {
     }
     const isSkip = this.skipReelDropsActive || this.skipReelDropsPending;
     const pendingPreSpinDrop = this.preSpinDropPromise;
-    if (pendingPreSpinDrop) {
-      // Cleanup the stored promise when it completes, but do not block new-symbol drops.
-      pendingPreSpinDrop.finally(() => {
-        if (this.preSpinDropPromise === pendingPreSpinDrop) {
-          this.preSpinDropPromise = null;
-        }
-      });
-    }
     const shouldSkipOldDropPhase = !!pendingPreSpinDrop;
-    const allowPreSpinOverlap = shouldSkipOldDropPhase && isTurbo && !gameStateManager.isAutoPlaying;
-    if (allowPreSpinOverlap) {
-      // Keep old symbols visually above while both old/new drops overlap.
-      this.sendNewSymbolsBehindExisting();
+    // Start according to whichever is longer:
+    // - spin data response arrival (this method invocation), or
+    // - configured minimum delay from pre-spin start.
+    // Do NOT block on pre-spin clear completion.
+    if (this.preSpinDropStartAtMs > 0) {
+      const elapsedMs = Date.now() - this.preSpinDropStartAtMs;
+      const remainingMs = Math.max(0, this.preSpinToReelDropMinDelayMs - elapsedMs);
+      console.log('[Symbols][DropTiming]', {
+        preSpinDropStartAtMs: this.preSpinDropStartAtMs,
+        preSpinToReelDropMinDelayMs: this.preSpinToReelDropMinDelayMs,
+        elapsedMs,
+        remainingMs,
+        usedPath: remainingMs > 0 ? 'min-delay-wait' : 'spin-response-immediate',
+      });
+      if (remainingMs > 0) {
+        await this.delayOrSkip(remainingMs);
+      }
     }
 
-    // Drop symbols row by row from bottom to top
-    if (isSkip) {
-      // Enforce strict bottom-left to top-right order during skip.
-      const bonusPreDropDelay = gameStateManager.isBonus
-        ? (dropTimingSnapshot.winUpDuration * 2)
-        : 0.5;
-      const preDelay = bonusPreDropDelay * 0.2;
-      const rowDelay = dropTimingSnapshot.dropReelsDelay * 0.2;
+    // Column-wave orchestration:
+    // start all rows together, then each column lands with its own delay.
+    const reelPromises: Promise<void>[] = [];
+    const reelDropStartDelay = 0.5;
+    // Pre-spin path already handled fallback timing above; no extra per-row gate needed here.
+    const postPreSpinDelay = shouldSkipOldDropPhase ? 0 : reelDropStartDelay;
+    const skipDelayMultiplier = isSkip ? 0.2 : 1;
 
-      for (let step = 0; step < numRows; step++) {
-        const actualRow = (numRows - 1) - step;
-        const startDelay = step === 0 ? preDelay : rowDelay;
-        await this.delay(startDelay);
-        if (shouldSkipOldDropPhase && !allowPreSpinOverlap) {
-          const oldRowDone = this.preSpinDropRowPromises.get(actualRow);
-          if (oldRowDone) {
-            try { await oldRowDone; } catch {}
-          }
-        }
+    for (let step = 0; step < numRows; step++) {
+      const actualRow = (numRows - 1) - step;
+      const startDelay = postPreSpinDelay * skipDelayMultiplier;
+
+      const p = (async () => {
+        await this.delayOrSkip(startDelay);
         if (!shouldSkipOldDropPhase) {
           await this.dropOldSymbols(actualRow, isTurbo, dropTimingSnapshot);
         }
         await this.dropNewSymbols(actualRow, false, isTurbo, dropTimingSnapshot);
-      }
+      })();
+      reelPromises.push(p);
+    }
 
+    try {
+      await Promise.all(reelPromises);
       this.clearSkipReelDrops();
+    } finally {
       this.reelDropInProgress = false;
-    } else if (isTurbo) {
-      const reelPromises: Promise<void>[] = [];
-      const bonusPreDropDelay = gameStateManager.isBonus
-        ? (dropTimingSnapshot.winUpDuration * 2)
-        : 0.5;
-      const sharedStartGate = this.delayOrSkip(bonusPreDropDelay);
-
-      for (let step = 0; step < numRows; step++) {
-        const actualRow = (numRows - 1) - step;
-        const p = (async () => {
-          await sharedStartGate;
-          if (shouldSkipOldDropPhase && !allowPreSpinOverlap) {
-            const oldRowDone = this.preSpinDropRowPromises.get(actualRow);
-            if (oldRowDone) {
-              try { await oldRowDone; } catch {}
-            }
-          }
-          if (!shouldSkipOldDropPhase) {
-            await this.dropOldSymbols(actualRow, isTurbo, dropTimingSnapshot);
-          }
-
-          await this.dropNewSymbols(actualRow, false, isTurbo, dropTimingSnapshot);
-        })();
-        reelPromises.push(p);
-      }
-
-      try {
-        await Promise.all(reelPromises);
-        this.clearSkipReelDrops();
-      } finally {
-        this.reelDropInProgress = false;
-      }
-    } else {
-      const reelPromises: Promise<void>[] = [];
-
-      for (let step = 0; step < numRows; step++) {
-        const actualRow = (numRows - 1) - step;
-        const bonusPreDropDelay = gameStateManager.isBonus
-          ? (dropTimingSnapshot.winUpDuration * 2)
-          : 0.5;
-
-        const startDelay = bonusPreDropDelay + (dropTimingSnapshot.dropReelsDelay * step);
-
-        const p = (async () => {
-          await this.delayOrSkip(startDelay);
-          if (shouldSkipOldDropPhase && !allowPreSpinOverlap) {
-            const oldRowDone = this.preSpinDropRowPromises.get(actualRow);
-            if (oldRowDone) {
-              try { await oldRowDone; } catch {}
-            }
-          }
-          if (!shouldSkipOldDropPhase) {
-            await this.dropOldSymbols(actualRow, isTurbo, dropTimingSnapshot);
-          }
-
-          // Then drop new symbols
-          await this.dropNewSymbols(actualRow, false, isTurbo, dropTimingSnapshot);
-        })();
-        reelPromises.push(p);
-      }
-
-      try {
-        await Promise.all(reelPromises);
-        this.clearSkipReelDrops();
-      } finally {
-        this.reelDropInProgress = false;
-      }
     }
 
     // Turbo mode: play turbo drop sound effect
@@ -2962,7 +2899,8 @@ export class Symbols {
   private async dropOldSymbols(
     rowIndex: number,
     turboOverride?: boolean,
-    timingOverride?: ReelDropTimingSnapshot
+    timingOverride?: ReelDropTimingSnapshot,
+    isPreSpinDrop: boolean = false
   ): Promise<void> {
     return new Promise<void>((resolve) => {
       if (!this.symbols || this.symbols.length === 0) {
@@ -2972,8 +2910,10 @@ export class Symbols {
 
       let completedAnimations = 0;
       const totalAnimations = this.symbols.length;
-      const STAGGER_MS = 100; // Same as new symbols (baseline)
-      const symbolHop = this.scene.gameData.winUpHeight * 0.5;
+      const STAGGER_MS = this.columnDropStaggerMs; // C0 now, C1 after +stagger, etc.
+      const rowsInGrid = this.symbols?.[0]?.length ?? SLOT_ROWS;
+      const rowWaveIndex = Math.max(0, (rowsInGrid - 1) - rowIndex);
+      const symbolHop = this.scene.gameData.winUpHeight * this.preSpinDropMoveUpMultiplier;
       const isTurbo = typeof turboOverride === 'boolean'
         ? turboOverride
         : !!this.scene.gameData?.isTurbo;
@@ -3172,7 +3112,8 @@ export class Symbols {
             // Skip in normal mode: keep per-column stagger but much tighter.
             delay: isTurbo
               ? 0
-              : (isSkip ? STAGGER_MS * 0.35 * col : STAGGER_MS * col),
+              : ((isSkip ? STAGGER_MS * 0.35 * col : STAGGER_MS * col)
+                + (rowWaveIndex * this.symbolDropStaggerMs)),
             y: `-= ${symbolHop}`,
             duration: Math.max(1, winUpDuration * speed),
             ease: Phaser.Math.Easing.Circular.Out,
@@ -3220,7 +3161,9 @@ export class Symbols {
 
       // Safety timeout in case some animations don't complete
       // Must account for column stagger delay + full animation duration + buffer
-      const maxStaggerDelay = (isTurbo || isSkip) ? 0 : STAGGER_MS * (totalAnimations - 1);
+      const maxStaggerDelay = isTurbo
+        ? 0
+        : ((isSkip ? STAGGER_MS * 0.35 : STAGGER_MS) * (totalAnimations - 1));
       const maxAnimDuration = (winUpDuration * speed) + (dropDuration * 0.9 * speed);
       const timeoutDuration = maxStaggerDelay + maxAnimDuration + (dropDuration * 0.5);
       this.scene.time.delayedCall(timeoutDuration, () => {
@@ -3277,8 +3220,10 @@ export class Symbols {
 
       let completedAnimations = 0;
       const totalAnimations = this.newSymbols.length;
-      const STAGGER_MS = 100;
-      const symbolHop = this.scene.gameData.winUpHeight * 0.5;
+      const STAGGER_MS = this.columnDropStaggerMs; // C0 now, C1 after +stagger, etc.
+      const rowsInGrid = this.newSymbols?.[0]?.length ?? SLOT_ROWS;
+      const rowWaveIndex = Math.max(0, (rowsInGrid - 1) - index);
+      const symbolHop = this.scene.gameData.winUpHeight * this.preSpinDropMoveUpMultiplier;
       const isTurbo = typeof turboOverride === 'boolean'
         ? turboOverride
         : !!this.scene.gameData?.isTurbo;
@@ -3351,7 +3296,8 @@ export class Symbols {
 
         const delayMs = isTurbo
           ? 0
-          : (isSkip ? STAGGER_MS * 0.3 * col : STAGGER_MS * col);
+          : ((isSkip ? STAGGER_MS * 0.3 * col : STAGGER_MS * col)
+            + (rowWaveIndex * this.symbolDropStaggerMs));
 
         const tweens: any[] = [
           {
@@ -3432,24 +3378,20 @@ export class Symbols {
   }
 
   /**
-   * Spin reel drop SFX: one play per column per row wave (same as sugar_wonderland / felice pattern).
-   * Trigger stays on the main drop tween landing at targetY (first land), not the post-landing bounce.
-   * Scatter brass (SCATTER_DROP_*) is only used when this row’s landing symbol is actually a scatter;
-   * otherwise REEL_DROP — avoids repeating the scatter sound on every row in a column that contains a scatter.
+   * Spin reel drop SFX: one play per column for the whole drop sequence.
+   * If a column is mapped to scatter brass (SCATTER_DROP_*), play that once for the column;
+   * otherwise play REEL_DROP once.
    */
   private playSpinReelDropSoundForColumn(colIndex: number, symbolAtCell: SymbolObject | null | undefined): void {
     const audioManager = (window as any).audioManager;
     if (!audioManager || typeof audioManager.playSoundEffect !== 'function') return;
+    if (this.spinDropSoundPlayedColumns.has(colIndex)) return;
 
     try {
-      const isScatterCell =
-        !!symbolAtCell && this.isScatterSymbol(symbolAtCell as SymbolObject);
       const mapped = this.spinDropSoundByColumn.get(colIndex) ?? SoundEffectType.REEL_DROP;
-      const effect =
-        isScatterCell && mapped !== SoundEffectType.REEL_DROP
-          ? mapped
-          : SoundEffectType.REEL_DROP;
+      const effect = mapped !== SoundEffectType.REEL_DROP ? mapped : SoundEffectType.REEL_DROP;
       audioManager.playSoundEffect(effect);
+      this.spinDropSoundPlayedColumns.add(colIndex);
     } catch (e) {
       console.warn('[Symbols] Failed to play spin reel-drop sound:', e);
     }
@@ -3457,6 +3399,7 @@ export class Symbols {
 
   private initializeSpinDropSoundsByColumn(): void {
     this.spinDropSoundByColumn.clear();
+    this.spinDropSoundPlayedColumns.clear();
     this.scatterDropStageForSpin = 0;
 
     if (!this.newSymbols || this.newSymbols.length === 0) return;
@@ -3947,7 +3890,6 @@ export class Symbols {
           }
         }
       }
-      if (borderCount > 0) ;
     }
 
     // Attach ONE win text per winning symbol value, prioritizing columns 2–5 (1–4 zero-based)
@@ -3965,10 +3907,18 @@ export class Symbols {
       }
       // Map of per-symbol win amount from outs
       const winBySymbol: { [key: number]: number } = {};
+      const winExprBySymbol: { [key: number]: string } = {};
+      const formatWinPart = (n: number): string => Number(n.toFixed(4)).toString();
       for (const out of outs as any[]) {
         const s = Number((out as any)?.symbol);
         const w = getOutWin(out);
         if (!isNaN(s) && !isNaN(w) && w > 0) winBySymbol[s] = w;
+        const winPayload: any = (out as any)?.win;
+        const baseWin = Number(winPayload?.base);
+        const multiplier = Number(winPayload?.multiplier);
+        if (!isNaN(s) && Number.isFinite(baseWin) && Number.isFinite(multiplier)) {
+          winExprBySymbol[s] = `${formatWinPart(baseWin)} x ${formatWinPart(multiplier)}`;
+        }
       }
       const tumbleWin = Number((tumble as any)?.win || 0);
       // Choose one position per winning symbol and display text
@@ -4048,6 +3998,12 @@ export class Symbols {
           // Create and place text (smaller scale during bonus)
           const winTextScale = gameStateManager.isBonus ? WIN_TEXT_SCALE_BONUS : 1;
           const txt = this.overlayModule.createWinText(amount, baseX, baseY, this.displayHeight, false, winTextScale);
+          try {
+            const expr = winExprBySymbol[sym];
+            if (expr && typeof (txt as any).setText === 'function') {
+              (txt as any).setText(expr);
+            }
+          } catch {}
           try { txt.setDepth(700); } catch { }
           self.container.add(txt);
           try { (obj as any).__winText = txt; } catch { }

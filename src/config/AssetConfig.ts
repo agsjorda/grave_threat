@@ -40,6 +40,10 @@ export class AssetConfig {
 				'dijoker_loading': `${prefix}/dijoker_loading/DI JOKER.png`
 			},
 			spine: {
+				'Will-o-wisp_BG_GT': {
+					atlas: `assets/portrait/high/vfx/Will-o-wisp_BG_GT.atlas`,
+					json: `assets/portrait/high/vfx/Will-o-wisp_BG_GT.json`
+				},
 				'di_joker': {
 					atlas: `${prefix}/dijoker_loading/DI JOKER.atlas`,
 					json: `${prefix}/dijoker_loading/DI JOKER.json`
@@ -60,9 +64,9 @@ export class AssetConfig {
 				'dijoker_loading': `${prefix}/dijoker_loading/DI JOKER.png`
 			},
 			spine: {
-				'Bonus_BG_GT': {
-					atlas: `assets/portrait/high/vfx/Bonus_BG_GT.atlas`,
-					json: `assets/portrait/high/vfx/Bonus_BG_GT.json`
+				'Fire_BG_GT': {
+					atlas: `assets/portrait/high/vfx/Fire_BG_GT.atlas`,
+					json: `assets/portrait/high/vfx/Fire_BG_GT.json`
 				},
 				'di_joker': {
 					atlas: `${prefix}/dijoker_loading/DI JOKER.atlas`,
@@ -406,7 +410,7 @@ export class AssetConfig {
 				'turbodrop': 'assets/sounds/SFX/turbo_GT.ogg',
 				// Non-scatter box close SFX (played once when all regular symbol wins finish)
 				'box_close': 'assets/sounds/SFX/box_close.ogg',
-				// Radial light transition whistle SFX
+				// Bat transition whistle SFX
 				'whistle': 'assets/sounds/SFX/whistle_BB.ogg',
 				'scatter': 'assets/sounds/SFX/scatter_GT.ogg',
 				// Tumble symbol-win SFX (play per tumble index)

@@ -194,7 +194,7 @@ export class AudioManager {
 				console.warn('[AudioManager] Failed to create box_close SFX instance:', e);
 			}
 
-			// Radial light transition whistle SFX
+			// Bat transition whistle SFX
 			try {
 				const whistleSfx = this.scene.sound.add('whistle', { volume: this.sfxVolume, loop: false });
 				this.sfxInstances.set(SoundEffectType.WHISTLE_BB, whistleSfx);

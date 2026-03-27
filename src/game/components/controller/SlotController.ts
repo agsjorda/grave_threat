@@ -1111,6 +1111,15 @@ export class SlotController {
 			if (this.isBuyFeatureControlsLocked()) {
 				return;
 			}
+			// Also keep Buy Feature disabled if balance cannot afford its price.
+			try {
+				const price = this.getBuyFeaturePrice();
+				const balance = this.getBalanceAmount() || 0;
+				if (price > 0 && balance + 1e-9 < price) {
+					this.disableFeatureButton();
+					return;
+				}
+			} catch {}
 			featureButton.setAlpha(1.0); // Restore full opacity
 			featureButton.clearTint(); // Remove grey tint
 			if (this.featureButtonHitbox) {
@@ -1464,6 +1473,12 @@ export class SlotController {
 				return;
 			}
 			if (gameStateManager.isReelSpinning) {
+				return;
+			}
+			// Hard guard: block spin if balance can't cover current bet.
+			if (!this.canAffordCurrentSpin()) {
+				this.disableSpinButton();
+				this.updateFeatureButtonState();
 				return;
 			}
 			
@@ -2052,6 +2067,9 @@ export class SlotController {
 				const increasedBet = betAmount * 1.25;
 				this.betAmountText.setText(formatCurrencyNumber(increasedBet));
 			}
+
+			// Bet changed -> re-evaluate whether spin is affordable/enabled.
+			this.updateSpinButtonState();
 		} finally {
 			this.isInternalBetChange = false;
 		}
@@ -2092,6 +2110,9 @@ export class SlotController {
 
 		// Update bet +/- button states based on the new bet (for min/max greying)
 		this.updateBetLimitButtons(betAmount);
+
+		// Bet changed -> re-evaluate whether spin is affordable/enabled.
+		this.updateSpinButtonState();
 	}
 
 	/**
@@ -2122,6 +2143,26 @@ export class SlotController {
 				? amount
 				: null;
 		this.updateFeatureAmountFromCurrentBet();
+		// Feature price changed -> re-evaluate whether it's affordable/enabled.
+		this.updateFeatureButtonState();
+	}
+
+	private getBuyFeaturePrice(): number {
+		const baseBet = this.getBaseBetAmount() || 0;
+		const hasOverride =
+			this.featureButtonAmountOverride !== null &&
+			Number.isFinite(this.featureButtonAmountOverride);
+		const price = hasOverride ? this.featureButtonAmountOverride! : baseBet * 100;
+		return Number.isFinite(price) ? price : 0;
+	}
+
+	private canAffordCurrentSpin(): boolean {
+		const gameData = this.getGameData();
+		const baseBet = this.getBaseBetAmount() || 0;
+		const requiredBet = gameData?.isEnhancedBet ? baseBet * 1.25 : baseBet;
+		const balance = this.getBalanceAmount() || 0;
+		if (!(requiredBet > 0)) return true;
+		return balance + 1e-9 >= requiredBet;
 	}
 
 	public refreshCurrencySymbols(): void {
@@ -2177,6 +2218,8 @@ export class SlotController {
 
 	updateBalanceAmount(balanceAmount: number): void {
 		this.balanceController?.updateBalanceAmount(balanceAmount);
+		// Balance changed -> re-evaluate whether spin is affordable/enabled.
+		this.updateSpinButtonState();
 	}
 
 	/**
@@ -3289,6 +3332,10 @@ export class SlotController {
 		// Apply min/max greying based on the current base bet after bonus ends
 		const currentBaseBet = this.getBaseBetAmount() || 0.2;
 		this.updateBetLimitButtons(currentBaseBet);
+
+		// Ensure feature/spin states reflect affordability after controller restore.
+		this.updateSpinButtonState();
+		this.updateFeatureButtonState();
 		
 		// Hide the free spin display when bonus mode ends
 		this.hideFreeSpinDisplay();
@@ -4493,6 +4540,8 @@ export class SlotController {
 	public updateSpinButtonState(): void {
 		const gameData = this.getGameData();
 		if (!gameData || !this.buttons.has('spin')) {
+			// Keep feature button synced even if spin is not ready yet.
+			this.updateFeatureButtonState();
 			return;
 		}
 
@@ -4501,29 +4550,46 @@ export class SlotController {
 
 		if (this.isSpinLocked) {
 			this.disableSpinButton();
+			this.updateFeatureButtonState();
 			return;
 		}
 
 		if (this.isBuyFeatureControlsLocked()) {
 			this.disableSpinButton();
+			this.updateFeatureButtonState();
 			return;
 		}
 
 		if (gameStateManager.isScatter || gameStateManager.isBonus) {
 			this.disableSpinButton();
+			this.updateFeatureButtonState();
 			return;
 		}
 
 		if (this.balanceController?.hasPendingBalanceUpdate()) {
 			this.disableSpinButton();
+			this.updateFeatureButtonState();
 			return;
 		}
+
+		// Disable spin when balance is insufficient for the selected bet.
+		try {
+			const baseBet = this.getBaseBetAmount() || 0;
+			const requiredBet = gameData.isEnhancedBet ? baseBet * 1.25 : baseBet;
+			const balance = this.getBalanceAmount() || 0;
+			if (requiredBet > 0 && balance + 1e-9 < requiredBet) {
+				this.disableSpinButton();
+				this.updateFeatureButtonState();
+				return;
+			}
+		} catch {}
 
 		try {
 			const symbolsComponent: any = (this.scene as any)?.symbols;
 			const scatterManager = symbolsComponent?.scatterAnimationManager;
 			if (scatterManager && typeof scatterManager.isAnimationInProgress === 'function' && scatterManager.isAnimationInProgress()) {
 				this.disableSpinButton();
+				this.updateFeatureButtonState();
 				return;
 			}
 		} catch {}
@@ -4532,6 +4598,7 @@ export class SlotController {
 		const autoplayEnded = !gameStateManager.isAutoPlaying && this.getAutoplaySpinsRemaining() <= 0;
 		if (gameData.isAutoPlaying && !autoplayEnded) {
 			this.disableSpinButton();
+			this.updateFeatureButtonState();
 			return;
 		}
 
@@ -4551,11 +4618,22 @@ export class SlotController {
 	public updateFeatureButtonState(): void {
 		if (!this.isBuyFeatureControlsLocked() && !gameStateManager.isBonus && this.canEnableFeatureButton) {
 			const gameData = this.getGameData();
-			if (!gameData || !gameData.isEnhancedBet) {
-				this.enableFeatureButton();
-			} else {
+			if (!gameData || gameData.isEnhancedBet) {
 				this.disableFeatureButton();
+				return;
 			}
+
+			// Disable buy-feature if balance is insufficient for its price.
+			try {
+				const price = this.getBuyFeaturePrice();
+				const balance = this.getBalanceAmount() || 0;
+				if (price > 0 && balance + 1e-9 < price) {
+					this.disableFeatureButton();
+					return;
+				}
+			} catch {}
+
+			this.enableFeatureButton();
 		} else {
 			this.disableFeatureButton();
 		}

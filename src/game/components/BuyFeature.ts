@@ -33,6 +33,7 @@ export class BuyFeature {
   private container!: Phaser.GameObjects.Container;
   private background!: Phaser.GameObjects.Graphics;
   private confirmButtonMask!: Phaser.GameObjects.Graphics;
+  private confirmButtonImage?: Phaser.GameObjects.Image;
   private featurePrice: number = 24000.0;
   private currentBet: number = 0.2; // Start with first bet option
   private slotController: SlotController | null = null;
@@ -45,6 +46,7 @@ export class BuyFeature {
   private currentBetIndex: number = -1;
   private closeButton!: Phaser.GameObjects.Text;
   private confirmButton!: Phaser.GameObjects.Text;
+  private confirmDisabled: boolean = false;
   private betDisplay!: Phaser.GameObjects.Text;
   private minusButton!: Phaser.GameObjects.Text;
   private plusButton!: Phaser.GameObjects.Text;
@@ -430,6 +432,7 @@ export class BuyFeature {
     this.selectedBuyFeatureType = index === 1 ? 2 : 1;
     this.refreshBuyFeatureCardOutlines();
     this.updateBetDisplay();
+    this.updateConfirmButtonState();
   }
 
   private refreshBuyFeatureCardOutlines(): void {
@@ -1120,6 +1123,7 @@ export class BuyFeature {
     buttonImage.setOrigin(0.5, 0.5);
     buttonImage.setDisplaySize(364, 62);
     this.container.add(buttonImage);
+    this.confirmButtonImage = buttonImage;
 
     // Button label
     this.confirmButton = scene.add.text(x, y, "BUY FEATURE", {
@@ -1132,9 +1136,15 @@ export class BuyFeature {
 
     buttonImage.setInteractive();
     buttonImage.on("pointerdown", () => {
+      if (this.confirmDisabled) {
+        return;
+      }
       this.playClickSound();
       this.confirmPurchase();
     });
+
+    // Initialize confirm enabled/disabled based on current selection + balance.
+    this.updateConfirmButtonState();
   }
 
   private playClickSound(): void {
@@ -1199,6 +1209,46 @@ export class BuyFeature {
       );
     }
     this.updateCardPrices();
+    this.updateConfirmButtonState();
+  }
+
+  private getSelectedFeaturePrice(): number {
+    return this.selectedBuyFeatureType === 2
+      ? this.getCurrentBetValue() * 5
+      : this.getCurrentBetValue();
+  }
+
+  private updateConfirmButtonState(): void {
+    const balance = this.slotController?.getBalanceAmount?.() ?? 0;
+    const price = this.getSelectedFeaturePrice();
+    const canAfford = !(price > 0) || balance + 1e-9 >= price;
+    this.setConfirmEnabled(canAfford);
+  }
+
+  private setConfirmEnabled(enabled: boolean): void {
+    this.confirmDisabled = !enabled;
+    try {
+      if (this.confirmButtonImage) {
+        if (enabled) {
+          this.confirmButtonImage.setAlpha(1.0);
+          this.confirmButtonImage.clearTint();
+          this.confirmButtonImage.setInteractive();
+        } else {
+          this.confirmButtonImage.setAlpha(0.5);
+          this.confirmButtonImage.setTint(0x555555);
+          this.confirmButtonImage.disableInteractive();
+        }
+      }
+      if (this.confirmButton) {
+        if (enabled) {
+          this.confirmButton.setAlpha(1.0);
+          this.confirmButton.clearTint();
+        } else {
+          this.confirmButton.setAlpha(0.5);
+          this.confirmButton.setTint(0x555555);
+        }
+      }
+    } catch {}
   }
 
   private formatNumberWithCommas(num: number): string {

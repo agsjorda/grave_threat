@@ -3,7 +3,6 @@ import { NetworkManager } from '../../managers/NetworkManager';
 import { ScreenModeManager } from '../../managers/ScreenModeManager';
 import { SoundEffectType } from '../../managers/AudioManager';
 import { NumberDisplay, NumberDisplayConfig } from './NumberDisplay';
-import { RadialLightTransition } from './RadialLightTransition';
 import { gameStateManager } from '../../managers/GameStateManager';
 import { gameEventManager, GameEventType } from '../../event/EventManager';
 import { EventBus } from '../EventBus';
@@ -121,7 +120,7 @@ export class Dialogs {
 	private stagedWinCurrentStageIndex: number = 0;
 	private stagedWinStageTimer: Phaser.Time.TimerEvent | null = null;
 
-	private radialLightTransition: RadialLightTransition | null = null;
+	private batTransitionInProgress: boolean = false;
 
 	// Dialog configuration
 	private dialogScales: Record<string, number> = {
@@ -190,8 +189,6 @@ export class Dialogs {
 	create(scene: Scene): void {
 		// Store scene reference for later use
 		this.currentScene = scene;
-
-		this.radialLightTransition = new RadialLightTransition(scene);
 
 		// Create main dialog overlay container (above win bar text, below menu popups)
 		this.dialogOverlay = scene.add.container(0, 0);
@@ -1414,27 +1411,94 @@ export class Dialogs {
 		});
 	}
 
-	public async playRadialLightTransition(options?: {
+	public async playBatTransition(options?: {
 		durationMs?: number;
 		centerX?: number;
 		centerY?: number;
 	}): Promise<void> {
 		const scene = this.currentScene;
-		if (!scene || !this.radialLightTransition) {
+		if (!scene) {
 			return;
 		}
-		try {
-			const am = (window as any)?.audioManager;
-			if (am && typeof am.playSoundEffect === 'function') {
-				am.playSoundEffect(SoundEffectType.WHISTLE_BB);
-			}
-		} catch { }
+		const durationMs = Math.max(500, Number(options?.durationMs ?? 1200));
 		const centerX = options?.centerX ?? scene.scale.width * 0.5;
 		const centerY = options?.centerY ?? scene.scale.height * 0.5;
-		await this.radialLightTransition.playRevealTransition({
-			durationMs: options?.durationMs,
-			centerX,
-			centerY
+		await this.playBatTransitionOverlay(scene, { durationMs, centerX, centerY });
+	}
+
+	private async playBatTransitionOverlay(
+		scene: Scene,
+		options: { durationMs: number; centerX: number; centerY: number }
+	): Promise<void> {
+		if (this.batTransitionInProgress) return;
+		this.batTransitionInProgress = true;
+
+		const fallbackMs = Math.max(800, options.durationMs + 300);
+		let finished = false;
+		let timeout: Phaser.Time.TimerEvent | null = null;
+		let batTransition: any = null;
+
+		const finish = (resolve: () => void) => {
+			if (finished) return;
+			finished = true;
+			try { timeout?.destroy(); } catch {}
+			timeout = null;
+			try { batTransition?.destroy?.(); } catch {}
+			batTransition = null;
+			this.batTransitionInProgress = false;
+			resolve();
+		};
+
+		return await new Promise<void>((resolve) => {
+			try {
+				// Reuse the same SFX as preloader bat transition.
+				if (scene.cache.audio.exists('bats_transition_GT')) {
+					scene.sound.play('bats_transition_GT');
+				}
+			} catch {}
+
+			timeout = scene.time.delayedCall(fallbackMs, () => finish(resolve));
+
+			try {
+				const addAny: any = scene.add as any;
+				batTransition = addAny?.spine?.(
+					options.centerX,
+					options.centerY,
+					'Bat_Transition_GT',
+					'Bat_Transition_GT-atlas'
+				);
+			} catch (e) {
+				console.warn('[Dialogs] Failed to create Bat_Transition_GT spine:', e);
+				finish(resolve);
+				return;
+			}
+
+			if (!batTransition) {
+				finish(resolve);
+				return;
+			}
+
+			try {
+				batTransition.setDepth(100000);
+				batTransition.setScale(Math.max(scene.scale.width / 428, scene.scale.height / 926));
+			} catch {}
+
+			try {
+				const entry = batTransition?.animationState?.setAnimation?.(0, 'Bat_Transition_GT_Anim', false);
+				if (batTransition?.animationState?.addListener && entry) {
+					const listener = {
+						complete: (completedEntry: any) => {
+							if (completedEntry !== entry) return;
+							try { batTransition.animationState.removeListener(listener); } catch {}
+							finish(resolve);
+						}
+					};
+					batTransition.animationState.addListener(listener);
+				}
+			} catch (e) {
+				console.warn('[Dialogs] Failed to play bat transition animation:', e);
+				finish(resolve);
+			}
 		});
 	}
 
@@ -1458,24 +1522,21 @@ export class Dialogs {
 			};
 		} catch { }
 
-		// Switch to bonus visuals immediately as the radial light transition begins.
+		// Switch to bonus visuals immediately as the bat transition begins.
 		this.triggerBonusMode(scene);
 
-		// Play radial light transition before signaling dialog completion (starts free spins).
+		// Play bat transition before signaling dialog completion (starts free spins).
 		let completionEmitted = false;
 		const emitDialogCompleteOnce = () => {
 			if (completionEmitted) return;
 			completionEmitted = true;
-			try {
-				this.radialLightTransition?.forceFinish();
-			} catch { }
 			scene.events.emit('dialogAnimationsComplete');
 		};
 		// Fallback to avoid freezing if the transition tween doesn't complete.
 		try {
 			setTimeout(emitDialogCompleteOnce, 1600);
 		} catch { }
-		this.playRadialLightTransition().then(() => {
+		this.playBatTransition().then(() => {
 			emitDialogCompleteOnce();
 		}).catch(() => {
 			emitDialogCompleteOnce();
@@ -2000,11 +2061,11 @@ export class Dialogs {
 	}
 
 	/**
-	 * Check if radial light transition is currently animating.
+	 * Check if bat transition is currently animating.
 	 */
-	public isRadialLightTransitionInProgress(): boolean {
+	public isBatTransitionInProgress(): boolean {
 		try {
-			return !!(this.radialLightTransition && this.radialLightTransition.isRunning());
+			return !!this.batTransitionInProgress;
 		} catch {
 			return false;
 		}
