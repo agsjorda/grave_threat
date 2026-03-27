@@ -80,6 +80,7 @@ export class SlotController {
 	private freeSpinAutoplaySimInFlight: boolean = false;
 	
 	private balanceController: BalanceController | null = null;
+	private pendingSpinUntilBalanceReady: boolean = false;
 	
 	private turboButtonController!: TurboButtonController;
 	private menuButtonController!: MenuButtonController;
@@ -2257,9 +2258,12 @@ export class SlotController {
 	private setupAutoplayEventListeners(): void {
 		// Listen for balance initialization
 		gameEventManager.on(GameEventType.BALANCE_INITIALIZED, (data: any) => {
-			
-			if (data && data.newBalance !== undefined) {
-				this.updateBalanceAmount(data.newBalance);
+			const resolvedBalance = Number(data?.newBalance ?? data?.balance ?? data?.currentBalance);
+			if (!Number.isFinite(resolvedBalance)) return;
+			this.updateBalanceAmount(resolvedBalance);
+			if (this.pendingSpinUntilBalanceReady && !gameStateManager.isReelSpinning) {
+				this.pendingSpinUntilBalanceReady = false;
+				try { this.scene?.time?.delayedCall?.(0, () => { void this.handleSpin(); }); } catch { void this.handleSpin(); }
 			}
 		});
 
@@ -3733,6 +3737,7 @@ export class SlotController {
 		if (this.isSpinLocked || gameStateManager.isReelSpinning) {
 			return;
 		}
+		this.balanceController?.finalizeBalanceTweenBeforeSpin();
 		this.isSpinLocked = true;
 		gameStateManager.isProcessingSpin = true;
 		let shouldClearProcessingOnExit = true;
@@ -3764,6 +3769,11 @@ export class SlotController {
 			if (!inInitFreeRoundContext) {
 				try {
 					const currentBalance = this.getBalanceAmount();
+					if (!this.balanceController?.hasInitializedBalance() || !Number.isFinite(currentBalance)) {
+						this.pendingSpinUntilBalanceReady = true;
+						gameStateManager.isProcessingSpin = false;
+						return;
+					}
 					const currentBet = this.getBaseBetAmount() || 0;
 					const gd = this.getGameData();
 					const totalBetToCharge = gd && gd.isEnhancedBet ? currentBet * 1.25 : currentBet;

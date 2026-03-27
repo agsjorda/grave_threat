@@ -1424,6 +1424,17 @@ export class Menu {
         4 * scaleFactor,
       );
       sfxValue.setText(Math.round(sfxVol * 100) + "%");
+      if (sfxVol === 0) {
+        if (sfxOn) {
+          sfxOn = false;
+          drawToggle(sfxToggleBg, sfxToggleCircle, toggleX, startY + 190, sfxOn);
+        }
+      } else {
+        if (!sfxOn) {
+          sfxOn = true;
+          drawToggle(sfxToggleBg, sfxToggleCircle, toggleX, startY + 190, sfxOn);
+        }
+      }
 
       // Update volumes
       if (musicX !== null) scene.audioManager.setVolume(musicVol);
@@ -1494,12 +1505,20 @@ export class Menu {
     this.scene.input.on("pointermove", pointerMoveHandler);
     this.scene.input.on("pointerup", pointerUpHandler);
     this.scene.input.on("gameout", pointerUpHandler);
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('mouseup', pointerUpHandler);
+      window.addEventListener('blur', pointerUpHandler);
+      document.addEventListener('visibilitychange', pointerUpHandler);
+    }
 
     // Store cleanup callbacks for the temporary slider listeners
     this.menuEventHandlers.push(
       () => scene.input.off("pointermove", pointerMoveHandler),
       () => scene.input.off("pointerup", pointerUpHandler),
       () => scene.input.off("gameout", pointerUpHandler),
+      () => window.removeEventListener('mouseup', pointerUpHandler),
+      () => window.removeEventListener('blur', pointerUpHandler),
+      () => document.removeEventListener('visibilitychange', pointerUpHandler),
     );
 
     // Create clickable areas for the entire slider tracks
@@ -1512,6 +1531,7 @@ export class Menu {
       new Geom.Rectangle(0, -10, widthSlider * scaleFactor, 28),
       Geom.Rectangle.Contains,
     );
+    if ((musicSliderTrack as any).input) (musicSliderTrack as any).input.priorityID = 10;
     contentArea.add(musicSliderTrack);
 
     const sfxSliderTrack = scene.add.graphics();
@@ -1523,6 +1543,7 @@ export class Menu {
       new Geom.Rectangle(0, -10, widthSlider * scaleFactor, 28),
       Geom.Rectangle.Contains,
     );
+    if ((sfxSliderTrack as any).input) (sfxSliderTrack as any).input.priorityID = 10;
     contentArea.add(sfxSliderTrack);
 
     // Music slider track click handler

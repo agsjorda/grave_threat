@@ -2,6 +2,7 @@ import type { Scene } from 'phaser';
 import type { GameAPI } from '../../../backend/GameAPI';
 import type { GameData } from '../GameData';
 import { CurrencyManager } from '../CurrencyManager';
+import { formatCurrencyNumber } from '../../../utils/NumberPrecisionFormatter';
 
 export interface BalanceControllerCallbacks {
   getScene: () => Scene | null;
@@ -13,11 +14,17 @@ export interface BalanceControllerCallbacks {
 }
 
 export class BalanceController {
+  private static readonly BALANCE_PENDING_TEXT = '-';
   private controllerContainer: Phaser.GameObjects.Container;
   private callbacks: BalanceControllerCallbacks;
   private balanceLabelText!: Phaser.GameObjects.Text;
   private balanceAmountText!: Phaser.GameObjects.Text;
   private pendingBalanceUpdate: { balance: number; bet: number; winnings?: number } | null = null;
+  private isBalanceInitialized: boolean = false;
+  private balanceTween: Phaser.Tweens.Tween | null = null;
+  private balanceAnimationInProgress: boolean = false;
+  private pendingServerBalanceForReconcile: number | null = null;
+  private activeBalanceTweenTarget: number | null = null;
 
   constructor(
     controllerContainer: Phaser.GameObjects.Container,
@@ -64,7 +71,7 @@ export class BalanceController {
     this.balanceAmountText = scene.add.text(
       balanceX,
       balanceY + 8,
-      '0',
+      BalanceController.BALANCE_PENDING_TEXT,
       {
         fontSize: '14px',
         color: '#ffffff',
@@ -76,15 +83,85 @@ export class BalanceController {
 
   public updateBalanceAmount(balanceAmount: number): void {
     if (this.balanceAmountText) {
-      this.balanceAmountText.setText(
-        balanceAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      );
+      if (!Number.isFinite(balanceAmount)) {
+        this.balanceAmountText.setText(BalanceController.BALANCE_PENDING_TEXT);
+        return;
+      }
+      this.balanceAmountText.setText(formatCurrencyNumber(balanceAmount));
+      this.isBalanceInitialized = true;
+    }
+  }
+
+  public hasInitializedBalance(): boolean {
+    return this.isBalanceInitialized;
+  }
+
+  public startBalanceTween(targetBalance: number, durationMs: number = 220): void {
+    if (!Number.isFinite(targetBalance)) return;
+    const scene = this.callbacks.getScene();
+    if (!scene || !this.balanceAmountText) {
+      this.updateBalanceAmount(targetBalance);
+      return;
+    }
+    const current = this.getBalanceAmount();
+    const from = Number.isFinite(current) ? current : targetBalance;
+    if (Math.abs(from - targetBalance) < 0.0001) {
+      this.updateBalanceAmount(targetBalance);
+      return;
+    }
+
+    try { this.balanceTween?.stop(); } catch { }
+    this.activeBalanceTweenTarget = targetBalance;
+    const proxy = { value: from };
+    this.balanceAnimationInProgress = true;
+    this.balanceTween = scene.tweens.add({
+      targets: proxy,
+      value: targetBalance,
+      duration: durationMs,
+      ease: 'Cubic.Out',
+      onUpdate: () => {
+        if (this.balanceAmountText) {
+          this.balanceAmountText.setText(formatCurrencyNumber(proxy.value));
+          this.isBalanceInitialized = true;
+        }
+      },
+      onComplete: () => {
+        this.balanceAnimationInProgress = false;
+        this.balanceTween = null;
+        this.activeBalanceTweenTarget = null;
+        this.updateBalanceAmount(targetBalance);
+        const deferred = this.pendingServerBalanceForReconcile;
+        this.pendingServerBalanceForReconcile = null;
+        if (Number.isFinite(deferred)) this.startBalanceTween(Number(deferred), 200);
+      },
+      onStop: () => {
+        this.balanceAnimationInProgress = false;
+        this.balanceTween = null;
+        this.activeBalanceTweenTarget = null;
+      }
+    });
+  }
+
+  public finalizeBalanceTweenBeforeSpin(): void {
+    if (!this.balanceAnimationInProgress) return;
+    const target = this.activeBalanceTweenTarget;
+    try { this.balanceTween?.stop(); } catch { }
+    this.balanceTween = null;
+    this.balanceAnimationInProgress = false;
+    this.activeBalanceTweenTarget = null;
+    if (Number.isFinite(target)) {
+      this.updateBalanceAmount(Number(target));
     }
   }
 
   public decrementBalanceByBet(): void {
     try {
+      this.finalizeBalanceTweenBeforeSpin();
       const currentBalance = this.getBalanceAmount();
+      if (!Number.isFinite(currentBalance)) {
+        console.warn('[SlotController] Balance not initialized yet; skip optimistic decrement.');
+        return;
+      }
       const currentBet = this.callbacks.getBaseBetAmount();
       const gameData = this.callbacks.getGameData();
 
@@ -94,7 +171,7 @@ export class BalanceController {
 
 
       const newBalance = Math.max(0, currentBalance - totalBetToCharge);
-      this.updateBalanceAmount(newBalance);
+      this.startBalanceTween(newBalance, 200);
 
       const gameAPI = this.callbacks.getGameAPI();
       if (gameAPI?.getDemoState()) {
@@ -112,10 +189,15 @@ export class BalanceController {
 
   public getBalanceAmount(): number {
     if (this.balanceAmountText) {
-      const balanceText = CurrencyManager.stripCurrencyPrefix(this.balanceAmountText.text).replace(/,/g, '');
-      return parseFloat(balanceText) || 0;
+      const rawText = (this.balanceAmountText.text || '').trim();
+      if (!rawText || rawText === BalanceController.BALANCE_PENDING_TEXT || rawText === '\u2014') {
+        return Number.NaN;
+      }
+      const balanceText = CurrencyManager.stripCurrencyPrefix(rawText).replace(/,/g, '');
+      const parsed = parseFloat(balanceText);
+      return Number.isFinite(parsed) ? parsed : Number.NaN;
     }
-    return 0;
+    return Number.NaN;
   }
 
   public refreshCurrencySymbols(): void {
@@ -163,7 +245,7 @@ export class BalanceController {
     if (this.pendingBalanceUpdate) {
       if (this.pendingBalanceUpdate.balance !== undefined) {
         const oldBalance = this.getBalanceAmountText();
-        this.updateBalanceAmount(this.pendingBalanceUpdate.balance);
+        this.startBalanceTween(this.pendingBalanceUpdate.balance, 320);
         try {
           const gameAPI = this.callbacks.getGameAPI();
           if (gameAPI?.getDemoState()) {
@@ -206,7 +288,7 @@ export class BalanceController {
 
       if (this.pendingBalanceUpdate.balance !== undefined) {
         const oldBalance = this.getBalanceAmountText();
-        this.updateBalanceAmount(this.pendingBalanceUpdate.balance);
+        this.startBalanceTween(this.pendingBalanceUpdate.balance, 320);
 
         if (this.pendingBalanceUpdate.winnings && this.pendingBalanceUpdate.winnings > 0) {
         } else {
@@ -249,7 +331,11 @@ export class BalanceController {
 
       const oldBalance = this.getBalanceAmount();
 
-      this.updateBalanceAmount(newBalance);
+      if (this.balanceAnimationInProgress) {
+        this.pendingServerBalanceForReconcile = newBalance;
+      } else {
+        this.startBalanceTween(newBalance, 200);
+      }
       if (newBalance <= 0) {
         this.callbacks.showOutOfBalancePopup();
       }
