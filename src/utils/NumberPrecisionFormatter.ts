@@ -15,6 +15,10 @@ export function setDecimalPlaces(places: number): void {
   currentDecimalPlaces = normalized;
 }
 
+export function getDecimalPlaces(): number {
+  return currentDecimalPlaces;
+}
+
 /**
  * Formats a number with the specified decimal count.
  * @param value - The number to format

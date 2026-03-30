@@ -12,6 +12,7 @@ import { queueAnimation, startAnimation } from '../../utils/SpineAnimationHelper
 import { CurrencyManager } from './CurrencyManager';
 import { localizationManager } from '../../managers/LocalizationManager';
 import { DIALOG_PRESS_CONTINUE, LOCALIZATION_DEFAULTS } from '../../backend/LocalizationData';
+import { getDecimalPlaces } from '../../utils/NumberPrecisionFormatter';
 
 export interface DialogConfig {
 	type: 'Congrats' | 'FreeSpin' | 'FreeSpinRetrigger' | 'BigWin' | 'MegaWin' | 'EpicWin' | 'SuperWin' | 'MaxWin' | 'TotalWin';
@@ -857,7 +858,7 @@ export class Dialogs {
 			x: scene.scale.width / 2,
 			y: this.getNumberDisplayY(scene, this.currentDialogType),
 			offsetY: this.getNumberDisplayOffsetY(this.currentDialogType),
-			decimalPlaces: freeSpins !== undefined ? 0 : 2, // No decimals for free spins
+			decimalPlaces: freeSpins !== undefined ? 0 : (getDecimalPlaces() || 2), // No decimals for free spins
 			showCommas: freeSpins === undefined, // No commas for free spins
 			// NumberDisplay only has sprite textures for 0-9, comma, dot. Do not use
 			// a currency prefix (e.g. "USD ") here or you get "Missing texture for character" for U, S, D, space.

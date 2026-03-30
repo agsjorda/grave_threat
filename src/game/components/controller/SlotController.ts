@@ -3088,6 +3088,25 @@ export class SlotController {
 			this.disableAmplifyButton();
 			return;
 		}
+		// Enforce affordability here too, because many flows call enableAmplifyButton()
+		// directly (bypassing updateAmplifyButtonStateWithLock()).
+		try {
+			const isBalanceReady = this.balanceController?.hasInitializedBalance() ?? false;
+			if (isBalanceReady) {
+				const gameData = this.getGameData();
+				const baseBet = this.getBaseBetAmount() || 0;
+				const requiredBet = gameData?.isEnhancedBet ? baseBet * 1.25 : baseBet;
+				const requiredBetIfAmplified = baseBet * 1.25;
+				const balance = this.getBalanceAmount() || 0;
+				if (
+					(requiredBet > 0 && balance + 1e-9 < requiredBet) ||
+					(!gameData?.isEnhancedBet && requiredBetIfAmplified > 0 && balance + 1e-9 < requiredBetIfAmplified)
+				) {
+					this.disableAmplifyButton();
+					return;
+				}
+			}
+		} catch {}
 		this.amplifyBetController.enableButton();
 	}
 
@@ -4590,6 +4609,7 @@ export class SlotController {
 			if (requiredBet > 0 && balance + 1e-9 < requiredBet) {
 				this.disableSpinButton();
 				this.updateFeatureButtonState();
+				this.updateAmplifyButtonStateWithLock();
 				return;
 			}
 		} catch {}
@@ -4620,6 +4640,8 @@ export class SlotController {
 		}
 		// Also update feature button state whenever spin button state changes
 		this.updateFeatureButtonState();
+		// Keep amplify affordablity synced too.
+		this.updateAmplifyButtonStateWithLock();
 	}
 
 	/**
@@ -4696,6 +4718,24 @@ export class SlotController {
 			this.disableAmplifyButton();
 			return;
 		}
+		// Disable amplify when balance is insufficient for the current bet (or for enabling amplify).
+		try {
+			const isBalanceReady = this.balanceController?.hasInitializedBalance() ?? false;
+			if (isBalanceReady) {
+				const gameData = this.getGameData();
+				const baseBet = this.getBaseBetAmount() || 0;
+				const requiredBet = gameData?.isEnhancedBet ? baseBet * 1.25 : baseBet;
+				const requiredBetIfAmplified = baseBet * 1.25;
+				const balance = this.getBalanceAmount() || 0;
+				if (
+					(requiredBet > 0 && balance + 1e-9 < requiredBet) ||
+					(!gameData?.isEnhancedBet && requiredBetIfAmplified > 0 && balance + 1e-9 < requiredBetIfAmplified)
+				) {
+					this.disableAmplifyButton();
+					return;
+				}
+			}
+		} catch {}
 		// Otherwise enable amplify button
 		this.enableAmplifyButton();
 	}
