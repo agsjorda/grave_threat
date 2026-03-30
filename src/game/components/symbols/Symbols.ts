@@ -2844,12 +2844,15 @@ export class Symbols {
     // Do NOT block on pre-spin clear completion.
     if (this.preSpinDropStartAtMs > 0) {
       const elapsedMs = Date.now() - this.preSpinDropStartAtMs;
-      const remainingMs = Math.max(0, this.preSpinToReelDropMinDelayMs - elapsedMs);
+      const adjustedMinDelay = this.preSpinToReelDropMinDelayMs * (isTurbo ? TurboConfig.TURBO_DELAY_MULTIPLIER : 1);
+      const remainingMs = Math.max(0, adjustedMinDelay - elapsedMs);
       console.log('[Symbols][DropTiming]', {
         preSpinDropStartAtMs: this.preSpinDropStartAtMs,
         preSpinToReelDropMinDelayMs: this.preSpinToReelDropMinDelayMs,
+        adjustedMinDelay,
         elapsedMs,
         remainingMs,
+        isTurbo,
         usedPath: remainingMs > 0 ? 'min-delay-wait' : 'spin-response-immediate',
       });
       if (remainingMs > 0) {
