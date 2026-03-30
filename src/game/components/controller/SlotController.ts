@@ -553,8 +553,9 @@ export class SlotController {
 			this.networkManager,
 			{
 				getGameData: () => this.getGameData(),
-				enableFeatureButton: () => this.enableFeatureButton(),
-				disableFeatureButton: () => this.disableFeatureButton(),
+				// Never force-enable/disable Buy Feature from amplify toggle; it must respect affordability gating.
+				enableFeatureButton: () => this.updateFeatureButtonState(),
+				disableFeatureButton: () => this.updateFeatureButtonState(),
 				applyAmplifyBetIncrease: () => this.applyAmplifyBetIncrease(),
 				restoreOriginalBetAmount: () => this.restoreOriginalBetAmount(),
 				updateFeatureAmountFromCurrentBet: () => this.updateFeatureAmountFromCurrentBet(),
@@ -1101,11 +1102,6 @@ export class SlotController {
 			}
 			// Guard: do not re-enable during bonus or before explicit allow
 			if (gameStateManager.isBonus || !this.canEnableFeatureButton) {
-				return;
-			}
-			// Also keep Buy Feature disabled while enhance/amplify bet is active
-			const gameData = this.getGameData();
-			if (gameData && gameData.isEnhancedBet) {
 				return;
 			}
 			// Also keep Buy Feature disabled while buy feature flow or free spins are active
@@ -4649,14 +4645,14 @@ export class SlotController {
 	 */
 	public updateFeatureButtonState(): void {
 		if (!this.isBuyFeatureControlsLocked() && !gameStateManager.isBonus && this.canEnableFeatureButton) {
-			const gameData = this.getGameData();
-			if (!gameData || gameData.isEnhancedBet) {
-				this.disableFeatureButton();
-				return;
-			}
-
 			// Disable buy-feature if balance is insufficient for its price.
 			try {
+				const isBalanceReady = this.balanceController?.hasInitializedBalance() ?? false;
+				if (!isBalanceReady) {
+					// Before balance is initialized, avoid disabling due to "0" placeholder; let other guards decide.
+					this.enableFeatureButton();
+					return;
+				}
 				const price = this.getBuyFeaturePrice();
 				const balance = this.getBalanceAmount() || 0;
 				if (price > 0 && balance + 1e-9 < price) {
