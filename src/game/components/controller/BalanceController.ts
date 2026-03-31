@@ -304,14 +304,35 @@ export class BalanceController {
     }
   }
 
-  public async updateBalanceFromServer(): Promise<void> {
-    if (this.callbacks.getGameAPI()?.getDemoState()) {
+  public async updateBalanceFromServer(spinData?: any): Promise<void> {
+    const gameAPI = this.callbacks.getGameAPI();
+    const isDemo = !!gameAPI?.getDemoState?.();
+
+    const payloadBalance = Number(spinData?.balance ?? spinData?.data?.balance);
+    if (Number.isFinite(payloadBalance)) {
+      try {
+        if (this.balanceAnimationInProgress) {
+          this.pendingServerBalanceForReconcile = payloadBalance;
+        } else {
+          this.startBalanceTween(payloadBalance, 200);
+        }
+        if (isDemo) {
+          try { gameAPI?.updateDemoBalance?.(payloadBalance); } catch { }
+        }
+        if (payloadBalance <= 0) {
+          this.callbacks.showOutOfBalancePopup();
+        }
+      } catch (error) {
+        console.error('[SlotController] ❌ Error applying payload balance:', error);
+      }
+      return;
+    }
+
+    if (isDemo) {
       return;
     }
 
     try {
-
-      const gameAPI = this.callbacks.getGameAPI();
       if (!gameAPI) {
         console.warn('[SlotController] GameAPI not available for balance update');
         return;
@@ -319,17 +340,11 @@ export class BalanceController {
 
       const balanceResponse = await gameAPI.getBalance();
 
-      let newBalance = 0;
-      if (balanceResponse && balanceResponse.data && balanceResponse.data.balance !== undefined) {
-        newBalance = parseFloat(balanceResponse.data.balance);
-      } else if (balanceResponse && balanceResponse.balance !== undefined) {
-        newBalance = parseFloat(balanceResponse.balance);
-      } else {
+      const newBalance = Number(balanceResponse?.data?.balance ?? balanceResponse?.balance);
+      if (!Number.isFinite(newBalance)) {
         console.warn('[SlotController] Unexpected balance response structure:', balanceResponse);
         return;
       }
-
-      const oldBalance = this.getBalanceAmount();
 
       if (this.balanceAnimationInProgress) {
         this.pendingServerBalanceForReconcile = newBalance;
@@ -339,7 +354,6 @@ export class BalanceController {
       if (newBalance <= 0) {
         this.callbacks.showOutOfBalancePopup();
       }
-
     } catch (error) {
       console.error('[SlotController] ❌ Error updating balance from server:', error);
     }

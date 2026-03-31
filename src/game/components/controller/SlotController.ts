@@ -1100,6 +1100,11 @@ export class SlotController {
 			if (gameStateManager.isReelSpinning || this.pendingWinLock || gameStateManager.isShowingWinDialog) {
 				return;
 			}
+			// Keep Buy Feature disabled while amplify/enhanced bet is active.
+			if (this.gameData?.isEnhancedBet) {
+				this.disableFeatureButton();
+				return;
+			}
 			// Guard: do not re-enable during bonus or before explicit allow
 			if (gameStateManager.isBonus || !this.canEnableFeatureButton) {
 				return;
@@ -2386,7 +2391,15 @@ export class SlotController {
 				} else if (this.balanceController?.hasPendingBalanceUpdate()) {
 				} else if (!this.balanceApiCalledThisSpin) {
 					this.balanceApiCalledThisSpin = true;
-					this.updateBalanceFromServer();
+					try {
+						const spinData: any =
+							(this.symbols as any)?.currentSpinData ??
+							this.gameAPI?.getCurrentSpinData?.() ??
+							(this.scene as any)?.symbols?.currentSpinData;
+						this.updateBalanceFromServer(spinData);
+					} catch {
+						this.updateBalanceFromServer();
+					}
 				} else {
 				}
 			} else {
@@ -2724,7 +2737,7 @@ export class SlotController {
 						const baseWin = spinData ? this.getBaseSpinWinForBalance(spinData as SpinData) : 0;
 						if (baseWin > 0) {
 							this.balanceApiCalledThisSpin = true;
-							this.updateBalanceFromServer();
+							this.updateBalanceFromServer(spinData);
 						}
 					} catch (e) {
 						console.warn('[SlotController] Failed WIN_STOP base-win balance fallback:', e);
@@ -3963,8 +3976,8 @@ export class SlotController {
 	/**
 	 * Update balance from server using getBalance API
 	 */
-	private async updateBalanceFromServer(): Promise<void> {
-		await this.balanceController?.updateBalanceFromServer();
+	private async updateBalanceFromServer(spinData?: any): Promise<void> {
+		await this.balanceController?.updateBalanceFromServer(spinData);
 	}
 
 	/**
@@ -4428,7 +4441,15 @@ export class SlotController {
 			// Sync from server first, then top up locally if the expected bonus credit is still missing.
 			const beforeSyncBalance = this.getBalanceAmount();
 			const expectedAfterBonus = beforeSyncBalance + bonusTotal;
-			await this.updateBalanceFromServer();
+			try {
+				const spinData: any =
+					(this.symbols as any)?.currentSpinData ??
+					this.gameAPI?.getCurrentSpinData?.() ??
+					(this.scene as any)?.symbols?.currentSpinData;
+				await this.updateBalanceFromServer(spinData);
+			} catch {
+				await this.updateBalanceFromServer();
+			}
 			const afterSyncBalance = this.getBalanceAmount();
 
 			if (afterSyncBalance + 0.01 < expectedAfterBonus) {
