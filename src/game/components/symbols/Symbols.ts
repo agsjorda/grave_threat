@@ -42,7 +42,6 @@ import {
   SCATTER_GATHER_DURATION_MS,
   SCATTER_SHRINK_DURATION_MS,
   SCATTER_MOVE_DURATION_MS,
-  SCATTER_PAYOUT_MULTIPLIERS,
   BONUS_TUMBLE_TOTAL_WIN_DELAY_MS,
   SHOW_WIN_BORDER_SYMBOLS,
   WIN_BORDER_LINE_WIDTH,
@@ -1514,31 +1513,11 @@ export class Symbols {
     }
   }
 
-  private async playScatterRetriggerSequence(scatterGrids: GridPosition[]): Promise<void> {
-    if (!scatterGrids.length) return;
-
-    await this.playScatterWinThenGatherTransition(scatterGrids, {
-      ...this.getScatterTransitionTimingConfig(),
-      ...this.getScatterTransitionAnimationConfig(),
-      shouldScale: false
-    });
-  }
-
-  private getScatterTriggerMultiplier(scatterCount: number): number {
-    return SCATTER_PAYOUT_MULTIPLIERS[scatterCount] ?? 0;
-  }
-
   private seedScatterTriggerWinForHeader(spinData: any, scatterCount: number): void {
     try {
-      const scatterMultiplier = this.getScatterTriggerMultiplier(scatterCount);
-      const bet = Number(spinData?.bet ?? 0);
-      // Buy-feature trigger spins should use the spin payload wins (paylines/tumbles)
-      // and must not inject a synthetic scatter payout into the first-spin display.
-      const includeScatterPayout = !gameStateManager.isBuyFeatureSpin;
-      const scatterBaseWin =
-        includeScatterPayout && Number.isFinite(bet) && bet > 0 && scatterMultiplier > 0
-        ? bet * scatterMultiplier
-        : 0;
+      // IMPORTANT: In grave_threat, scatters do not award cash; they only trigger free spins.
+      // Do not seed any synthetic scatter payout into the base/bonus win totals.
+      const scatterBaseWin = 0;
 
       const slot: any = spinData?.slot || {};
       const paylineWin = Array.isArray(slot?.paylines)

@@ -2556,6 +2556,13 @@ export class Dialogs {
 			return;
 		}
 
+		// Bulletproof: invalid bet/payout can produce NaN multipliers which would fall through
+		// to the default (BigWin) branch. If bet isn't ready, skip tiered win dialogs.
+		if (!Number.isFinite(payout) || payout <= 0 || !Number.isFinite(bet) || bet <= 0) {
+			gameStateManager.isShowingWinDialog = false;
+			return;
+		}
+
 		try {
 			const symbolsAny = context.symbols as any;
 			const isMultiplierAnimationsInProgress =

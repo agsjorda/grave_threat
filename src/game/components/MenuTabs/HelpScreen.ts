@@ -7,7 +7,7 @@ import { maxWinContent } from './help_screen_content/MaxWinContent';
 import { freeSpinContent } from './help_screen_content/FreeSpinRulesContent';
 import { gameSettingsContent } from './help_screen_content/GameSettingsContent';
 import { howToPlayContent } from './help_screen_content/HowToPlayContent';
-import { localizationManager } from '../../../managers/LocalizationManager';
+import { localizationManager, LocalizationManager } from '../../../managers/LocalizationManager';
 import { CurrencyManager } from '../CurrencyManager';
 import { QUALIFYING_CLUSTER_COUNT } from '../Spin';
 
@@ -184,7 +184,9 @@ export class HelpScreen {
 
     /** Resolves help content text via localization, with fallback to default. */
     private getHelpText(key: string): string {
-        return localizationManager.getTextByKey(key) ?? HelpScreen.helpDefaultText[key] ?? key;
+        const fromManager = localizationManager.getTextByKey(key);
+        if (fromManager != null) return fromManager;
+        return LocalizationManager.normalizeTranslationLineBreaks(HelpScreen.helpDefaultText[key] ?? key);
     }
 
     /** Returns display string for content that may have a localization key. */
@@ -209,7 +211,7 @@ export class HelpScreen {
             return match; // Return original if parsing fails
         });
 
-        return processedValue;
+        return LocalizationManager.normalizeTranslationLineBreaks(processedValue);
     }
 
     private readonly contentArea: GameObjects.Container;

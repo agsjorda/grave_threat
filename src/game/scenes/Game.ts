@@ -692,6 +692,13 @@ export class Game extends Scene {
 		let freeSpinItem: any | null = null;
 		let totalWin = 0;
 		const betAmount = parseFloat(spinData.bet);
+		if (!Number.isFinite(betAmount) || betAmount <= 0) {
+			// Without a valid bet, tiering logic can incorrectly fall through to BigWin.
+			console.warn('[Game] WIN_STOP: invalid bet for win dialog tiering - skipping', { bet: spinData.bet });
+			gameStateManager.isShowingWinDialog = false;
+			this.handlePostWinStopSideEffects();
+			return;
+		}
 
 		if (gameStateManager.isBonus) {
 			try {

@@ -400,6 +400,7 @@ export class SlotController {
 		this.disableFeatureButton();
 		this.disableAutoplayButton();
 		this.disableTurboButton();
+		this.disableAmplifyButton();
 	}
 
 	/**
@@ -2548,12 +2549,10 @@ export class SlotController {
 		gameEventManager.on(GameEventType.TUMBLE_WIN_PROGRESS, () => {
 			if (!gameStateManager.isAutoPlaying) {
 				this.disableSpinButton();
-			}
-			this.disableAutoplayButton();
-			// Keep turbo clickable during autoplay so user can toggle speed
-			if (!gameStateManager.isAutoPlaying) {
+				this.disableAutoplayButton();
 				this.disableTurboButton();
 			}
+			// During autoplay, keep autoplay (and turbo) interactive so the player can cancel / change speed mid-tumble
 			this.disableBetButtons();
 			this.disableAmplifyButton();
 		});
@@ -3094,6 +3093,10 @@ export class SlotController {
 	 */
 	public enableAmplifyButton(): void {
 		if (this.isBuyFeatureControlsLocked()) {
+			this.disableAmplifyButton();
+			return;
+		}
+		if (gameStateManager.isReelSpinning || gameStateManager.isProcessingSpin) {
 			this.disableAmplifyButton();
 			return;
 		}
@@ -3768,6 +3771,7 @@ export class SlotController {
 		this.balanceController?.finalizeBalanceTweenBeforeSpin();
 		this.isSpinLocked = true;
 		gameStateManager.isProcessingSpin = true;
+		this.disableAmplifyButton();
 		let shouldClearProcessingOnExit = true;
 		try {
 			if (!this.gameAPI) {
@@ -4732,6 +4736,11 @@ export class SlotController {
 	 */
 	public updateAmplifyButtonStateWithLock(): void {
 		if (this.isBuyFeatureControlsLocked()) {
+			this.disableAmplifyButton();
+			return;
+		}
+		if (gameStateManager.isReelSpinning || gameStateManager.isProcessingSpin) {
+			this.initializeAmplifyButtonState();
 			this.disableAmplifyButton();
 			return;
 		}
