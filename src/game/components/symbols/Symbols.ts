@@ -507,6 +507,40 @@ export class Symbols {
     });
   }
 
+  /**
+   * Wait specifically for the retrigger FreeSpin dialog to be displayed and then closed.
+   * In grave_threat the dialog type emitted is `FreeSpinRetrigger`.
+   *
+   * This avoids racing on the shared `dialogAnimationsComplete` event which can be emitted
+   * by unrelated win dialogs in the queue.
+   */
+  private waitForRetriggerFreeSpinDialogToClose(timeoutMs: number = 8000): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const scene = this.scene;
+      if (!scene) {
+        resolve();
+        return;
+      }
+
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        resolve();
+      };
+
+      // Wait until the FreeSpinRetrigger dialog is actually visible, then wait for its close.
+      const onFullyDisplayed = (dialogType: string) => {
+        if (dialogType !== 'FreeSpinRetrigger') return;
+        scene.events.once('dialogAnimationsComplete', finish);
+      };
+      scene.events.once('dialogFullyDisplayed', onFullyDisplayed);
+
+      // Safety fallback: never deadlock the game if a dialog event is missed.
+      scene.time.delayedCall(Math.max(0, timeoutMs), finish);
+    });
+  }
+
   private async handleWinStopScatterRetrigger(): Promise<void> {
     if (!(gameStateManager.isBonus && this.pendingScatterRetrigger?.scatterGrids)) {
       return;
@@ -531,12 +565,6 @@ export class Symbols {
       this.scene?.events?.emit('fakeDataRetriggerComputed', { nextSpinsLeft: spinsLeftFromSpinData, added: retriggerSpins });
     } catch { }
 
-    this.scene.events.once('dialogAnimationsComplete', () => {
-      this.scatterRetriggerAnimationInProgress = false;
-      this.resumeAutoplayAfterRetriggerDialog();
-      this.freeSpinController.waitForAllDialogsToCloseThenResume();
-    });
-
     try {
       const data = { symbols: this.currentSymbolData ?? [] };
       await this.scatterAnimationManager?.runScatterFlow(data, {
@@ -544,6 +572,12 @@ export class Symbols {
         newSpins: retriggerSpins,
         scatterGridsOverride: storedGrids,
       });
+
+      await this.waitForRetriggerFreeSpinDialogToClose();
+
+      this.scatterRetriggerAnimationInProgress = false;
+      this.resumeAutoplayAfterRetriggerDialog();
+      this.freeSpinController.waitForAllDialogsToCloseThenResume();
       gameEventManager.emit(GameEventType.SCATTER_RETRIGGER_ANIMATION_COMPLETE);
     } catch (e) {
       console.warn('[Symbols] Scatter retrigger flow failed:', e);
@@ -585,13 +619,15 @@ export class Symbols {
       this.scatterRetriggerAnimationInProgress = false;
     }
 
-    this.scene.events.once('dialogAnimationsComplete', () => {
-      this.scatterRetriggerAnimationInProgress = false;
-      this.resumeAutoplayAfterRetriggerDialog();
-      this.freeSpinController.waitForAllDialogsToCloseThenResume();
-      this.scene.time.delayedCall(0, () => {
-        (this.scene as any).__skipScatterResetOnNextEnableSymbols = false;
-      });
+    try {
+      await this.waitForRetriggerFreeSpinDialogToClose();
+    } catch { /* ignore */ }
+
+    this.scatterRetriggerAnimationInProgress = false;
+    this.resumeAutoplayAfterRetriggerDialog();
+    this.freeSpinController.waitForAllDialogsToCloseThenResume();
+    this.scene.time.delayedCall(0, () => {
+      (this.scene as any).__skipScatterResetOnNextEnableSymbols = false;
     });
   }
 
