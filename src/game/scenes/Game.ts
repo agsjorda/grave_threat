@@ -15,6 +15,7 @@ import { Scene } from 'phaser';
 import { Background } from '../components/Background';
 import { Header } from '../components/Header';
 import { SlotController } from '../components/controller/SlotController';
+import { DEFAULT_BASE_BET } from '../components/controller';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { NetworkManager } from '../../managers/NetworkManager';
 import { ScreenModeManager } from '../../managers/ScreenModeManager';
@@ -408,7 +409,7 @@ export class Game extends Scene {
 				return;
 			}
 
-			const currentBaseBet = this.slotController.getBaseBetAmount() || 0.20;
+			const currentBaseBet = this.slotController.getBaseBetAmount() || DEFAULT_BASE_BET;
 			const isEnhancedBet = this.gameData?.isEnhancedBet === true;
 			const betDisplayMultiplier = isEnhancedBet ? 1.25 : 1;
 			const currentDisplayBet = currentBaseBet * betDisplayMultiplier;
@@ -426,7 +427,7 @@ export class Game extends Scene {
 		EventBus.on('amplify', (isEnhanced: boolean) => {
 			try {
 				if (this.betOptions?.isVisible()) {
-					const baseBet = this.slotController.getBaseBetAmount() || 0.20;
+					const baseBet = this.slotController.getBaseBetAmount() || DEFAULT_BASE_BET;
 					const displayText = this.slotController.getBetAmountText();
 					const displayBet = displayText ? parseFloat(displayText) : baseBet;
 					this.betOptions.setEnhancedBetState(!!isEnhanced, displayBet, baseBet);
@@ -436,7 +437,7 @@ export class Game extends Scene {
 		EventBus.on('autoplay', () => {
 			// Display bet (may include amplify/enhanced multiplier)
 			const currentBetText = this.slotController.getBetAmountText?.();
-			const currentDisplayBet = currentBetText ? parseFloat(currentBetText) : 0.20;
+			const currentDisplayBet = currentBetText ? parseFloat(currentBetText) : DEFAULT_BASE_BET;
 
 			// Base bet from controller (without amplify), used for API and ladders
 			const baseBet = this.slotController.getBaseBetAmount?.() || currentDisplayBet;
@@ -934,9 +935,14 @@ export class Game extends Scene {
 				this.gameStateManager.isBonus = false;
 				this.gameStateManager.isBonusFinished = false;
 				this.gameStateManager.suppressTotalWinDialog = false;
-				// Clear autoplay-related flags like on fresh spin
-				this.gameStateManager.isAutoPlaying = false;
-				this.gameStateManager.isAutoPlaySpinRequested = false;
+				this.gameStateManager.isScatter = false;
+				// Clear autoplay flags unless we will resume paused base-game autoplay
+				const pausedSpins =
+					(this.slotController as any)?.getPausedAutoplaySpinsRemaining?.() ?? 0;
+				if (pausedSpins <= 0) {
+					this.gameStateManager.isAutoPlaying = false;
+					this.gameStateManager.isAutoPlaySpinRequested = false;
+				}
 				this.gameStateManager.isShowingWinDialog = false;
 				// Suppress any win dialogs that might be triggered during the transition back to base
 				this.suppressWinDialogsUntilNextSpin = true;
@@ -963,8 +969,10 @@ export class Game extends Scene {
 				} catch (e) {
 					console.warn('[Game] Failed to hide winnings displays on bonus end:', e);
 				}
-				// Notify other systems autoplay is fully stopped
-				gameEventManager.emit(GameEventType.AUTO_STOP);
+				// Only broadcast AUTO_STOP if we are not about to resume paused base autoplay
+				if (pausedSpins <= 0) {
+					gameEventManager.emit(GameEventType.AUTO_STOP);
+				}
 				// Switch back to main background music
 				if (this.audioManager) {
 					this.audioManager.playBackgroundMusic(MusicType.MAIN);

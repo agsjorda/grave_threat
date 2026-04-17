@@ -9,7 +9,7 @@
  */
 
 // Controllers
-export { BetController, BET_LEVELS } from './BetController';
+export { BetController, BET_LEVELS, DEFAULT_BASE_BET, DEFAULT_BET_LEVEL_INDEX } from './BetController';
 export type { BetDisplayConfig, BetControllerCallbacks } from './BetController';
 
 export { AutoplayController } from './AutoplayController';

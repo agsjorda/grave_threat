@@ -12,6 +12,7 @@ import {
   POPUP_BUYFEAT_RANDOM_SCATTER,
   POPUP_BUYFEAT_START_MULTIPLIER,
 } from '../../backend/LocalizationData';
+import { DEFAULT_BASE_BET } from './controller';
 
 export interface BuyFeatureConfig {
 	position?: { x: number; y: number };
@@ -35,7 +36,7 @@ export class BuyFeature {
   private confirmButtonMask!: Phaser.GameObjects.Graphics;
   private confirmButtonImage?: Phaser.GameObjects.Image;
   private featurePrice: number = 24000.0;
-  private currentBet: number = 0.2; // Start with first bet option
+  private currentBet: number = DEFAULT_BASE_BET;
   private slotController: SlotController | null = null;
   private readonly BET_MULTIPLIER: number = 100; // Multiplier for price display
   private betOptions: number[] = [

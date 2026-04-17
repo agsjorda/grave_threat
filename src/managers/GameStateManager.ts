@@ -1,5 +1,6 @@
 import { gameEventManager, GameEventType } from '../event/EventManager';
 import { Logger } from '../utils/Logger';
+import { DEFAULT_BASE_BET } from '../game/components/controller';
 
 /**
  * Centralized Game State Manager
@@ -181,7 +182,7 @@ export class GameStateManager {
     this._isAutoPlaySpinRequested = false;
     // Emit SPIN event to trigger the backend
     // This is safe because it's called from the Game scene, not from event listeners
-    gameEventManager.emit(GameEventType.SPIN, { betAmount: 0.20 });
+    gameEventManager.emit(GameEventType.SPIN, { betAmount: DEFAULT_BASE_BET });
   }
 
   /**

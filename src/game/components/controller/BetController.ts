@@ -25,6 +25,11 @@ export const BET_LEVELS: readonly number[] = Object.freeze([
   110, 120, 130, 140, 150
 ]);
 
+/** Cold-start default step on the ladder (before init/API overrides). */
+export const DEFAULT_BET_LEVEL_INDEX = 4;
+/** Default base bet; must equal `BET_LEVELS[DEFAULT_BET_LEVEL_INDEX]`. */
+export const DEFAULT_BASE_BET = BET_LEVELS[DEFAULT_BET_LEVEL_INDEX];
+
 export interface BetDisplayConfig {
   x: number;
   y: number;
@@ -53,7 +58,7 @@ export class BetController {
   private enhanceBetIdleAnimation: any = null;
   
   // State
-  private baseBetAmount: number = 0.2;
+  private baseBetAmount: number = DEFAULT_BASE_BET;
   private isButtonsDisabled: boolean = false;
   private disabledAlpha: number = 0.5;
 
@@ -189,7 +194,7 @@ export class BetController {
    */
   public adjustBetByStep(direction: 1 | -1): void {
     try {
-      const currentBaseBet = this.callbacks.getBaseBetAmount() || 0.2;
+      const currentBaseBet = this.callbacks.getBaseBetAmount() || DEFAULT_BASE_BET;
 
       const currentIdx = this.getClosestBetIndex(currentBaseBet);
       const newIdx = Math.max(0, Math.min(BET_LEVELS.length - 1, currentIdx + direction));
@@ -294,7 +299,7 @@ export class BetController {
     }
 
     // Apply limit states after generic enable
-    this.updateBetLimitButtons(this.callbacks.getBaseBetAmount() || 0.2);
+    this.updateBetLimitButtons(this.callbacks.getBaseBetAmount() || DEFAULT_BASE_BET);
   }
 
   /**
