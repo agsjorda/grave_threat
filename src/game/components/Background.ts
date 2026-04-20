@@ -432,6 +432,16 @@ private bgBorder: Phaser.GameObjects.Image | null = null;
 	private setupBonusModeListener(scene: Scene): void {
 		// Listen for bonus mode events
 		scene.events.on('setBonusMode', (isBonus: boolean) => {
+			// Safety: during bonus transitions (or any accidental setBonusMode(true) while the
+			// bonus background isn't yet visible), ensure we never end up with *no* base bg shown.
+			// If Spine is preferred, BG-Default is often hidden once Spine loads; so when we hide
+			// the Spine for bonus mode we must re-show BG-Default as a fallback.
+			if (this.bgDefault) {
+				// In bonus mode: show static background fallback behind any dimmers.
+				// In base mode: hide fallback only when we are actually using Spine.
+				this.bgDefault.setVisible(isBonus ? true : !this.preferSpineBackground);
+			}
+
 			// Hide/show Spine animation based on bonus mode
 			if (this.normalGameSpine) {
 				this.normalGameSpine.setVisible(!isBonus);
@@ -446,6 +456,9 @@ private bgBorder: Phaser.GameObjects.Image | null = null;
 
 		// Set initial visibility based on current bonus state
 		const isBonus = gameStateManager.isBonus;
+		if (this.bgDefault) {
+			this.bgDefault.setVisible(isBonus ? true : !this.preferSpineBackground);
+		}
 		if (this.normalGameSpine) {
 			this.normalGameSpine.setVisible(!isBonus);
 		}
