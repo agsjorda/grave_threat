@@ -46,7 +46,7 @@ export class GameData {
 }
 
 /** Global time multiplier for symbol drop and reset animations (< 1.0 = faster) */
-export const DROP_RESET_TIME_MULTIPLIER: number = 0.5;
+export const DROP_RESET_TIME_MULTIPLIER: number = 0.7;
 
 export function setSpeed(data: GameData, DELAY_BETWEEN_SPINS: number) {
 	// Apply global multiplier to win-up (reset) and drop durations
