@@ -694,7 +694,7 @@ export class GameAPI {
         return token;
       }
     } catch (error) {
-      console.error("Error initializing game:", error);
+      console.warn("Error initializing game:", error);
       throw error;
     }
   }
