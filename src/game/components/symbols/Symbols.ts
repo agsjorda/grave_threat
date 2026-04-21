@@ -232,7 +232,7 @@ export class Symbols {
   private readonly preSpinDropMoveUpMultiplier: number = 0;
   // Minimum delay from pre-spin start to main reel drop start.
   // Main drop begins when BOTH are satisfied: spin data has arrived and this delay elapsed.
-  private readonly preSpinToReelDropMinDelayMs: number = 1500;
+  private readonly preSpinToReelDropMinDelayMs: number = 1000;
   private preSpinDropStartAtMs: number = 0;
   // Per-spin staged scatter reel-drop SFX counter (scatterdrop1 -> ... -> scatterdrop4 max).
   private scatterDropStageForSpin: number = 0;

@@ -222,7 +222,7 @@ export const SYMBOL_CONFIG = {
 // =============================================================================
 // TIMING CONFIGURATION
 // =============================================================================
-export const DELAY_BETWEEN_SPINS: number = 2500;
+export const DELAY_BETWEEN_SPINS: number = 2000;
 /** Ratio for time between column starts relative to DELAY_BETWEEN_SPINS */
 export const DROP_REEL_START_INTERVAL_RATIO: number = 0.08;
 
