@@ -7,7 +7,7 @@ import { CurrencyManager } from "./CurrencyManager";
 import { startAnimation } from "../../utils/SpineAnimationHelper";
 import { formatCurrencyNumber } from "../../utils/NumberPrecisionFormatter";
 import { SoundEffectType } from "../../managers/AudioManager";
-import { DEFAULT_BASE_BET } from "./controller";
+import { DEFAULT_BASE_BET, DEFAULT_BET_LEVEL_INDEX } from "./controller";
 
 export interface AutoplayOptionsConfig {
 	position?: { x: number; y: number };
@@ -107,8 +107,22 @@ export class AutoplayOptions {
 		this.screenModeManager = screenModeManager;
 	}
 
+	private applyBetLevelsFromGameData(scene: Scene): void {
+		const levels = (scene as any).gameData?.betLevels;
+		if (Array.isArray(levels) && levels.length > 0) {
+			this.betOptions = levels;
+			const defaultBet = !Number.isFinite(this.currentBet) || Math.abs(this.currentBet - DEFAULT_BASE_BET) < 0.0001;
+			const idx = DEFAULT_BET_LEVEL_INDEX;
+			const fallbackIdx = Math.max(0, Math.min(levels.length - 1, idx));
+			if (defaultBet) {
+				this.currentBet = Number(levels[fallbackIdx]);
+			}
+		}
+	}
+
 	create(scene: Scene): void {
-		
+		this.applyBetLevelsFromGameData(scene);
+
 		// Create main container
 		this.container = scene.add.container(0, 0);
 		this.container.setDepth(12001); // Above header (9500), backgrounds (850/9000), and dialogs (12000)

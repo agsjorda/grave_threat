@@ -44,6 +44,9 @@ export class AudioManager {
 	private currentMusic: MusicType | null = null;
 	private musicVolume: number = 0.2;
 	private sfxVolume: number = 0.2;
+	// Preserve last non-zero volumes so toggles can restore them.
+	private cachedMusicVolume: number = 0.2;
+	private cachedSfxVolume: number = 0.2;
 	private ambientVolume: number = 0.2; // Volume for ambient audio layer
 	// Used to keep ambience "included in" the SFX slider behavior.
 	// Important: keep it stable so ambience returns after toggling SFX to 0.
@@ -460,6 +463,9 @@ export class AudioManager {
 	 */
 	setVolume(volume: number): void {
 		this.musicVolume = Math.max(0, Math.min(1, volume));
+		if (this.musicVolume > 0) {
+			this.cachedMusicVolume = this.musicVolume;
+		}
 		
 		this.musicInstances.forEach((music) => {
 			if ('setVolume' in music && typeof music.setVolume === 'function') {
@@ -604,6 +610,25 @@ export class AudioManager {
 	 */
 	getVolume(): number {
 		return this.musicVolume;
+	}
+
+	/**
+	 * Enable/disable music without losing the user's last volume.
+	 */
+	setMusicEnabled(enabled: boolean): void {
+		if (enabled) {
+			const restored = this.cachedMusicVolume > 0 ? this.cachedMusicVolume : 0.2;
+			this.setVolume(restored);
+			return;
+		}
+		if (this.musicVolume > 0) {
+			this.cachedMusicVolume = this.musicVolume;
+		}
+		this.setVolume(0);
+	}
+
+	getCachedMusicVolume(): number {
+		return this.cachedMusicVolume;
 	}
 
 	/**
@@ -871,6 +896,9 @@ export class AudioManager {
 		const clamped = Math.max(0, Math.min(1, volume));
 
 		this.sfxVolume = clamped;
+		if (this.sfxVolume > 0) {
+			this.cachedSfxVolume = this.sfxVolume;
+		}
 		
 		this.sfxInstances.forEach((sfx, type) => {
 			const targetVolume = type === SoundEffectType.SPIN_CLICK
@@ -905,6 +933,25 @@ export class AudioManager {
 	 */
 	getSfxVolume(): number {
 		return this.sfxVolume;
+	}
+
+	/**
+	 * Enable/disable SFX without losing the user's last volume.
+	 */
+	setSfxEnabled(enabled: boolean): void {
+		if (enabled) {
+			const restored = this.cachedSfxVolume > 0 ? this.cachedSfxVolume : 0.2;
+			this.setSfxVolume(restored);
+			return;
+		}
+		if (this.sfxVolume > 0) {
+			this.cachedSfxVolume = this.sfxVolume;
+		}
+		this.setSfxVolume(0);
+	}
+
+	getCachedSfxVolume(): number {
+		return this.cachedSfxVolume;
 	}
 
 	/**

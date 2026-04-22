@@ -20,7 +20,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { NetworkManager } from '../../managers/NetworkManager';
 import { ScreenModeManager } from '../../managers/ScreenModeManager';
 import { AssetConfig } from '../../config/AssetConfig';
-import { GRID_CENTER_X_RATIO, GRID_CENTER_X_OFFSET_PX, GRID_CENTER_Y_RATIO, GRID_CENTER_Y_OFFSET_PX, MAX_IDLE_TIME_MINUTES } from '../../config/GameConfig';
+import { GRID_CENTER_X_RATIO, GRID_CENTER_X_OFFSET_PX, GRID_CENTER_Y_RATIO, GRID_CENTER_Y_OFFSET_PX, MAX_IDLE_TIME_MINUTES, STARTING_BET_INDEX } from '../../config/GameConfig';
 import { Symbols } from '../components/symbols/index';
 import { GameData } from '../components/GameData';
 import { BonusBackground } from '../components/BonusBackground';
@@ -161,6 +161,56 @@ export class Game extends Scene {
 		return typeof base === 'number' && base > 0 ? base : 1;
 	}
 
+	private initializeBetLevelsFromGameData(): void {
+		try {
+			const initData = this.gameAPI?.getInitializationData?.();
+			const levels = (initData as any)?.betLevels;
+			if (Array.isArray(levels) && levels.length > 0) {
+				const sanitized = levels.map((v: any) => Number(v)).filter((n: number) => Number.isFinite(n) && n > 0);
+				if (sanitized.length > 0) {
+					this.gameData.betLevels = sanitized;
+				}
+			}
+		} catch (e) {
+			console.warn('[Game] Failed to set gameData.betLevels from initialization data:', e);
+		}
+	}
+
+	private initializeNumberPrecisionFromGameData(): void {
+		try {
+			const initData = this.gameAPI?.getInitializationData?.();
+			const currencyDecimalPlaces = (initData as any)?.currencyDecimalPlaces;
+			if (currencyDecimalPlaces) {
+				setDecimalPlaces(currencyDecimalPlaces);
+			}
+		} catch (e) {
+			console.warn('[Game] Failed to set number precision from initialization data:', e);
+		}
+	}
+
+	private initializeBetAmount(): void {
+		try {
+			const firstBet = this.gameData.betLevels.length > 0
+				? Number(this.gameData.betLevels[STARTING_BET_INDEX])
+				: 0.20;
+
+			const previousBet = this.slotController?.getBaseBetAmount?.() ?? 0.20;
+
+			if (this.slotController) {
+				this.slotController.updateBetAmount(firstBet);
+			}
+			if (this.betOptions) {
+				this.betOptions.setCurrentBet(firstBet);
+			}
+
+			if (Math.abs(firstBet - previousBet) > 0.0001) {
+				gameEventManager.emit(GameEventType.BET_UPDATE, { newBet: firstBet, previousBet: previousBet });
+			}
+		} catch (e) {
+			console.warn('[Game] Failed to apply initialization first bet level:', e);
+		}
+	}
+
 	preload() {
 		// Assets are now loaded in Preloader scene
 
@@ -170,6 +220,13 @@ export class Game extends Scene {
 
 	create() {
 		try { ensureSpineFactory(this, '[Game] create'); } catch { }
+
+		try {
+			CurrencyManager.initializeFromInitData(this.gameAPI?.getInitializationData?.());
+		} catch {}
+		this.initializeBetLevelsFromGameData();
+		this.initializeNumberPrecisionFromGameData();
+		unresolvedSpinManager.setFromInitializationData(this.gameAPI?.getInitializationData?.() ?? null);
 
 		const fadeOverlay = this.createFadeAndResize();
 		this.createHeaderAndBackground();
@@ -346,25 +403,28 @@ export class Game extends Scene {
 	}
 
 	private createFreeRoundAndScatterAnticipation(): void {
+		let appliedInitializationFreeSpinBet = false;
 		try {
 			const initData = this.gameAPI.getInitializationData();
 			const initFsRemaining = this.gameAPI.getRemainingInitFreeSpins();
 			const initFsBet = this.gameAPI.getInitFreeSpinBet();
-			const initCurrencyPlaces = Number((initData as any)?.currencyDecimalPlaces);
-			setDecimalPlaces(Number.isFinite(initCurrencyPlaces) ? initCurrencyPlaces : 2);
-			CurrencyManager.initializeFromInitData(initData);
 			this.slotController?.refreshCurrencySymbols?.();
 			this.freeRoundManager = new FreeRoundManager();
 			this.freeRoundManager.create(this, this.gameAPI, this.slotController);
 			if (initData && initData.hasFreeSpinRound && initFsRemaining > 0) {
 				if (this.slotController && initFsBet && initFsBet > 0) {
 					this.slotController.updateBetAmount(initFsBet);
+					appliedInitializationFreeSpinBet = true;
 				}
 				this.freeRoundManager.setFreeSpins(initFsRemaining);
 				this.freeRoundManager.enableFreeSpinMode();
 			}
 		} catch (e) {
 			console.warn('[Game] Failed to create FreeRoundManager from initialization data:', e);
+		}
+
+		if (!appliedInitializationFreeSpinBet) {
+			this.initializeBetAmount();
 		}
 	}
 
@@ -512,13 +572,6 @@ export class Game extends Scene {
 
 	private initializeUnresolvedSpinFlow(): void {
 		try {
-			const initData = this.gameAPI?.getInitializationData?.() ?? null;
-			unresolvedSpinManager.setFromInitializationData(initData);
-		} catch (e) {
-			console.warn('[Game] Failed to sync unresolved spin from init payload:', e);
-		}
-
-		try {
 			unresolvedSpinManager.showPopupIfUnresolved(this, () => {
 				this.resumeFromUnresolvedSpin();
 			});
@@ -532,6 +585,12 @@ export class Game extends Scene {
 		try {
 			if (unresolvedSpinManager.hasUnresolvedSpin && this.slotController) {
 				const unresolved = unresolvedSpinManager.unresolvedSpin;
+				if (unresolved?.response) {
+					const unresolvedBet = unresolvedSpinManager.getUnresolvedBetSize();
+					if (unresolvedBet) {
+						this.slotController.updateBetAmount(unresolvedBet);
+					}
+				}
 				if (unresolved) {
 					const remainingSpins = this.getRemainingSpinsFromUnresolved(unresolved);
 					const spinsToShow = remainingSpins > 0 ? remainingSpins : 1;

@@ -12,7 +12,7 @@ import {
   POPUP_BUYFEAT_RANDOM_SCATTER,
   POPUP_BUYFEAT_START_MULTIPLIER,
 } from '../../backend/LocalizationData';
-import { DEFAULT_BASE_BET } from './controller';
+import { DEFAULT_BASE_BET, DEFAULT_BET_LEVEL_INDEX } from './controller';
 
 export interface BuyFeatureConfig {
 	position?: { x: number; y: number };
@@ -255,7 +255,24 @@ export class BuyFeature {
     }
   }
 
+  private applyBetLevelsFromGameData(scene: Scene): void {
+    const levels = (scene as any).gameData?.betLevels;
+    if (Array.isArray(levels) && levels.length > 0) {
+      this.betOptions = levels;
+      const defaultBet = Math.abs(this.currentBet - DEFAULT_BASE_BET) < 0.0001;
+      const idxInNew = this.betOptions.findIndex(v => Math.abs(v - this.currentBet) < 0.0001);
+      if (!Number.isFinite(this.currentBet) || defaultBet || idxInNew === -1) {
+        const idx = Math.max(0, Math.min(this.betOptions.length - 1, DEFAULT_BET_LEVEL_INDEX));
+        this.currentBetIndex = idx;
+        this.currentBet = Number(this.betOptions[idx]);
+      } else {
+        this.currentBetIndex = idxInNew;
+      }
+    }
+  }
+
   create(scene: Scene): void {
+    this.applyBetLevelsFromGameData(scene);
 
     // Create main container
     this.container = scene.add.container(0, 0);

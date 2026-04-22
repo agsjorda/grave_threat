@@ -152,6 +152,9 @@ export const LOADING_SPINNER_ALPHA = 0.75;
 /** Idle / session timeout (minutes); converted to ms where needed. */
 export const MAX_IDLE_TIME_MINUTES: number = 5; // 5 minutes (use 0.25 for 15 seconds during testing)
 
+/** Index into `gameData.betLevels` for the initial bet after init (Shuten Doji pattern). */
+export const STARTING_BET_INDEX: number = 4;
+
 // =============================================================================
 // GAME SCENE (main play scene)
 // =============================================================================

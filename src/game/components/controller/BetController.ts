@@ -72,11 +72,20 @@ export class BetController {
     this.callbacks = callbacks;
   }
 
+  /** Bet ladder from GameData (single source of truth) or fallback to default. */
+  private getBetLevelsArray(): number[] {
+    const levels = this.callbacks.getGameData?.()?.betLevels;
+    if (Array.isArray(levels) && levels.length > 0) {
+      return levels;
+    }
+    return [...BET_LEVELS];
+  }
+
   /**
    * Get the bet levels ladder
    */
   public getBetLevels(): readonly number[] {
-    return BET_LEVELS;
+    return this.getBetLevelsArray();
   }
 
   /**
@@ -196,10 +205,11 @@ export class BetController {
     try {
       const currentBaseBet = this.callbacks.getBaseBetAmount() || DEFAULT_BASE_BET;
 
+      const levels = this.getBetLevelsArray();
       const currentIdx = this.getClosestBetIndex(currentBaseBet);
-      const newIdx = Math.max(0, Math.min(BET_LEVELS.length - 1, currentIdx + direction));
+      const newIdx = Math.max(0, Math.min(levels.length - 1, currentIdx + direction));
       const previousBet = currentBaseBet;
-      const newBet = BET_LEVELS[newIdx];
+      const newBet = levels[newIdx];
 
       // Update display and notify
       this.updateBetAmount(newBet);
@@ -228,12 +238,12 @@ export class BetController {
       return;
     }
 
-    // Find closest bet level index
+    const levels = this.getBetLevelsArray();
     const idx = this.getClosestBetIndex(currentBet);
 
-    const minBet = BET_LEVELS[0] ?? 0.2;
+    const minBet = levels[0] ?? 0.2;
     const isAtMin = idx === 0 || currentBet <= minBet + 1e-6;
-    const isAtMax = idx === BET_LEVELS.length - 1;
+    const isAtMax = idx === levels.length - 1;
 
     // Update decrease button
     if (this.decreaseBetButton) {
@@ -449,10 +459,11 @@ export class BetController {
   }
 
   private getClosestBetIndex(currentBet: number): number {
+    const levels = this.getBetLevelsArray();
     let idx = 0;
     let bestDiff = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < BET_LEVELS.length; i++) {
-      const diff = Math.abs(BET_LEVELS[i] - currentBet);
+    for (let i = 0; i < levels.length; i++) {
+      const diff = Math.abs(levels[i] - currentBet);
       if (diff < bestDiff) {
         bestDiff = diff;
         idx = i;

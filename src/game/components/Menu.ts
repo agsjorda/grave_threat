@@ -1206,7 +1206,7 @@ export class Menu {
         audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
       }
       musicOn = !musicOn;
-      scene.audioManager.setVolume(musicOn ? 1 : 0);
+      scene.audioManager.setMusicEnabled(musicOn);
       drawToggle(
         musicToggleBg,
         musicToggleCircle,
@@ -1239,7 +1239,7 @@ export class Menu {
         audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
       }
       sfxOn = !sfxOn;
-      scene.audioManager.setSfxVolume(sfxOn ? 1 : 0);
+      scene.audioManager.setSfxEnabled(sfxOn);
       drawToggle(sfxToggleBg, sfxToggleCircle, toggleX, startY + 190, sfxOn);
       updateSliders();
     });

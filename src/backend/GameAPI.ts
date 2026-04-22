@@ -121,6 +121,7 @@ export interface SlotInitializeData {
   currencySymbol?: string;
   /** When set, used by NumberPrecisionFormatter for display decimals */
   currencyDecimalPlaces?: number;
+  betLevels?: number[];
   hasFreeSpinRound: boolean;
   // New backend format: array of free spin round entries.
   // Kept as `any` union-friendly type for backwards compatibility,

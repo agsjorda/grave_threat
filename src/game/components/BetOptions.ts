@@ -26,6 +26,12 @@ export class BetOptions {
 	private currentBet: number = 240.00;
 	private isEnhancedBet: boolean = false;
 	private betDisplayMultiplier: number = 1;
+	private calculatedFontSize: number = 22;
+	private calculatedButtonWidth: number = 60;
+	private calculatedButtonHeight: number = 50;
+	private readonly BUTTON_PADDING: number = 6;
+	private readonly MIN_FONT_SIZE: number = 14;
+	private readonly MAX_FONT_SIZE: number = 22;
 	private betOptions: number[] = [
 		0.2, 0.4, 0.6, 0.8, 1,
 		1.2, 1.6, 2, 2.4, 2.8,
@@ -51,7 +57,11 @@ export class BetOptions {
 	}
 
 	create(scene: Scene): void {
-		
+		const levels = (scene as any).gameData?.betLevels;
+		if (Array.isArray(levels) && levels.length > 0) {
+			this.betOptions = levels;
+		}
+
 		// Create main container
 		this.container = scene.add.container(0, 0);
 		this.container.setDepth(9501); // Above header (9500) and backgrounds (850/9000); below dialogs (12000)
@@ -145,6 +155,10 @@ export class BetOptions {
 		const buttonWidth = 60;
 		const buttonHeight = 50;
 		const spacing = 15;
+
+		this.calculatedButtonWidth = buttonWidth;
+		this.calculatedButtonHeight = buttonHeight;
+		this.calculateOptimalFontSize(scene, buttonWidth, buttonHeight);
 		
 		// "Select size" label
 		const selectSizeLabel = scene.add.text(startX, startY - 30, 'Select size', {
@@ -187,7 +201,7 @@ export class BetOptions {
 		
 		// Button text (round to 2 decimals for option labels)
 		const buttonText = scene.add.text(width/2, height/2, this.formatBetValue(value), {
-			fontSize: '22px',
+			fontSize: `${this.calculatedFontSize}px`,
 			color: '#ffffff',
 			fontFamily: 'Poppins-Bold'
 		});
@@ -433,11 +447,7 @@ export class BetOptions {
 		const multiplier = Number.isFinite(this.betDisplayMultiplier) && this.betDisplayMultiplier > 0
 			? this.betDisplayMultiplier
 			: 1;
-		const isEnhanced = multiplier > 1.0001;
-		const baseFontSize = 22;
-		const minFontSizeAllowed = 14;
-		const horizontalPadding = 8;
-		let smallestFontSize = baseFontSize;
+		this.calculateOptimalFontSize(this.container?.scene as Scene, this.calculatedButtonWidth, this.calculatedButtonHeight);
 
 		for (const container of this.betButtons) {
 			const baseValue = (container as any).buttonValue as number | undefined;
@@ -445,31 +455,37 @@ export class BetOptions {
 			if (!textObj || typeof baseValue !== 'number') continue;
 			const displayValue = baseValue * multiplier;
 			textObj.setText(this.formatBetOptionLabel(displayValue));
+			textObj.setFontSize(`${this.calculatedFontSize}px`);
+		}
+	}
 
-			if (!isEnhanced) {
-				continue;
-			}
+	private calculateOptimalFontSize(scene: Scene, buttonWidth?: number, buttonHeight?: number): void {
+		if (!scene) {
+			this.calculatedFontSize = this.MAX_FONT_SIZE;
+			return;
+		}
+		const multiplier = Number.isFinite(this.betDisplayMultiplier) && this.betDisplayMultiplier > 0 ? this.betDisplayMultiplier : 1;
+		const displayValues = this.betOptions.map(v => this.formatBetOptionLabel(v * multiplier));
+		const width = buttonWidth ?? 60;
+		const height = buttonHeight ?? 50;
+		const availableWidth = width - (this.BUTTON_PADDING * 2);
+		const availableHeight = height - (this.BUTTON_PADDING * 2);
 
-			const buttonWidth = (container as any).buttonWidth as number | undefined;
-			const maxTextWidth = Math.max(0, (buttonWidth ?? 60) - horizontalPadding);
-			let size = baseFontSize;
-			textObj.setFontSize(size);
-			while (textObj.width > maxTextWidth && size > minFontSizeAllowed) {
-				size -= 1;
-				textObj.setFontSize(size);
-			}
-			if (size < smallestFontSize) {
-				smallestFontSize = size;
+		for (let testSize = this.MAX_FONT_SIZE; testSize >= this.MIN_FONT_SIZE; testSize--) {
+			const testText = scene.add.text(0, 0, '', { fontSize: `${testSize}px`, fontFamily: 'Poppins-Bold' });
+			testText.setVisible(false);
+			const allFit = displayValues.every(v => {
+				testText.setText(v);
+				return testText.width <= availableWidth && testText.height <= availableHeight;
+			});
+			testText.destroy();
+			if (allFit) {
+				this.calculatedFontSize = testSize;
+				return;
 			}
 		}
 
-		if (isEnhanced) {
-			for (const container of this.betButtons) {
-				const textObj = (container as any).buttonText as Phaser.GameObjects.Text | undefined;
-				if (!textObj) continue;
-				textObj.setFontSize(smallestFontSize);
-			}
-		}
+		this.calculatedFontSize = this.MIN_FONT_SIZE;
 	}
 
 	public setEnhancedBetState(isEnhanced: boolean, displayBet?: number, baseBet?: number): void {
