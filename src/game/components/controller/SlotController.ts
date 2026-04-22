@@ -228,6 +228,10 @@ export class SlotController {
 	private isSpinLocked: boolean = false;
 	// Prevent re-enabling spin while win animations are pending
 	private pendingWinLock: boolean = false;
+	// True while a tumble/win chain is animating for the current spin.
+	private tumbleSequenceInProgress: boolean = false;
+	// Mirrors thats_bait: when autoplay is cancelled mid-spin, keep controls disabled until WIN_STOP.
+	private autoplayCancelPendingWinStopReenable: boolean = false;
 	// Guard to ensure balance API is called only once per spin (REELS_STOP can fire multiple times: Symbols + WinLineDrawer)
 	private balanceApiCalledThisSpin: boolean = false;
 	// Guard so bonus total is credited once when TotalWin appears
@@ -238,6 +242,9 @@ export class SlotController {
 	// Debug: visualize button hitboxes (red outlines); default from GameConfig.SHOW_BUTTON_HITBOXES
 	private showButtonHitboxes: boolean = SHOW_BUTTON_HITBOXES;
 	private buttonHitboxGraphics: Phaser.GameObjects.Graphics | null = null;
+
+	// Global modal lock: prevents HUD controls behind modals/drawers from being clickable.
+	private externalControlLock: boolean = false;
 
 	constructor(networkManager: NetworkManager, screenModeManager: ScreenModeManager) {
 		this.networkManager = networkManager;
@@ -271,6 +278,26 @@ export class SlotController {
 		
 		// Listen for autoplay state changes
 		this.setupAutoplayEventListeners();
+	}
+
+	public setExternalControlLock(locked: boolean): void {
+		this.externalControlLock = !!locked;
+		if (this.externalControlLock) {
+			// Force-disable risky controls while a modal is open/animating.
+			try { this.disableSpinButton(); } catch {}
+			try { this.disableAutoplayButton(); } catch {}
+			try { this.disableFeatureButton(); } catch {}
+			try { this.disableBetButtons(); } catch {}
+			try { this.disableAmplifyButton(); } catch {}
+			try { this.disableBetBackgroundInteraction('modal lock'); } catch {}
+			return;
+		}
+
+		// Restore controls using normal state gates (no unconditional enables).
+		try { this.updateSpinButtonState(); } catch {}
+		try { this.updateAutoplayButtonState(); } catch {}
+		try { this.updateFeatureButtonState(); } catch {}
+		try { this.updateAllAuxiliaryButtonStates(); } catch {}
 	}
 
 	/**
@@ -2545,6 +2572,7 @@ export class SlotController {
 
 		// Disable spin during tumble sequence; re-enable when tumbles finish
 		gameEventManager.on(GameEventType.TUMBLE_WIN_PROGRESS, () => {
+			this.tumbleSequenceInProgress = true;
 			if (!gameStateManager.isAutoPlaying) {
 				this.disableSpinButton();
 				this.disableAutoplayButton();
@@ -2555,6 +2583,7 @@ export class SlotController {
 			this.disableAmplifyButton();
 		});
 		gameEventManager.on(GameEventType.TUMBLE_SEQUENCE_DONE, () => {
+			this.tumbleSequenceInProgress = false;
 			if (!gameStateManager.isAutoPlaying) {
 				// Scatter/bonus: disable spin and return (don't re-enable any controls)
 				if (gameStateManager.isScatter || gameStateManager.isBonus) {
@@ -2684,7 +2713,7 @@ export class SlotController {
 			}
 			this.updateAutoplayButtonState();
 			this.updateTurboButtonStateWithLock();
-			this.enableFeatureButton();
+			this.updateFeatureButtonState();
 
 			// Show and resume spin icon after autoplay stops, hide stop icon
 			if (this.spinIcon) {
@@ -2749,6 +2778,11 @@ export class SlotController {
 				return;
 			}
 
+			// Ensure any pending balance update is applied before we re-evaluate button states.
+			// This prevents the spin button from staying disabled due to a stale "pending balance" flag
+			// after autoplay cancel flows.
+			try { this.balanceController?.applyPendingBalanceUpdateIfAny(); } catch {}
+
 			// If free-round mode is active, don't re-enable buttons (only turbo and menu stay enabled)
 			const gsmWinStop: any = gameStateManager as any;
 			if (gsmWinStop.isInFreeSpinRound === true) {
@@ -2769,6 +2803,11 @@ export class SlotController {
 				return;
 			}
 
+			// If autoplay was manually cancelled during this spin, this is our authoritative re-enable point.
+			if (this.autoplayCancelPendingWinStopReenable) {
+				this.autoplayCancelPendingWinStopReenable = false;
+			}
+
 			// Re-enable buttons directly for manual spins instead of emitting
 			// AUTO_STOP (which AutoplayController already emits for natural completion).
 			this.updateSpinButtonState();
@@ -2779,7 +2818,7 @@ export class SlotController {
 				this.enableBetBackgroundInteraction('after spin WIN_STOP');
 			}
 			this.updateTurboButtonStateWithLock();
-			this.enableFeatureButton();
+			this.updateFeatureButtonState();
 			this.hideAutoplaySpinsRemainingText();
 			if (this.spinIcon) { this.spinIcon.setVisible(true); }
 			if (this.spinIconTween) { this.spinIconTween.resume(); }
@@ -2985,19 +3024,26 @@ export class SlotController {
 	 * Stop autoplay
 	 */
 	public stopAutoplay(): void {
+		// Mirror thats_bait: cancel should synchronously clear autoplay state.
+		try {
+			const gd = this.getGameData();
+			if (gd) gd.isAutoPlaying = false;
+		} catch {}
+		try { gameStateManager.isAutoPlaying = false; } catch {}
+
 		// Immediately disable autoplay button (stays disabled until spin/tumbles finish)
 		this.setAutoplayButtonState(false);
 		this.disableAutoplayButton();
 		this.hideAutoplaySpinsRemainingText();
 		// Stop the underlying autoplay controller without emitting AUTO_STOP
-		// (we will emit AUTO_STOP ourselves below after state is fully synced).
+		// (we emit AUTO_STOP ourselves below after state is fully synced).
 		this.autoplayController?.stopAutoplay(false);
 		this.isFreeRoundAutoplay = false;
 		this.shouldReenableSpinButtonAfterFirstAutoplay = false;
 
-		
-		// Emit AUTO_STOP so UI listeners (including this controller) can re-enable
-		// appropriate buttons even if WIN_STOP already fired earlier in the spin.
+		// Emit AUTO_STOP so the AUTO_STOP handler (which already has proper gating via
+		// updateSpinButtonState/updateFeatureButtonState plus a 200/600ms safety fallback)
+		// reliably re-evaluates button state after all animations finish.
 		try {
 			gameEventManager.emit(GameEventType.AUTO_STOP);
 		} catch { /* avoid breaking stop flow on emit issues */ }
@@ -3026,31 +3072,15 @@ export class SlotController {
 				this.enableAmplifyButton();
 				this.enableBetBackgroundInteraction('after stopAutoplay');
 			}
-			// Keep feature disabled during bonus or until explicitly allowed
-			if (!gameStateManager.isBonus && this.canEnableFeatureButton) {
-				this.enableFeatureButton();
-			}
+			this.updateFeatureButtonState();
 			this.updateAutoplayButtonState();
 		} else {
-			// Safety: if the final spin had no tumbles or missed the TUMBLE_SEQUENCE_DONE path,
-			// ensure controls are re-enabled shortly after reels fully stop.
-			this.scene?.time.delayedCall(300, () => {
-				if (gameStateManager.isReelSpinning) return;
-				if (gameStateManager.isScatter || gameStateManager.isBonus) return;
-				this.updateSpinButtonState();
-				if (!this.isBuyFeatureControlsLocked()) {
-					this.enableBetButtons();
-					this.enableAmplifyButton();
-					this.enableBetBackgroundInteraction('after stopAutoplay (safety)');
-				}
-				if (!this.canEnableFeatureButton || gameStateManager.isBonus) {
-					// Keep feature disabled during bonus or when explicitly disallowed
-				} else {
-					this.enableFeatureButton();
-				}
-				this.updateAutoplayButtonState();
-				this.updateTurboButtonStateWithLock();
-			});
+			// Mirror thats_bait: when cancelled mid-spin, keep everything disabled until WIN_STOP.
+			this.autoplayCancelPendingWinStopReenable = true;
+			this.disableSpinButton();
+			this.disableBetButtons();
+			this.disableFeatureButton();
+			this.disableAmplifyButton();
 		}
 	}
 
@@ -3534,6 +3564,27 @@ export class SlotController {
 		const autoplayButton = this.buttons.get('autoplay');
 		if (!autoplayButton) return;
 
+		// Global modal lock (thats_bait style): never re-enable controls while a modal/drawer is open.
+		if (this.externalControlLock) {
+			this.disableAutoplayButton();
+			return;
+		}
+
+		// Requirement: when scatter is triggered, autoplay must be disabled (even if autoplay was active),
+		// because the game transitions into scatter/bonus flow where base autoplay should not be started/changed.
+		try {
+			let isScatterAnimating = false;
+			const symbolsComponent: any = (this.scene as any)?.symbols;
+			const scatterManager = symbolsComponent?.scatterAnimationManager;
+			if (scatterManager && typeof scatterManager.isAnimationInProgress === 'function') {
+				isScatterAnimating = !!scatterManager.isAnimationInProgress();
+			}
+			if (gameStateManager.isScatter || isScatterAnimating) {
+				this.disableAutoplayButton();
+				return;
+			}
+		} catch { }
+
 		// Keep autoplay disabled whenever a cancelled autoplay spin is still resolving:
 		// reels, tumbles, win dialogs, or scatter/bonus takeover.
 		const disableBecauseSpinStillResolving =
@@ -3994,7 +4045,19 @@ export class SlotController {
 	 * Show the buy feature drawer
 	 */
 	private showBuyFeatureDrawer(): void {
-		this.buyFeatureController.showDrawer();
+		let didConfirm = false;
+		try { this.setExternalControlLock(true); } catch {}
+		this.buyFeatureController.showDrawer({
+			onClose: () => {
+				// If confirmed, keep locked until buy-feature flow finishes.
+				if (didConfirm) return;
+				try { this.setExternalControlLock(false); } catch {}
+			},
+			onConfirm: () => {
+				didConfirm = true;
+				// Keep modal lock; buy-feature controller will lock controls for spin.
+			}
+		});
 	}
 
 	/**
@@ -4626,6 +4689,13 @@ export class SlotController {
 		const spinButton = this.buttons.get('spin');
 		if (!spinButton) return;
 
+		// Global modal lock (thats_bait style): never re-enable controls while a modal/drawer is open.
+		if (this.externalControlLock) {
+			this.disableSpinButton();
+			this.updateFeatureButtonState();
+			return;
+		}
+
 		if (this.isSpinLocked) {
 			this.disableSpinButton();
 			this.updateFeatureButtonState();
@@ -4697,6 +4767,28 @@ export class SlotController {
 	 * Public method to update feature button state based on game conditions
 	 */
 	public updateFeatureButtonState(): void {
+		// Global modal lock (thats_bait style): never re-enable controls while a modal/drawer is open.
+		if (this.externalControlLock) {
+			this.disableFeatureButton();
+			return;
+		}
+		// Keep Buy Feature disabled while a spin is still resolving (reels/tumbles/win flow),
+		// especially right after cancelling autoplay mid-spin.
+		if (
+			this.isBuyFeatureControlsLocked() ||
+			gameStateManager.isBonus ||
+			gameStateManager.isScatter ||
+			gameStateManager.isReelSpinning ||
+			gameStateManager.isProcessingSpin ||
+			this.tumbleSequenceInProgress ||
+			this.pendingWinLock ||
+			gameStateManager.isShowingWinDialog ||
+			!this.canEnableFeatureButton
+		) {
+			this.disableFeatureButton();
+			return;
+		}
+
 		if (!this.isBuyFeatureControlsLocked() && !gameStateManager.isBonus && this.canEnableFeatureButton) {
 			// Disable buy-feature if balance is insufficient for its price.
 			try {

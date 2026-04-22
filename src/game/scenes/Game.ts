@@ -473,12 +473,18 @@ export class Game extends Scene {
 			const isEnhancedBet = this.gameData?.isEnhancedBet === true;
 			const betDisplayMultiplier = isEnhancedBet ? 1.25 : 1;
 			const currentDisplayBet = currentBaseBet * betDisplayMultiplier;
+			// Modal lock: prevent HUD buttons behind the bet options modal from being clicked during show/hide animations.
+			try { this.slotController.setExternalControlLock(true); } catch { }
 			this.betOptions.show({
 				currentBet: currentBaseBet,
 				currentBetDisplay: currentDisplayBet,
 				isEnhancedBet: isEnhancedBet,
-				onClose: () => {},
+				onClose: () => {
+					try { this.slotController.setExternalControlLock(false); } catch { }
+				},
 				onConfirm: (betAmount: number) => {
+					// Confirm path does not fire onClose; release the modal lock here too.
+					try { this.slotController.setExternalControlLock(false); } catch { }
 					this.slotController.updateBetAmount(betAmount);
 					gameEventManager.emit(GameEventType.BET_UPDATE, { newBet: betAmount, previousBet: currentBaseBet });
 				}
@@ -506,6 +512,8 @@ export class Game extends Scene {
 			const isEnhancedBet = !!this.gameData?.isEnhancedBet;
 			const betDisplayMultiplier = isEnhancedBet ? 1.25 : 1;
 
+			// Modal lock: prevent HUD buttons behind the autoplay modal from being clicked during show/hide animations.
+			try { this.slotController.setExternalControlLock(true); } catch { }
 			this.autoplayOptions.show({
 				currentAutoplayCount: 10,
 				// Use base bet for internal logic and ladders
@@ -515,8 +523,12 @@ export class Game extends Scene {
 				betDisplayMultiplier,
 				currentBalance,
 				isEnhancedBet,
-				onClose: () => {},
+				onClose: () => {
+					try { this.slotController.setExternalControlLock(false); } catch { }
+				},
 				onConfirm: (autoplayCount: number) => {
+					// Confirm path does not fire onClose; release the modal lock here too.
+					try { this.slotController.setExternalControlLock(false); } catch { }
 					const selectedBet = this.autoplayOptions.getCurrentBet();
 					if (Math.abs(selectedBet - baseBet) > 0.0001) {
 						this.slotController.updateBetAmountFromAutoplay(selectedBet);

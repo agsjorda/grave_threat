@@ -32,6 +32,7 @@ export interface BuyFeatureCallbacks {
   disableBetBackgroundInteraction: (reason: string) => void;
   showOutOfBalancePopup: () => void;
   updateSpinButtonState: () => void;
+  setExternalControlLock?: (locked: boolean) => void;
 }
 
 export class BuyFeatureController {
@@ -93,7 +94,7 @@ export class BuyFeatureController {
     this.callbacks.enableBetBackgroundInteraction(reason);
   }
 
-  public showDrawer(): void {
+  public showDrawer(options?: { onClose?: () => void; onConfirm?: () => void }): void {
     if (!this.buyFeature) {
       console.warn('[SlotController] Buy feature component not initialized');
       return;
@@ -102,8 +103,10 @@ export class BuyFeatureController {
     this.buyFeature.show({
       featurePrice: 24000.0,
       onClose: () => {
+        try { options?.onClose?.(); } catch {}
       },
       onConfirm: () => {
+        try { options?.onConfirm?.(); } catch {}
         this.buyFeatureSpinLock = true;
         this.lockControls('buy feature confirmed');
         this.handleBuyFeature();
