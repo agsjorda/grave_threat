@@ -641,6 +641,24 @@ export class Game extends Scene {
 			(this.symbols as any).currentSpinData = unresolved.response;
 
 			this.events.emit('setBonusMode', true);
+
+			// Unresolved-spin resume: apply the persisted bonus multipliers grid from the unresolved payload
+			// so the bonus game starts with the correct sticky multipliers.
+			try {
+				const slotAny: any = (unresolved as any)?.response?.slot ?? {};
+				const fsAny: any = slotAny?.freespin ?? slotAny?.freeSpin;
+				const items: any[] = Array.isArray(fsAny?.items) ? fsAny.items : [];
+				const idx =
+					typeof (unresolved as any)?.index === 'number' && (unresolved as any).index >= 0
+						? (unresolved as any).index
+						: 0;
+				const item = items[idx] ?? items[0];
+				const multipliers = item?.multipliers;
+				(this.symbols as any)?.seedPersistentBonusMultipliersFromRowMajor?.(multipliers);
+			} catch (e) {
+				console.warn('[Game] Failed to apply unresolved multipliers grid:', e);
+			}
+
 			this.events.emit('showBonusBackground');
 			this.events.emit('showBonusHeader');
 
@@ -1094,6 +1112,15 @@ export class Game extends Scene {
 				// Paused base-game autoplay is resumed after the end-of-bonus dialog fully
 				// closes. Resuming here is too early and can consume the cached autoplay
 				// state while the transition is still in progress.
+
+				// Mirrors shuten_doji: emit bonusTransitionComplete so SlotController can
+				// run restoreBaseControls() and unconditionally re-enable Spin/Autoplay
+				// once we are fully back in base mode.
+				try {
+					this.time.delayedCall(0, () => {
+						try { this.events.emit('bonusTransitionComplete'); } catch { }
+					});
+				} catch { }
 			}
 
 			// TODO: Update backend data isBonus flag if needed

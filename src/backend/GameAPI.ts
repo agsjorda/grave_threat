@@ -1195,12 +1195,24 @@ export class GameAPI {
       // Find the game scene using phaserGame (as set in main.ts line 238)
       const gameScene = (window as any).phaserGame?.scene?.getScene("Game");
       if (gameScene) {
-        // Import dynamically to avoid circular dependency
-        import("../game/components/TokenExpiredPopup")
-          .then((module) => {
-            const TokenExpiredPopup = module.TokenExpiredPopup;
-            const popup = new TokenExpiredPopup(gameScene as any);
-            popup.show();
+        import("../managers/PopupManager")
+          .then(({ showPopup, PopupType, clearCurrentPopup }) => {
+            showPopup(PopupType.TOKEN_EXPIRED, (registerHide) => {
+              // Import dynamically to avoid circular dependency
+              import("../game/components/TokenExpiredPopup")
+                .then((module) => {
+                  const TokenExpiredPopup = module.TokenExpiredPopup;
+                  const popup = new TokenExpiredPopup(gameScene as any);
+                  popup.show();
+                  registerHide((cb) =>
+                    popup.hide(() => {
+                      clearCurrentPopup();
+                      if (cb) cb();
+                    })
+                  );
+                })
+                .catch(() => {});
+            });
           })
           .catch(() => {});
       } else {

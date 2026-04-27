@@ -266,6 +266,67 @@ export class Symbols {
     this.clusterWinGridSnapshots = [];
   }
 
+  /**
+   * Seed the persistent bonus multiplier grid (SymbolMarker) from backend spin data.
+   * Used by unresolved-spin resume so the bonus UI starts with the correct sticky multipliers.
+   *
+   * Expected shape matches slot.area: multipliers[col][row] (outer array = column, inner = row).
+   * Also accepts row-major multipliers[row][col] defensively.
+   */
+  public seedPersistentBonusMultipliersFromRowMajor(multipliers: unknown): void {
+    try {
+      if (!multipliers || !Array.isArray(multipliers) || multipliers.length === 0) return;
+      const outer = multipliers as unknown[];
+      const outerCount = outer.length;
+      const innerCount = Array.isArray(outer[0]) ? (outer[0] as unknown[]).length : 0;
+
+      // Treat this as "already initialized" for the session so setBonusMode(true)
+      // doesn't overwrite it with buy-feature defaults.
+      this.bonusGridInitializedForSession = true;
+      this.symbolMarker.reset();
+      gameStateManager.buyFeatureStartMultiplier = 0;
+
+      const applyValue = (c: number, r: number, rawAny: unknown) => {
+        const raw = Number(rawAny);
+        // Backend may send 0 to mean "no marker". Preserve that by skipping.
+        if (!Number.isFinite(raw) || raw <= 0) return;
+        // Marker values are integral tiers (x1..x128). Keep as-is and clamp via SymbolMarker.
+        this.symbolMarker.setCellValue(c, r, Math.floor(raw));
+      };
+
+      // Preferred: column-major (matches slot.area): outer = columns, inner = rows
+      if (outerCount === SLOT_COLUMNS && innerCount === SLOT_ROWS) {
+        for (let c = 0; c < SLOT_COLUMNS; c++) {
+          const col = outer[c] as unknown;
+          if (!Array.isArray(col)) return;
+          for (let r = 0; r < SLOT_ROWS; r++) {
+            applyValue(c, r, (col as unknown[])[r]);
+          }
+        }
+      } else if (outerCount === SLOT_ROWS && innerCount === SLOT_COLUMNS) {
+        // Defensive: row-major
+        for (let r = 0; r < SLOT_ROWS; r++) {
+          const row = outer[r] as unknown;
+          if (!Array.isArray(row)) return;
+          for (let c = 0; c < SLOT_COLUMNS; c++) {
+            applyValue(c, r, (row as unknown[])[c]);
+          }
+        }
+      } else {
+        console.warn('[Symbols] seedPersistentBonusMultipliersFromRowMajor skipped (unexpected shape)', {
+          outerCount,
+          innerCount,
+          expectedColMajor: { outer: SLOT_COLUMNS, inner: SLOT_ROWS },
+          expectedRowMajor: { outer: SLOT_ROWS, inner: SLOT_COLUMNS },
+        });
+        return;
+      }
+      this.symbolMarker.refreshOverlays();
+    } catch (e) {
+      console.warn('[Symbols] seedPersistentBonusMultipliersFromRowMajor failed:', e);
+    }
+  }
+
   // ============================================================================
   // CONSTRUCTOR
   // ============================================================================

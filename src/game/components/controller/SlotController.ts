@@ -342,12 +342,26 @@ export class SlotController {
 	private showOutOfBalancePopup(message?: string): void {
 		const scene = this.scene as Scene | null;
 		if (!scene) return;
-		import('../OutOfBalancePopup').then(module => {
-			const Popup = module.OutOfBalancePopup;
-			const popup = new Popup(scene);
-			if (message) popup.updateMessage(message);
-			popup.show();
-		}).catch(() => {});
+		import('../../../managers/PopupManager')
+			.then(({ showPopup, PopupType, clearCurrentPopup }) => {
+				showPopup(PopupType.OUT_OF_BALANCE, (registerHide) => {
+					import('../OutOfBalancePopup')
+						.then((module) => {
+							const Popup = module.OutOfBalancePopup;
+							const popup = new Popup(scene);
+							if (message) popup.updateMessage(message);
+							popup.show();
+							registerHide((cb) =>
+								popup.hide(() => {
+									clearCurrentPopup();
+									if (cb) cb();
+								})
+							);
+						})
+						.catch(() => {});
+				});
+			})
+			.catch(() => {});
 	}
 
 	/**
@@ -2860,6 +2874,28 @@ export class SlotController {
 				this.updateSpinButtonState();
 			}
 			this.enableBetBackgroundInteraction('after win dialog closed');
+
+			// Manual/base-game safety: when the win dialog closes (including TotalWin), the spin may already be fully finished
+			// but other completion events could have returned early or been skipped.
+			// If the game is idle, force a full UI re-evaluation so Spin/Autoplay cannot remain stuck disabled.
+			try {
+				const gsmAny: any = gameStateManager as any;
+				if (gsmAny.isInFreeSpinRound === true) return;
+				if (gameStateManager.isScatter || gameStateManager.isBonus) return;
+				if (gameStateManager.isReelSpinning || gameStateManager.isProcessingSpin) return;
+				if (gameStateManager.isShowingWinDialog) return;
+				if (this.isBuyFeatureControlsLocked()) return;
+
+				this.pendingWinLock = false;
+				try { this.balanceController?.applyPendingBalanceUpdateIfAny(); } catch { }
+				this.updateSpinButtonState();
+				this.updateAllAuxiliaryButtonStates();
+				this.updateFeatureButtonState();
+				this.enableBetBackgroundInteraction('after win dialog closed (idle safety)');
+				// Mirrors shuten_doji: end-of-bonus TotalWin/Congrats close path must always
+				// re-enable Spin/Autoplay even if other listeners ran in an unexpected order.
+				this.restoreBaseControls('after win dialog closed (idle safety)');
+			} catch { }
 		});
 
 		// Note: SPIN_RESPONSE event listeners removed - now using SPIN_DATA_RESPONSE
@@ -3386,6 +3422,9 @@ export class SlotController {
 		const featureButton = this.buttons.get('feature');
 		if (featureButton) {
 			featureButton.setAlpha(1.0); // Restore full opacity
+			// hidePrimaryController() applies setTint(0x555555); clear it on restore so
+			// the feature button doesn't visually look disabled after bonus mode ends.
+			featureButton.clearTint();
 			if (this.featureButtonHitbox) {
 				this.featureButtonHitbox.setInteractive();
 			}
@@ -4079,6 +4118,11 @@ export class SlotController {
 		
 		// Listen for bonus mode events from the scene
 		this.scene.events.on('setBonusMode', (isBonus: boolean) => {
+			// Keep centralized game-state flags in sync with scene-level bonus mode events.
+			// Some flows (e.g. end-of-bonus TotalWin transition) emit setBonusMode(false)
+			// without going through the usual state manager setters, which can leave buttons
+			// permanently disabled because updateSpinButtonState/updateAutoplayButtonState gate on gsm.isBonus.
+			try { gameStateManager.isBonus = !!isBonus; } catch {}
 			if (isBonus) {
 				this.hasFinalizedBonusBalanceForCurrentRound = false;
 				this.pendingTotalWinBalanceFinalize = false;
@@ -4123,12 +4167,25 @@ export class SlotController {
 						this.updateSpinButtonState();
 						this.updateAllAuxiliaryButtonStates();
 						this.updateFeatureButtonState();
+						// Mirrors shuten_doji: explicit base-controls restoration so end-of-bonus
+						// TotalWin/Congrats closures always leave Spin/Autoplay re-enabled.
+						this.restoreBaseControls('setBonusMode(false)');
 					});
 				} else {
 					this.updateAllAuxiliaryButtonStates();
 					this.updateFeatureButtonState();
+					this.restoreBaseControls('setBonusMode(false)');
 				}
 			}
+		});
+
+		// Mirrors shuten_doji: when the bonus-exit transition fully completes, re-arm base
+		// controls so Spin/Autoplay are guaranteed clickable again.
+		this.scene.events.on('bonusTransitionComplete', () => {
+			this.showPrimaryController();
+			this.canEnableFeatureButton = true;
+			this.restoreBaseControls('bonusTransitionComplete');
+			try { (this as any).resumeAutoplayFromPause?.(); } catch {}
 		});
 
 		// Ensure free spin UI is hidden on generic bonus-reset events as well
@@ -4673,6 +4730,94 @@ export class SlotController {
 		if (this.spinIconTween) {
 			this.spinIconTween.resume();
 		}
+	}
+
+	/**
+	 * Restore base-game controls after exiting bonus mode (mirrors shuten_doji's restoreBaseControls).
+	 * Force-enables spin / autoplay / bet / amplify / bet-background regardless of any stale
+	 * `gameStateManager.isBonus` value, so end-of-bonus TotalWin/Congrats/MaxWin closures cannot
+	 * leave Spin and Autoplay stuck disabled.
+	 */
+	public restoreBaseControls(reason: string = 'base controls restored'): void {
+		// Force-clear stale state flags that gate Spin / Autoplay / Buy Feature re-enablement.
+		// updateAutoplayButtonState(), updateFeatureButtonState() and enableFeatureButton()
+		// all disable when any of isShowingWinDialog / isProcessingSpin / isScatter / isBonus /
+		// pendingWinLock / tumbleSequenceInProgress is true, so we must clear them before the
+		// explicit enables below (and before the trailing updateAllAuxiliaryButtonStates() call)
+		// to mirror shuten_doji's end-of-bonus behavior.
+		try { gameStateManager.isBonus = false; } catch {}
+		try { gameStateManager.isBonusFinished = false; } catch {}
+		try { gameStateManager.isShowingWinDialog = false; } catch {}
+		try { gameStateManager.isProcessingSpin = false; } catch {}
+		try { gameStateManager.isScatter = false; } catch {}
+		this.pendingWinLock = false;
+		this.tumbleSequenceInProgress = false;
+
+		if (this.isBuyFeatureControlsLocked()) {
+			return;
+		}
+		// Only bail on actively spinning reels. isProcessingSpin can be stale at end-of-bonus
+		// or after a TotalWin/Congrats close, and bailing on it here is exactly what was
+		// leaving the Autoplay button stuck disabled while Spin (which doesn't gate on
+		// isProcessingSpin) re-enabled normally.
+		if (gameStateManager.isReelSpinning) {
+			return;
+		}
+
+		this.enableSpinButton();
+		this.enableAutoplayButton();
+		this.enableBetButtons();
+		this.enableBetBackgroundInteraction(reason);
+		this.enableAmplifyButton();
+		this.canEnableFeatureButton = true;
+		this.enableFeatureButton();
+		this.updateFeatureButtonState();
+		this.updateAllAuxiliaryButtonStates();
+
+		// Final force-enable pass: updateAllAuxiliaryButtonStates() above runs
+		// updateAutoplayButtonStateWithLock() which can re-disable autoplay if any state
+		// flag flipped back. Re-assert the explicit enables so Autoplay / Spin / Buy Feature
+		// are the last word — mirroring shuten_doji's syncFeatureButtonForBaseControls()
+		// at the end of restoreBaseControls.
+		this.enableAutoplayButton();
+		this.enableSpinButton();
+		this.canEnableFeatureButton = true;
+		this.enableFeatureButton();
+		this.updateFeatureButtonState();
+
+		// Hard force-enable Buy Feature: enableFeatureButton() / updateFeatureButtonState()
+		// each have early-returns that can leave the button visually grey-tinted (from
+		// hidePrimaryController) if any of pendingWinLock / isReelSpinning / isShowingWinDialog /
+		// isProcessingSpin / tumbleSequenceInProgress was momentarily true. By this point
+		// those flags are cleared above, but we still apply the visual + interactive update
+		// directly so the button can never get stuck in a grey/disabled-looking state at
+		// end-of-bonus, while still respecting the legitimate base-game gates: amplify
+		// (isEnhancedBet), buy-feature lock, and balance affordability.
+		try {
+			const featureButton = this.buttons.get('feature');
+			if (featureButton) {
+				const isEnhancedBet = !!this.gameData?.isEnhancedBet;
+				const isLocked = this.isBuyFeatureControlsLocked();
+				let canAfford = true;
+				try {
+					const isBalanceReady = this.balanceController?.hasInitializedBalance() ?? false;
+					if (isBalanceReady) {
+						const price = this.getBuyFeaturePrice();
+						const balance = this.getBalanceAmount() || 0;
+						if (price > 0 && balance + 1e-9 < price) {
+							canAfford = false;
+						}
+					}
+				} catch {}
+				if (!isEnhancedBet && !isLocked && canAfford) {
+					featureButton.setAlpha(1.0);
+					featureButton.clearTint();
+					if (this.featureButtonHitbox) {
+						this.featureButtonHitbox.setInteractive();
+					}
+				}
+			}
+		} catch {}
 	}
 
 	/**
