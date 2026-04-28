@@ -3,7 +3,7 @@ import { NetworkManager } from "../../managers/NetworkManager";
 import { ScreenModeManager } from "../../managers/ScreenModeManager";
 import { gameEventManager, GameEventType } from '../../event/EventManager';
 import { gameStateManager } from '../../managers/GameStateManager';
-import { PaylineData } from '../../backend/SpinData';
+import { PaylineData, getFreespinFromSlot } from '../../backend/SpinData';
 import { CurrencyManager } from './CurrencyManager';
 import { HEADER_CONFIG, SHOW_HEADER_BORDER } from '../../config/GameConfig';
 import { getTotalWinFromPaylines, getTumbleTotal } from './Spin';
@@ -600,7 +600,7 @@ export class Header {
 			const symbolsComponent = (this.headerContainer.scene as any).symbols;
 			const spinData = symbolsComponent?.currentSpinData;
 			const slot: any = spinData?.slot ?? {};
-			const fs = slot?.freespin || slot?.freeSpin;
+			const fs = getFreespinFromSlot(slot);
 			const hasBonusPayload =
 				(Array.isArray(fs?.items) && fs.items.length > 0) ||
 				(Number.isFinite(Number(fs?.count)) && Number(fs?.count) > 0);

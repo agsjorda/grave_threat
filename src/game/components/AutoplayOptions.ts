@@ -7,6 +7,7 @@ import { CurrencyManager } from "./CurrencyManager";
 import { startAnimation } from "../../utils/SpineAnimationHelper";
 import { formatCurrencyNumber } from "../../utils/NumberPrecisionFormatter";
 import { SoundEffectType } from "../../managers/AudioManager";
+import { playSoundEffectSafe } from "../../utils/AudioHelpers";
 import { DEFAULT_BASE_BET, DEFAULT_BET_LEVEL_INDEX } from "./controller";
 
 export interface AutoplayOptionsConfig {
@@ -209,11 +210,7 @@ export class AutoplayOptions {
 		this.closeButton.setOrigin(0.5, 0.5);
 		this.closeButton.setInteractive();
 		this.closeButton.on('pointerdown', () => {
-			const audioManager =
-				(this.container?.scene as any)?.audioManager || (window as any)?.audioManager;
-			if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-				audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-			}
+			playSoundEffectSafe(this.container?.scene as Scene | undefined, SoundEffectType.MENU_CLICK);
 			// Create slide-down animation
 			if (this.container.scene) {
 				this.container.scene.tweens.add({
@@ -340,11 +337,7 @@ export class AutoplayOptions {
 		// Make interactive
 		container.setInteractive(new Phaser.Geom.Rectangle(0, 0, width, height), Phaser.Geom.Rectangle.Contains);
 		container.on('pointerdown', () => {
-			const audioManager =
-				(this.container?.scene as any)?.audioManager || (window as any)?.audioManager;
-			if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-				audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-			}
+			playSoundEffectSafe(this.container?.scene as Scene | undefined, SoundEffectType.MENU_CLICK);
 			this.selectButton(index, value);
 		});
 		
@@ -387,11 +380,7 @@ export class AutoplayOptions {
 		this.minusButton.setOrigin(0.5, 0.5);
 		this.minusButton.setInteractive();
 		this.minusButton.on('pointerdown', () => {
-			const audioManager =
-				(this.container?.scene as any)?.audioManager || (window as any)?.audioManager;
-			if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-				audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-			}
+			playSoundEffectSafe(this.container?.scene as Scene | undefined, SoundEffectType.MENU_CLICK);
 			this.selectPreviousBet();
 		});
 		this.container.add(this.minusButton);
@@ -416,11 +405,7 @@ export class AutoplayOptions {
 		this.plusButton.setOrigin(0.5, 0.5);
 		this.plusButton.setInteractive();
 		this.plusButton.on('pointerdown', () => {
-			const audioManager =
-				(this.container?.scene as any)?.audioManager || (window as any)?.audioManager;
-			if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-				audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-			}
+			playSoundEffectSafe(this.container?.scene as Scene | undefined, SoundEffectType.MENU_CLICK);
 			this.selectNextBet();
 		});
 		this.container.add(this.plusButton);
@@ -515,11 +500,7 @@ export class AutoplayOptions {
 		
 		buttonImage.setInteractive();
 		buttonImage.on('pointerdown', () => {
-			const audioManager =
-				(this.container?.scene as any)?.audioManager || (window as any)?.audioManager;
-			if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-				audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-			}
+			playSoundEffectSafe(this.container?.scene as Scene | undefined, SoundEffectType.MENU_CLICK);
 
 			// Click safety guard
 			if (!this.canStartAutoplay()) {

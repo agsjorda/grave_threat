@@ -15,7 +15,6 @@ export interface BuyFeatureCallbacks {
   updateBalanceAmount: (balance: number) => void;
   updateBetAmount: (bet: number) => void;
   setFeatureButtonAmountOverride: (amount: number | null) => void;
-  setFeatureButtonAmountOverride: (amount: number | null) => void;
   enableSpinButton: () => void;
   enableAutoplayButton: () => void;
   enableFeatureButton: () => void;

@@ -2,6 +2,7 @@ import { Scene, GameObjects } from "phaser";
 import { Geom } from "phaser";
 import { GameData } from "../components/GameData";
 import { AudioManager, SoundEffectType } from "../../managers/AudioManager";
+import { playSoundEffectSafe } from "../../utils/AudioHelpers";
 import { GameAPI } from "../../backend/GameAPI";
 import { HelpScreen } from "./MenuTabs/HelpScreen";
 import { CurrencyManager } from "./CurrencyManager";
@@ -1200,11 +1201,7 @@ export class Menu {
       .setOrigin(0, 0);
     musicToggleArea.setInteractive();
     musicToggleArea.on("pointerdown", () => {
-      const audioManager =
-        (scene as any)?.audioManager || (window as any)?.audioManager;
-      if (audioManager && typeof audioManager.playSoundEffect === "function") {
-        audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-      }
+      playSoundEffectSafe(scene, SoundEffectType.MENU_CLICK);
       musicOn = !musicOn;
       scene.audioManager.setMusicEnabled(musicOn);
       drawToggle(
@@ -1233,11 +1230,7 @@ export class Menu {
       .setOrigin(0, 0);
     sfxToggleArea.setInteractive();
     sfxToggleArea.on("pointerdown", () => {
-      const audioManager =
-        (scene as any)?.audioManager || (window as any)?.audioManager;
-      if (audioManager && typeof audioManager.playSoundEffect === "function") {
-        audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-      }
+      playSoundEffectSafe(scene, SoundEffectType.MENU_CLICK);
       sfxOn = !sfxOn;
       scene.audioManager.setSfxEnabled(sfxOn);
       drawToggle(sfxToggleBg, sfxToggleCircle, toggleX, startY + 190, sfxOn);
@@ -1597,6 +1590,8 @@ export class Menu {
       duration: 300,
       ease: "Power2",
     });
+
+    try { scene.events.emit('menuOpened'); } catch { }
   }
 
   public hideMenu(scene: GameScene): void {
@@ -1621,6 +1616,13 @@ export class Menu {
     // Reset dragging states
     this.isDraggingMusic = false;
     this.isDraggingSFX = false;
+
+    // Notify the scene the menu has closed so SlotController can re-evaluate
+    // button states. End-of-bonus / TotalWin close paths can leave Spin / Buy
+    // Feature visually disabled if the user opens the menu before the recovery
+    // chain finishes; reasserting state here mirrors what bet/autoplay modals
+    // do via setExternalControlLock(false) on close.
+    try { scene.events.emit('menuClosed'); } catch { }
   }
 
   public toggleMenu(scene: GameScene): void {

@@ -2,6 +2,7 @@ import type { SlotInitializeData } from "../../backend/GameAPI";
 import { Scene, GameObjects } from "phaser";
 import { formatCurrencyNumber } from "../../utils/NumberPrecisionFormatter";
 import { SoundEffectType } from "../../managers/AudioManager";
+import { getGlobalAudioManager, playSoundEffectSafe } from "../../utils/AudioHelpers";
 
 type CurrencyInit = Pick<SlotInitializeData, "currency" | "currencySymbol">;
 
@@ -271,13 +272,7 @@ class CurrencyErrorPopup extends GameObjects.Container {
 
 		this.buttonImage.setInteractive({ useHandCursor: true });
 		this.buttonImage.on("pointerdown", () => {
-			try {
-				const audioManager =
-					(this.scene as any)?.audioManager || (window as any)?.audioManager;
-				if (audioManager && typeof audioManager.playSoundEffect === "function") {
-					audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-				}
-			} catch {}
+			try { playSoundEffectSafe(this.scene, SoundEffectType.MENU_CLICK); } catch {}
 			try { window.location.reload(); } catch {}
 		});
 		this.buttonImage.on("pointerover", () => this.buttonImage.setTint(0xcccccc));
@@ -319,9 +314,8 @@ class CurrencyErrorPopup extends GameObjects.Container {
 			ease: "Back.Out",
 			onStart: () => {
 				try {
-					if ((window as any).audioManager) {
-						(window as any).audioManager.playSoundEffect("popup_open");
-					}
+					const audioManager = getGlobalAudioManager() as any;
+					audioManager?.playSoundEffect?.("popup_open");
 				} catch {}
 			}
 		});

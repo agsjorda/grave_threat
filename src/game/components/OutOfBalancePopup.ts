@@ -1,5 +1,6 @@
 import { Scene, GameObjects } from 'phaser';
 import { SoundEffectType } from '../../managers/AudioManager';
+import { getGlobalAudioManager, playSoundEffectSafe } from '../../utils/AudioHelpers';
 
 export class OutOfBalancePopup extends GameObjects.Container {
     private background: GameObjects.Graphics;
@@ -101,11 +102,7 @@ export class OutOfBalancePopup extends GameObjects.Container {
 
         this.buttonImage.setInteractive({ useHandCursor: true });
         this.buttonImage.on('pointerdown', () => {
-            const audioManager =
-                (this.scene as any)?.audioManager || (window as any)?.audioManager;
-            if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-                audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-            }
+            playSoundEffectSafe(this.scene, SoundEffectType.MENU_CLICK);
             this.hide();
         });
         this.buttonImage.on('pointerover', () => {
@@ -136,9 +133,8 @@ export class OutOfBalancePopup extends GameObjects.Container {
             duration: this.animationDuration,
             ease: 'Back.Out',
             onStart: () => {
-                if ((window as any).audioManager) {
-                    (window as any).audioManager.playSoundEffect('popup_open');
-                }
+                const audioManager = getGlobalAudioManager() as any;
+                audioManager?.playSoundEffect?.('popup_open');
             }
         });
     }

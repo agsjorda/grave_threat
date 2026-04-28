@@ -1,6 +1,7 @@
 import type { Scene } from 'phaser';
 import { EventBus } from '../../EventBus';
 import { SoundEffectType } from '../../../managers/AudioManager';
+import { playSoundEffectSafe } from '../../../utils/AudioHelpers';
 
 export class MenuButtonController {
   private scene: Scene;
@@ -34,11 +35,7 @@ export class MenuButtonController {
     ).setOrigin(0.5, 0.5).setScale(assetScale).setDepth(10);
     menuButton.setInteractive();
     menuButton.on('pointerdown', () => {
-      const audioManager =
-        (this.scene as any)?.audioManager || (window as any)?.audioManager;
-      if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-        audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-      }
+      playSoundEffectSafe(this.scene, SoundEffectType.MENU_CLICK);
       EventBus.emit('menu');
     });
     this.buttons.set('menu', menuButton);

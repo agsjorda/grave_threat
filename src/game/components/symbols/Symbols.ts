@@ -50,6 +50,7 @@ import {
   SYMBOL_GRID_BASE_DEPTH,
 } from '../../../config/GameConfig';
 import { SoundEffectType } from '../../../managers/AudioManager';
+import { getFreespinFromSpinData } from '../../../backend/SpinData';
 import { normalizeAreaToGameConfig, toRowMajor } from '../../../utils/GridTransform';
 import { startAnimationWithEntry } from '../../../utils/SpineAnimationHelper';
 import {
@@ -998,6 +999,15 @@ export class Symbols {
     return !!(this.pendingSymbol0Retrigger?.symbol0Grids?.length);
   }
 
+  /**
+   * True when any scatter retrigger is queued: grid-based detection OR spin-data
+   * fallback. When `SCATTER_SYMBOL_ID` is 0, both paths describe the same symbol;
+   * this method is the single predicate for “retrigger queued” at component boundaries.
+   */
+  public hasAnyPendingScatterRetrigger(): boolean {
+    return this.hasPendingScatterRetrigger() || this.hasPendingSymbol0Retrigger();
+  }
+
   public isSymbol0RetriggerAnimationInProgress(): boolean {
     return this.scatterRetriggerAnimationInProgress && !!this.pendingSymbol0Retrigger;
   }
@@ -1666,7 +1676,7 @@ export class Symbols {
 
   private async showCongratsDialogAfterDelay(): Promise<void> {
 
-    if (this.hasPendingScatterRetrigger() || this.scatterRetriggerAnimationInProgress) {
+    if (this.hasAnyPendingScatterRetrigger() || this.scatterRetriggerAnimationInProgress) {
       try { gameStateManager.isBonusFinished = false; } catch { }
       return;
     }
@@ -1719,7 +1729,7 @@ export class Symbols {
     // Get free spin count
     let freeSpinCount = 0;
     try {
-      const freespinData = this.currentSpinData?.slot?.freespin || this.currentSpinData?.slot?.freeSpin;
+      const freespinData = getFreespinFromSpinData(this.currentSpinData);
       if (freespinData?.count) {
         freeSpinCount = freespinData.count;
       } else if (freespinData?.items) {
@@ -1742,7 +1752,7 @@ export class Symbols {
 
   private getCurrentFreeSpinItem(spinData: any): any | null {
     try {
-      const fs = spinData?.slot?.freespin || spinData?.slot?.freeSpin;
+      const fs = getFreespinFromSpinData(spinData);
       const items = Array.isArray(fs?.items) ? fs.items : [];
       if (!items.length) return null;
 
@@ -1928,6 +1938,10 @@ export class Symbols {
         gameEventManager.emit(GameEventType.TUMBLE_SEQUENCE_DONE, { totalWin: 0 } as any);
       } catch { }
     }
+
+    try {
+      gameEventManager.emit(GameEventType.SYMBOLS_PROCESSING_COMPLETE, { spinData } as any);
+    } catch { }
 
     gameEventManager.emit(GameEventType.REELS_STOP);
     gameEventManager.emit(GameEventType.WIN_STOP);

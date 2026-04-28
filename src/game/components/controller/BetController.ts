@@ -12,6 +12,7 @@ import { Logger } from '../../../utils/Logger';
 import { startAnimation } from '../../../utils/SpineAnimationHelper';
 import { formatCurrencyNumber } from '../../../utils/NumberPrecisionFormatter';
 import { SoundEffectType } from '../../../managers/AudioManager';
+import { playSoundEffectSafe } from '../../../utils/AudioHelpers';
 
 const log = Logger.slot;
 
@@ -145,11 +146,7 @@ export class BetController {
       if (this.isButtonsDisabled) {
         return;
       }
-      const audioManager =
-        (this.scene as any)?.audioManager || (window as any)?.audioManager;
-      if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-        audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-      }
+      playSoundEffectSafe(this.scene, SoundEffectType.MENU_CLICK);
       log.debug('Decrease bet clicked');
       this.adjustBetByStep(-1);
     });
@@ -166,11 +163,7 @@ export class BetController {
       if (this.isButtonsDisabled) {
         return;
       }
-      const audioManager =
-        (this.scene as any)?.audioManager || (window as any)?.audioManager;
-      if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-        audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-      }
+      playSoundEffectSafe(this.scene, SoundEffectType.MENU_CLICK);
       log.debug('Increase bet clicked');
       this.adjustBetByStep(1);
     });

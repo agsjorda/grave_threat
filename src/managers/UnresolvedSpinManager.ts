@@ -1,6 +1,7 @@
 import { Scene, GameObjects } from "phaser";
 import type { SlotInitializeData, UnresolvedSpin } from "../backend/GameAPI";
 import { gameStateManager } from "./GameStateManager";
+import { getGlobalAudioManager } from "../utils/AudioHelpers";
 
 class UnresolvedSpinPopup extends GameObjects.Container {
   private background: GameObjects.Graphics;
@@ -70,7 +71,7 @@ class UnresolvedSpinPopup extends GameObjects.Container {
 
     this.buttonImage.on("pointerdown", () => {
       try {
-        (window as any).audioManager?.playSoundEffect?.("button_fx");
+        (getGlobalAudioManager() as any)?.playSoundEffect?.("button_fx");
       } catch {}
       // Remove dimmer immediately so the scene is not stuck dark while the dialog tween runs
       // (and so bonus/base bg is visible as soon as Continue is pressed).
@@ -105,7 +106,7 @@ class UnresolvedSpinPopup extends GameObjects.Container {
       ease: "Back.Out",
       onStart: () => {
         try {
-          (window as any).audioManager?.playSoundEffect?.("popup_open");
+          (getGlobalAudioManager() as any)?.playSoundEffect?.("popup_open");
         } catch {}
       },
     });

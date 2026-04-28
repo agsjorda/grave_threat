@@ -5,6 +5,7 @@ import { gameStateManager } from './GameStateManager';
 import { EventBus } from '../game/EventBus';
 import { SCATTER_SYMBOL_ID } from '../config/GameConfig';
 import { SoundEffectType } from './AudioManager';
+import { getGlobalAudioManager } from '../utils/AudioHelpers';
 
 /** Data shape for scatter animation (replaces tmp_backend Data) */
 export interface ScatterData {
@@ -129,7 +130,7 @@ export class ScatterAnimationManager {
 
     if (!gameStateManager.isBonus) {
       try {
-        const audioMgr = (window as any).audioManager;
+        const audioMgr = getGlobalAudioManager() as any;
         if (audioMgr?.switchToFreeSpinMusic) audioMgr.switchToFreeSpinMusic();
       } catch (e) {
         console.warn('[ScatterAnimationManager] Failed to switch to free spin music', e);
@@ -299,7 +300,7 @@ export class ScatterAnimationManager {
     // Keep bonus mode active
     gameStateManager.isBonus = true;
     try {
-      const audioMgr = (window as any).audioManager;
+      const audioMgr = getGlobalAudioManager();
       if (audioMgr && typeof audioMgr.playSoundEffect === 'function') {
         audioMgr.playSoundEffect(SoundEffectType.DIALOG_FREESPIN);
       }

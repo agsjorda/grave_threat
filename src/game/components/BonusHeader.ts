@@ -6,6 +6,7 @@ import { gameStateManager } from '../../managers/GameStateManager';
 import { CurrencyManager } from './CurrencyManager';
 import { BONUS_TUMBLE_TOTAL_WIN_DELAY_MS, HEADER_CONFIG, SHOW_HEADER_BORDER, BONUS_HEADER_WIN_BAR_TEXT_OFFSET_Y } from '../../config/GameConfig';
 import { getTotalWinFromPaylines, getTumbleTotal } from './Spin';
+import { getFreespinFromSlot, getFreespinFromSpinData } from '../../backend/SpinData';
 import {
 	createScaledHeaderImage,
 	getHeaderLayoutHeight,
@@ -411,7 +412,7 @@ export class BonusHeader {
 
 	private getCurrentFreeSpinItem(spinData: any): any | null {
 		try {
-			const fs = spinData?.slot?.freespin || spinData?.slot?.freeSpin;
+			const fs = getFreespinFromSpinData(spinData);
 			const items = Array.isArray(fs?.items) ? fs.items : [];
 			if (!items.length) return null;
 
@@ -462,7 +463,7 @@ export class BonusHeader {
 			}
 
 			let totalWin = 0;
-			const freespinData = slot.freespin || slot.freeSpin;
+			const freespinData = getFreespinFromSlot(slot);
 			let itemsSum = 0;
 			let hasItems = false;
 
@@ -1175,7 +1176,7 @@ export class BonusHeader {
 					// Retrigger guard: a spinsLeft=1 item may still continue when future items exist.
 					let hasFutureRetriggerItems = false;
 					try {
-						const fs = spinData?.slot?.freespin || spinData?.slot?.freeSpin;
+						const fs = getFreespinFromSpinData(spinData);
 						const items = Array.isArray(fs?.items) ? fs.items : [];
 						if (items.length > 1 && currentItem) {
 							const currentAreaJson =
@@ -1270,7 +1271,7 @@ export class BonusHeader {
 		}
 
 		// Check if this is a free spin with subTotalWin (support freespin and freeSpin)
-		const fs = spinData.slot?.freespin || spinData.slot?.freeSpin;
+		const fs = getFreespinFromSpinData(spinData);
 		if (fs?.items && fs.items.length > 0) {
 			// Find the current free spin item (usually the first one with spinsLeft > 0)
 			const currentFreeSpinItem = fs.items.find((item: any) => item.spinsLeft > 0);

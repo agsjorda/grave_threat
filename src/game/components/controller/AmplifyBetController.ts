@@ -6,6 +6,7 @@ import { ensureSpineFactory } from '../../../utils/SpineGuard';
 import { startAnimation } from '../../../utils/SpineAnimationHelper';
 import type { GameData } from '../GameData';
 import { SoundEffectType } from '../../../managers/AudioManager';
+import { playSoundEffectSafe } from '../../../utils/AudioHelpers';
 
 export interface AmplifyBetCallbacks {
   getGameData: () => GameData | null;
@@ -57,11 +58,7 @@ export class AmplifyBetController {
     ).setOrigin(0.5, 0.5).setScale(assetScale).setDepth(10);
     amplifyButton.setInteractive();
     amplifyButton.on('pointerdown', () => {
-      const audioManager =
-        (this.scene as any)?.audioManager || (window as any)?.audioManager;
-      if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-        audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-      }
+      playSoundEffectSafe(this.scene, SoundEffectType.MENU_CLICK);
       this.handleAmplifyButtonClick();
     });
     this.buttons.set('amplify', amplifyButton);

@@ -3,6 +3,7 @@ import { Game as MainGame } from './scenes/Game';
 import { AUTO, Game } from 'phaser';
 import { Preloader } from './scenes/Preloader';
 import { SpinePlugin } from '@esotericsoftware/spine-phaser-v3';
+import { getGlobalAudioManager } from '../utils/AudioHelpers';
 
 // Install guards to prevent InvalidStateError when resuming/suspending a closed AudioContext
 function installAudioContextGuards(): void {
@@ -122,7 +123,7 @@ const StartGame = (parent: string) => {
 		};
 		const shouldUnmute = (): boolean => {
 			try {
-				const am: any = (window as any).audioManager;
+				const am: any = getGlobalAudioManager();
 				// Respect user's own mute choice
 				if (am && typeof am.isAudioMuted === 'function' && am.isAudioMuted()) {
 					return false;

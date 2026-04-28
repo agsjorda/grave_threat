@@ -1,6 +1,20 @@
 import { Scene } from 'phaser';
 import { SpinePlugin } from '@esotericsoftware/spine-phaser-v3';
 
+/**
+ * Delay before re-attempting `ensureSpineFactory()` when the Spine plugin
+ * isn't yet attached to the scene. Used by callers that schedule a retry
+ * via `scene.time.delayedCall(SPINE_FACTORY_RETRY_MS, ...)`.
+ */
+export const SPINE_FACTORY_RETRY_MS = 250;
+
+/**
+ * Delay before re-attempting Spine creation when the JSON/atlas asset is
+ * not yet present in `scene.cache.json`. Longer than the factory retry
+ * because asset loading takes more time than plugin attachment.
+ */
+export const SPINE_ASSET_CACHE_RETRY_MS = 1000;
+
 function hasSpineLoaderApis(scene: Scene): boolean {
 	const loadAny = scene.load as any;
 	// spine-phaser-v3 may expose either a combined loader (`load.spine`) or separate helpers.

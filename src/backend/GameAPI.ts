@@ -2,6 +2,7 @@ import { SpinData } from "./SpinData";
 import { GameData } from "../game/components/GameData";
 import { gameStateManager } from "../managers/GameStateManager";
 import { SoundEffectType } from "../managers/AudioManager";
+import { getGlobalAudioManager } from "../utils/AudioHelpers";
 import { SLOT_COLUMNS, SLOT_ROWS } from "../config/GameConfig";
 import { normalizeAreaToGameConfig } from "../utils/GridTransform";
 import { simulateTumbleCascade } from "../game/components/Spin";
@@ -179,6 +180,7 @@ export class GameAPI {
   private static readonly GAME_ID: string = "00090725"; //change to 00090725 for grave_threat
   private static DEMO_BALANCE: number = 10000;
   private static readonly REFRESH_TOKEN_KEY: string = "refresh_token";
+  private static readonly SPIN_DATA_CACHE_KEY: string = "grave_threat:lastSpinData";
 
   gameData: GameData;
   exitURL: string = "";
@@ -245,6 +247,64 @@ export class GameAPI {
 
   constructor(gameData: GameData) {
     this.gameData = gameData;
+  }
+
+  /**
+   * Cache the last known-good spin payload for offline/network-loss fallback.
+   * Stored in memory and mirrored to sessionStorage so a page refresh won't drop the fallback.
+   */
+  private cacheSpinData(spinData: SpinData): void {
+    this.currentSpinData = spinData;
+    try {
+      sessionStorage.setItem(
+        GameAPI.SPIN_DATA_CACHE_KEY,
+        JSON.stringify(spinData),
+      );
+    } catch {
+      // best-effort only
+    }
+  }
+
+  private getCachedSpinData(): SpinData | null {
+    if (this.currentSpinData) return this.currentSpinData;
+    try {
+      const raw = sessionStorage.getItem(GameAPI.SPIN_DATA_CACHE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw) as SpinData;
+    } catch {
+      return null;
+    }
+  }
+
+  private isNetworkConnectionLost(error: any): boolean {
+    try {
+      if (typeof navigator !== "undefined" && (navigator as any)?.onLine === false) {
+        return true;
+      }
+    } catch {
+      // ignore
+    }
+    const msg = String(error?.message ?? error ?? "").toLowerCase();
+    return (
+      msg.includes("failed to fetch") ||
+      msg.includes("networkerror") ||
+      msg.includes("network request failed") ||
+      msg.includes("load failed")
+    );
+  }
+
+  private getSpinDataFallbackForNetworkLoss(error: any): SpinData | null {
+    if (!this.isNetworkConnectionLost(error)) return null;
+    return this.getCachedSpinData();
+  }
+
+  private markSpinDataAsNetworkFallback(spinData: SpinData): SpinData {
+    try {
+      (spinData as any).__networkFallbackSpinData = true;
+    } catch {
+      // best-effort only
+    }
+    return spinData;
   }
 
   private getRequestedLanguage(): string {
@@ -1368,8 +1428,8 @@ export class GameAPI {
     ) {
       this.mockedFirstManualScatterSpin = true;
       const mock = this.createMockFirstManualScatterSpinData(bet);
-      this.currentSpinData = mock;
-      return this.currentSpinData;
+      this.cacheSpinData(mock);
+      return this.currentSpinData as SpinData;
     }
 
     // SAMPLE DATA MODE: load data from src/game/spinDataSample/*.json
@@ -1388,14 +1448,14 @@ export class GameAPI {
             sampleSpin = this.getNextSampleSpinFromList(false, bet, listData);
           }
           if (sampleSpin) {
-            this.currentSpinData = sampleSpin;
-            return this.currentSpinData;
+            this.cacheSpinData(sampleSpin);
+            return this.currentSpinData as SpinData;
           }
         } else {
           const sampleSpin = this.buildSampleSpinFromSingle(bet, sampleData);
           if (sampleSpin) {
-            this.currentSpinData = sampleSpin;
-            return this.currentSpinData;
+            this.cacheSpinData(sampleSpin);
+            return this.currentSpinData as SpinData;
           }
         }
       }
@@ -1450,10 +1510,17 @@ export class GameAPI {
         if (isBuyFs) {
         }
 
-        this.currentSpinData = responseData as SpinData;
-        return this.currentSpinData;
+        this.cacheSpinData(responseData as SpinData);
+        return this.currentSpinData as SpinData;
       } catch (error) {
         console.error("Error in doSpin (demo):", error);
+        const fallback = this.getSpinDataFallbackForNetworkLoss(error);
+        if (fallback) {
+          console.warn(
+            "[GameAPI] Network error during spin (demo); using cached SpinData fallback",
+          );
+          return this.markSpinDataAsNetworkFallback(fallback);
+        }
         throw error;
       }
     }
@@ -1640,13 +1707,13 @@ export class GameAPI {
 
             if (hasMoreItems || hasMoreSpinsLeft) {
               applyTruncateFreeSpinItems((responseData as any).slot);
-              this.currentSpinData = responseData as SpinData;
+              this.cacheSpinData(responseData as SpinData);
             } else {
             }
           } catch (e) {}
         } else {
           applyTruncateFreeSpinItems((responseData as any).slot);
-          this.currentSpinData = responseData as SpinData;
+          this.cacheSpinData(responseData as SpinData);
         }
       } else if (
         gameStateManager.isBonus &&
@@ -1657,12 +1724,20 @@ export class GameAPI {
         // Don't overwrite the original free spin data - keep it for simulation
       } else {
         applyTruncateFreeSpinItems((responseData as any).slot);
-        this.currentSpinData = responseData as SpinData;
+        this.cacheSpinData(responseData as SpinData);
       }
 
-      return this.currentSpinData;
+      return this.currentSpinData as SpinData;
     } catch (error) {
       console.error("Error in doSpin:", error);
+
+      const fallback = this.getSpinDataFallbackForNetworkLoss(error);
+      if (fallback) {
+        console.warn(
+          "[GameAPI] Network error during spin; using cached SpinData fallback",
+        );
+        return this.markSpinDataAsNetworkFallback(fallback);
+      }
 
       // Handle network errors or other issues
       if (this.isTokenExpiredError(error)) {
@@ -1778,9 +1853,9 @@ export class GameAPI {
       this.currentSpinData.slot.freespin || this.currentSpinData.slot.freeSpin;
     const items = freespinData.items;
 
-    // Play spin sound effect for free spin simulation
-    if ((window as any).audioManager) {
-      (window as any).audioManager.playSoundEffect(SoundEffectType.SPIN);
+    const audioManager = getGlobalAudioManager();
+    if (audioManager && typeof audioManager.playSoundEffect === 'function') {
+      audioManager.playSoundEffect(SoundEffectType.SPIN);
     }
     const fsSpin = this.buildFreeSpinFromItems(items, this.currentSpinData);
     logFreeSpinItem(items, fsSpin);

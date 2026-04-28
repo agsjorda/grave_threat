@@ -1,4 +1,5 @@
 import { Scene, GameObjects } from 'phaser';
+import { getGlobalAudioManager } from '../../utils/AudioHelpers';
 
 export class TokenExpiredPopup extends GameObjects.Container {
     private background: GameObjects.Graphics;
@@ -111,10 +112,8 @@ export class TokenExpiredPopup extends GameObjects.Container {
             duration: this.animationDuration,
             ease: 'Back.Out', // Bouncy effect
             onStart: () => {
-                // Play a sound effect if available
-                if ((window as any).audioManager) {
-                    (window as any).audioManager.playSoundEffect('popup_open');
-                }
+                const audioManager = getGlobalAudioManager() as any;
+                audioManager?.playSoundEffect?.('popup_open');
             }
         });
     }

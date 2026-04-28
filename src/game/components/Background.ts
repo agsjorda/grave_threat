@@ -2,7 +2,7 @@ import { Scene } from "phaser";
 import { NetworkManager } from "../../managers/NetworkManager";
 import { ScreenModeManager } from "../../managers/ScreenModeManager";
 import { gameStateManager } from "../../managers/GameStateManager";
-import { ensureSpineFactory } from "../../utils/SpineGuard";
+import { ensureSpineFactory, SPINE_ASSET_CACHE_RETRY_MS, SPINE_FACTORY_RETRY_MS } from "../../utils/SpineGuard";
 import { gameEventManager, GameEventType } from "../../event/EventManager";
 import { BG_BORDER_OFFSET_Y, BG_BORDER_DEPTH, BACKGROUND_COVER_CONFIG } from "../../config/GameConfig";
 import { scaleBottomCoverImage } from "./BackgroundCoverLayout";
@@ -130,14 +130,14 @@ private bgBorder: Phaser.GameObjects.Image | null = null;
 
 			if (!ensureSpineFactory(scene, '[Background] createNormalGameSpine')) {
 				console.warn('[Background] Spine factory not available yet; will retry shortly');
-				scene.time.delayedCall(250, () => this.createNormalGameSpine(scene, assetScale));
+				scene.time.delayedCall(SPINE_FACTORY_RETRY_MS, () => this.createNormalGameSpine(scene, assetScale));
 				return;
 			}
 
 			// Check if the spine assets are loaded
 			if (!scene.cache.json.has('NormalGame_BZ')) {
 				console.warn('[Background] NormalGame_BZ spine assets not loaded yet, will retry later');
-				scene.time.delayedCall(1000, () => {
+				scene.time.delayedCall(SPINE_ASSET_CACHE_RETRY_MS, () => {
 					this.createNormalGameSpine(scene, assetScale);
 				});
 				return;

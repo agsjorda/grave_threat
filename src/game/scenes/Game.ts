@@ -31,6 +31,7 @@ import { AutoplayOptions } from '../components/AutoplayOptions';
 import { gameEventManager, GameEventType } from '../../event/EventManager';
 import { gameStateManager } from '../../managers/GameStateManager';
 import { GameAPI } from '../../backend/GameAPI';
+import { getFreespinFromSlot } from '../../backend/SpinData';
 import { AudioManager, MusicType } from '../../managers/AudioManager';
 import { Menu } from '../components/Menu';
 import { FullScreenManager } from '../../managers/FullScreenManager';
@@ -793,7 +794,7 @@ export class Game extends Scene {
 		if (gameStateManager.isBonus) {
 			try {
 				const slotAny: any = spinData.slot || {};
-				const fs = slotAny.freespin || slotAny.freeSpin;
+				const fs = getFreespinFromSlot(slotAny);
 				const items = Array.isArray(fs?.items) ? fs.items : [];
 				const area = slotAny.area;
 				if (items.length > 0 && Array.isArray(area)) {

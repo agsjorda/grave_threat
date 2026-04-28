@@ -17,6 +17,7 @@ import {
   NORMAL_SYMBOLS,
   SCATTER_SYMBOL_ID,
 } from '../../config/GameConfig';
+import { getFreespinFromSlot } from '../../backend/SpinData';
 
 /** Minimum matching symbol count to qualify as a winning cluster (win dialog, WinTracker, high-count animation) */
 export const QUALIFYING_CLUSTER_COUNT = MIN_CLUSTER_SIZE;
@@ -481,7 +482,7 @@ export function getTotalCountFromOuts(outs: TumbleOut[] | null | undefined): num
  */
 export function getTotalWinFromFreespinOnly(slot: any): number {
   if (!slot) return 0;
-  const fs = slot.freespin || slot.freeSpin;
+  const fs = getFreespinFromSlot(slot);
   if (!fs) return 0;
   if (typeof fs.totalWin === 'number' && fs.totalWin > 0) return fs.totalWin;
   if (fs.items && Array.isArray(fs.items)) {
@@ -510,7 +511,7 @@ export function getTotalWinFromSlot(slot: any): number {
   if (!slot) return 0;
   if (typeof slot.totalWin === 'number' && slot.totalWin > 0) return slot.totalWin;
 
-  const freespinData = slot.freespin || slot.freeSpin;
+  const freespinData = getFreespinFromSlot(slot);
   let itemsSum = 0;
   let hasItems = false;
 
@@ -554,7 +555,7 @@ export function getSpinTotalFromSpinData(spinData: any): number {
   let spinTotal = 0;
   try {
     const slot = spinData?.slot;
-    const fs = slot?.freespin || slot?.freeSpin;
+    const fs = getFreespinFromSlot(slot);
     if (fs?.items && Array.isArray(fs.items)) {
       const currentItem = fs.items.find((item: any) => Number(item?.spinsLeft) > 0);
       const base = Number(currentItem?.subTotalWin);
@@ -576,7 +577,7 @@ export function getSpinTotalFromSpinData(spinData: any): number {
 export function getSpinTotalWithFallback(spinData: any): number {
   try {
     const slotAny = spinData?.slot || {};
-    const fs = slotAny?.freespin || slotAny?.freeSpin;
+    const fs = getFreespinFromSlot(slotAny);
     if (fs?.items && Array.isArray(fs.items)) {
       const currentItem = fs.items.find((item: any) => Number(item?.spinsLeft) > 0);
       const base = Number(currentItem?.subTotalWin);

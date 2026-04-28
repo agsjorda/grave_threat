@@ -106,6 +106,28 @@ export interface FreespinItem {
 }
 
 /**
+ * Read the freespin block off a `slot` payload.
+ *
+ * Backend payloads have used both lowercase (`freespin`) and camelCase
+ * (`freeSpin`) keys; this helper picks whichever is populated so callers
+ * never have to remember to check both spellings. Accepts a loose shape
+ * because some call sites have already widened the type with `as any`.
+ */
+export function getFreespinFromSlot(slot: any): FreespinData | undefined {
+  if (!slot) return undefined;
+  return (slot.freespin || slot.freeSpin) as FreespinData | undefined;
+}
+
+/**
+ * Read the freespin block straight off a `spinData` payload, walking through
+ * `.slot` for the caller. Use this when the surrounding code already has the
+ * full spin response in hand.
+ */
+export function getFreespinFromSpinData(spinData: any): FreespinData | undefined {
+  return getFreespinFromSlot(spinData?.slot);
+}
+
+/**
  * Utility functions for working with SpinData
  */
 export class SpinDataUtils {
@@ -165,42 +187,48 @@ export class SpinDataUtils {
   }
   
   /**
-   * Check if this spin triggered free spins
+   * Check if this spin triggered free spins.
+   *
+   * Uses {@link getFreespinFromSpinData} so both `slot.freespin` and
+   * `slot.freeSpin` payload spellings are picked up.
    */
   static hasFreeSpins(spinData: SpinData): boolean {
-    return !!(spinData && spinData.slot && spinData.slot.freespin && spinData.slot.freespin.count > 0);
+    const fs = getFreespinFromSpinData(spinData);
+    return !!(fs && typeof fs.count === 'number' && fs.count > 0);
   }
-  
+
   /**
-   * Get total win amount from all free spins
+   * Get total win amount from all free spins.
+   * Reads via {@link getFreespinFromSpinData} so both spellings work.
    */
   static getFreespinTotalWin(spinData: SpinData): number {
-    return (spinData && spinData.slot && spinData.slot.freespin && typeof spinData.slot.freespin.totalWin === 'number')
-      ? spinData.slot.freespin.totalWin
-      : 0;
+    const fs = getFreespinFromSpinData(spinData);
+    return (fs && typeof fs.totalWin === 'number') ? fs.totalWin : 0;
   }
-  
+
   /**
-   * Get the number of free spins remaining
+   * Get the number of free spins remaining.
+   * Reads via {@link getFreespinFromSpinData} so both spellings work.
    */
   static getFreespinCount(spinData: SpinData): number {
-    return (spinData && spinData.slot && spinData.slot.freespin && typeof spinData.slot.freespin.count === 'number')
-      ? spinData.slot.freespin.count
-      : 0;
+    const fs = getFreespinFromSpinData(spinData);
+    return (fs && typeof fs.count === 'number') ? fs.count : 0;
   }
-  
+
   /**
-   * Get all free spin items
+   * Get all free spin items.
+   * Reads via {@link getFreespinFromSpinData} so both spellings work.
    */
   static getFreespinItems(spinData: SpinData): FreespinItem[] {
-    return spinData.slot.freespin?.items || [];
+    return getFreespinFromSpinData(spinData)?.items || [];
   }
-  
+
   /**
-   * Get a specific free spin item by index
+   * Get a specific free spin item by index.
+   * Reads via {@link getFreespinFromSpinData} so both spellings work.
    */
   static getFreespinItem(spinData: SpinData, index: number): FreespinItem | null {
-    const items = spinData.slot.freespin?.items || [];
+    const items = getFreespinFromSpinData(spinData)?.items || [];
     return (index >= 0 && index < items.length) ? items[index] : null;
   }
   

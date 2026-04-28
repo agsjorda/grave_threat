@@ -4,6 +4,7 @@ import { ensureSpineFactory } from '../../utils/SpineGuard';
 import { CurrencyManager } from './CurrencyManager';
 import { formatCurrencyNumber } from '../../utils/NumberPrecisionFormatter';
 import { SoundEffectType } from '../../managers/AudioManager';
+import { playSoundEffectSafe } from '../../utils/AudioHelpers';
 import { SPINE_SYMBOL_SCALES } from '../../config/GameConfig';
 import { localizationManager } from '../../managers/LocalizationManager';
 import {
@@ -87,6 +88,11 @@ export class BuyFeature {
   private buyFeatureScrollDisplay: number = 0;
   private buyFeatureScrollVelocity: number = 0;
   private buyFeatureScrollPrevOffset: number = 0;
+
+  // Tracked listeners on `scene.input` so destroy() can off() them and avoid
+  // leaking handlers if the buy-feature drawer is rebuilt within the scene.
+  private sceneInputListeners: Array<{ event: string; fn: Function }> = [];
+  private sceneForInputListeners: Scene | null = null;
 
   private static readonly BUY_FEATURE_SCROLL_SMOOTH = 0.2;
   private static readonly BUY_FEATURE_SCROLL_FRICTION = 0.92;
@@ -1074,7 +1080,13 @@ export class BuyFeature {
       this.onBuyFeatureAreaPointerDown(ptr, -1);
     });
 
-    scene.input.on("pointerup", (ptr: Phaser.Input.Pointer) => {
+    // Track scene.input listeners so destroy() can unregister them.
+    // Without this, handlers stay attached to the scene's input plugin even
+    // after the drawer container is destroyed, which leaks closures and can
+    // double-fire if the drawer is reopened.
+    this.sceneForInputListeners = scene;
+
+    const onPointerUp = (ptr: Phaser.Input.Pointer): void => {
       this.cancelBuyFeaturePointerOutReleaseTimer();
       const wasDrag = this.buyFeatureDragActive;
       this.buyFeatureDragActive = false;
@@ -1086,9 +1098,9 @@ export class BuyFeature {
         }
       }
       this.buyFeaturePointerDownCardIndex = -1;
-    });
+    };
 
-    scene.input.on("pointerout", () => {
+    const onPointerOut = (): void => {
       if (!this.buyFeatureDragActive) return;
       this.cancelBuyFeaturePointerOutReleaseTimer();
       this.buyFeaturePointerOutReleaseTimer = scene.time.delayedCall(
@@ -1098,13 +1110,13 @@ export class BuyFeature {
           this.buyFeaturePointerOutReleaseTimer = null;
         },
       );
-    });
+    };
 
-    scene.input.on("pointerover", () => {
+    const onPointerOver = (): void => {
       this.cancelBuyFeaturePointerOutReleaseTimer();
-    });
+    };
 
-    scene.input.on("pointermove", (ptr: Phaser.Input.Pointer) => {
+    const onPointerMove = (ptr: Phaser.Input.Pointer): void => {
       if (!ptr.isDown || !this.buyFeatureDragActive) return;
       this.cancelBuyFeaturePointerOutReleaseTimer();
       const deltaY = this.buyFeatureDragStartY - ptr.worldY;
@@ -1112,17 +1124,33 @@ export class BuyFeature {
       this.buyFeatureDragStartY = ptr.worldY;
       this.buyFeatureScrollStartOffset = this.buyFeatureScrollOffset;
       this.applyBuyFeatureScroll();
-    });
+    };
 
-    scene.input.on(
-      "wheel",
-      (_ptr: Phaser.Input.Pointer, _go: any[], _dx: number, dy: number) => {
-        if (!this.buyFeatureScrollZone) return;
-        const bounds = this.buyFeatureScrollZone.getBounds();
-        if (!bounds.contains(scene.input.x, scene.input.y)) return;
-        this.buyFeatureScrollOffset += dy;
-        this.applyBuyFeatureScroll();
-      },
+    const onWheel = (
+      _ptr: Phaser.Input.Pointer,
+      _go: any[],
+      _dx: number,
+      dy: number,
+    ): void => {
+      if (!this.buyFeatureScrollZone) return;
+      const bounds = this.buyFeatureScrollZone.getBounds();
+      if (!bounds.contains(scene.input.x, scene.input.y)) return;
+      this.buyFeatureScrollOffset += dy;
+      this.applyBuyFeatureScroll();
+    };
+
+    scene.input.on("pointerup", onPointerUp);
+    scene.input.on("pointerout", onPointerOut);
+    scene.input.on("pointerover", onPointerOver);
+    scene.input.on("pointermove", onPointerMove);
+    scene.input.on("wheel", onWheel);
+
+    this.sceneInputListeners.push(
+      { event: "pointerup", fn: onPointerUp },
+      { event: "pointerout", fn: onPointerOut },
+      { event: "pointerover", fn: onPointerOver },
+      { event: "pointermove", fn: onPointerMove },
+      { event: "wheel", fn: onWheel },
     );
 
     scene.events.on("update", this.updateBuyFeatureScroll, this);
@@ -1176,12 +1204,7 @@ export class BuyFeature {
     } catch {}
 
     if (!playedClick) {
-      const audioManager =
-        (this.container?.scene as any)?.audioManager ||
-        (window as any)?.audioManager;
-      if (audioManager && typeof audioManager.playSoundEffect === "function") {
-        audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-      }
+      playSoundEffectSafe(this.container?.scene as Scene | undefined, SoundEffectType.MENU_CLICK);
     }
   }
 
@@ -1635,6 +1658,19 @@ export class BuyFeature {
         this,
       );
     }
+
+    // Unregister scene.input listeners so they don't leak when the drawer is
+    // rebuilt. Use the scene captured at setup time because `this.container`
+    // may have been moved or destroyed by now.
+    const inputScene = this.sceneForInputListeners;
+    if (inputScene?.input) {
+      for (const { event, fn } of this.sceneInputListeners) {
+        try { inputScene.input.off(event, fn as any); } catch {}
+      }
+    }
+    this.sceneInputListeners = [];
+    this.sceneForInputListeners = null;
+
     this.cancelBuyFeaturePointerOutReleaseTimer();
 
     if (this.scatterSpine) {

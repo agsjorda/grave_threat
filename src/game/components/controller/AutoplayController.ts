@@ -9,10 +9,11 @@ import type { Scene } from 'phaser';
 import { gameEventManager, GameEventType } from '../../../event/EventManager';
 import { gameStateManager } from '../../../managers/GameStateManager';
 import { TurboConfig } from '../../../config/TurboConfig';
-import { ensureSpineFactory } from '../../../utils/SpineGuard';
+import { ensureSpineFactory, SPINE_FACTORY_RETRY_MS } from '../../../utils/SpineGuard';
 import { Logger } from '../../../utils/Logger';
 import { startAnimation } from '../../../utils/SpineAnimationHelper';
 import { SoundEffectType } from '../../../managers/AudioManager';
+import { playSoundEffectSafe } from '../../../utils/AudioHelpers';
 
 const log = Logger.slot;
 
@@ -88,11 +89,7 @@ export class AutoplayController {
     
     this.autoplayButton.on('pointerdown', () => {
       log.debug('Autoplay button clicked');
-      const audioManager =
-        (this.scene as any)?.audioManager || (window as any)?.audioManager;
-      if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-        audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-      }
+      playSoundEffectSafe(this.scene, SoundEffectType.MENU_CLICK);
       this.handleAutoplayButtonClick();
     });
     
@@ -427,7 +424,7 @@ export class AutoplayController {
   ): void {
     try {
       if (!ensureSpineFactory(this.scene, '[AutoplayController]')) {
-        this.scene.time.delayedCall(250, () => {
+        this.scene.time.delayedCall(SPINE_FACTORY_RETRY_MS, () => {
           this.createAutoplayButtonAnimation(x, y, assetScale, container);
         });
         return;

@@ -242,23 +242,19 @@ export class BalanceController {
   }
 
   public applyPendingBalanceUpdateIfAny(): void {
-    if (this.pendingBalanceUpdate) {
-      if (this.pendingBalanceUpdate.balance !== undefined) {
-        const oldBalance = this.getBalanceAmountText();
-        this.startBalanceTween(this.pendingBalanceUpdate.balance, 320);
-        try {
-          const gameAPI = this.callbacks.getGameAPI();
-          if (gameAPI?.getDemoState()) {
-            gameAPI.updateDemoBalance(this.pendingBalanceUpdate.balance);
-          }
-        } catch { }
-        if (this.pendingBalanceUpdate.winnings && this.pendingBalanceUpdate.winnings > 0) {
-        } else {
+    if (!this.pendingBalanceUpdate) return;
+
+    if (this.pendingBalanceUpdate.balance !== undefined) {
+      this.startBalanceTween(this.pendingBalanceUpdate.balance, 320);
+      try {
+        const gameAPI = this.callbacks.getGameAPI();
+        if (gameAPI?.getDemoState()) {
+          gameAPI.updateDemoBalance(this.pendingBalanceUpdate.balance);
         }
-      }
-      this.pendingBalanceUpdate = null;
-    } else {
+      } catch { }
     }
+
+    this.pendingBalanceUpdate = null;
   }
 
   public clearPendingBalanceUpdate(): void {
@@ -284,24 +280,17 @@ export class BalanceController {
   }
 
   public forceApplyPendingBalanceUpdate(): void {
-    if (this.pendingBalanceUpdate) {
+    if (!this.pendingBalanceUpdate) return;
 
-      if (this.pendingBalanceUpdate.balance !== undefined) {
-        const oldBalance = this.getBalanceAmountText();
-        this.startBalanceTween(this.pendingBalanceUpdate.balance, 320);
-
-        if (this.pendingBalanceUpdate.winnings && this.pendingBalanceUpdate.winnings > 0) {
-        } else {
-        }
-      }
-
-      if (this.pendingBalanceUpdate.bet !== undefined) {
-        this.callbacks.updateBetAmount(this.pendingBalanceUpdate.bet);
-      }
-
-      this.pendingBalanceUpdate = null;
-    } else {
+    if (this.pendingBalanceUpdate.balance !== undefined) {
+      this.startBalanceTween(this.pendingBalanceUpdate.balance, 320);
     }
+
+    if (this.pendingBalanceUpdate.bet !== undefined) {
+      this.callbacks.updateBetAmount(this.pendingBalanceUpdate.bet);
+    }
+
+    this.pendingBalanceUpdate = null;
   }
 
   public async updateBalanceFromServer(spinData?: any): Promise<void> {

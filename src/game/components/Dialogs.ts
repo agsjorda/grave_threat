@@ -2,6 +2,7 @@ import { Scene } from 'phaser';
 import { NetworkManager } from '../../managers/NetworkManager';
 import { ScreenModeManager } from '../../managers/ScreenModeManager';
 import { SoundEffectType } from '../../managers/AudioManager';
+import { getGlobalAudioManager } from '../../utils/AudioHelpers';
 import { NumberDisplay, NumberDisplayConfig } from './NumberDisplay';
 import { gameStateManager } from '../../managers/GameStateManager';
 import { gameEventManager, GameEventType } from '../../event/EventManager';
@@ -337,7 +338,7 @@ export class Dialogs {
 
 		// Play dialog-specific SFX (FreeSpin / Congrats / MaxWin) when shown
 		try {
-			const audioManager = (window as any).audioManager;
+			const audioManager = getGlobalAudioManager();
 			if (audioManager && typeof audioManager.playSoundEffect === 'function') {
 				const type = (this.currentDialogType || '').toLowerCase();
 				if (type === 'freespin_bz') {
@@ -418,7 +419,7 @@ export class Dialogs {
 		// Play win dialog SFX at the correct time (after staged setup decides the first tier)
 		try {
 			if (this.isWinDialog() || this.currentDialogType === 'TotalWin') {
-				const audioManager = (window as any).audioManager;
+				const audioManager = getGlobalAudioManager();
 				// Always duck background while a win dialog is visible
 				if (audioManager && typeof audioManager.duckBackground === 'function') {
 					audioManager.duckBackground(0.3);
@@ -1328,7 +1329,7 @@ export class Dialogs {
 		// Route MaxWin through the same normal black-screen transition as TotalWin/Congrats.
 		if (this.currentDialogType === 'MaxWin') {
 			try {
-				const audioManager = (window as any).audioManager;
+				const audioManager = getGlobalAudioManager();
 				if (audioManager && typeof audioManager.playSoundEffect === 'function') {
 					audioManager.playSoundEffect(SoundEffectType.MAX_WIN_END);
 				}
@@ -1368,7 +1369,7 @@ export class Dialogs {
 				} catch { }
 				// Restore background music volume if it was ducked
 				try {
-					const audioManager = (window as any).audioManager;
+					const audioManager = getGlobalAudioManager();
 					if (audioManager && typeof audioManager.restoreBackground === 'function') {
 						audioManager.restoreBackground();
 					}
@@ -1515,7 +1516,7 @@ export class Dialogs {
 			sceneAny.__deferredBonusStart = () => {
 				this.cleanupDialog();
 				try {
-					const audioManager = (window as any).audioManager;
+					const audioManager = getGlobalAudioManager();
 					if (audioManager && typeof audioManager.restoreBackground === 'function') {
 						audioManager.restoreBackground();
 					}
@@ -1555,7 +1556,7 @@ export class Dialogs {
 		// Keep MaxWin close behavior consistent with previous win-dialog path (fade out active win SFX).
 		if (dialogTypeBeforeCleanup === 'MaxWin') {
 			try {
-				const audioManager = (window as any).audioManager;
+				const audioManager = getGlobalAudioManager();
 				if (audioManager && typeof audioManager.fadeOutCurrentWinSfx === 'function') {
 					audioManager.fadeOutCurrentWinSfx(450);
 				}
@@ -1590,7 +1591,7 @@ export class Dialogs {
 					// so that the next win dialog can appear without delay
 					if (this.isRetriggerFreeSpin) {
 						try {
-							const audioManager = (window as any).audioManager;
+							const audioManager = getGlobalAudioManager();
 							if (audioManager && typeof audioManager.restoreBackground === 'function') {
 								audioManager.restoreBackground();
 							}
@@ -1622,7 +1623,7 @@ export class Dialogs {
 				scene.events.emit('dialogAnimationsComplete');
 				// Restore background music volume after dialog completes
 				try {
-					const audioManager = (window as any).audioManager;
+					const audioManager = getGlobalAudioManager();
 					if (audioManager && typeof audioManager.restoreBackground === 'function') {
 						audioManager.restoreBackground();
 					}
@@ -1698,7 +1699,7 @@ export class Dialogs {
 		const dialogTypeBeforeCleanup = this.currentDialogType;
 		// Fade out any currently playing win SFX
 		try {
-			const audioManager = (window as any).audioManager;
+			const audioManager = getGlobalAudioManager();
 			if (audioManager && typeof audioManager.fadeOutCurrentWinSfx === 'function') {
 				audioManager.fadeOutCurrentWinSfx(450);
 			}
@@ -1830,7 +1831,7 @@ export class Dialogs {
 				gameEventManager.emit(GameEventType.WIN_DIALOG_CLOSED);
 				// Restore background music volume
 				try {
-					const audioManager = (window as any).audioManager;
+					const audioManager = getGlobalAudioManager();
 					if (audioManager && typeof audioManager.restoreBackground === 'function') {
 						audioManager.restoreBackground();
 					}
@@ -2312,7 +2313,7 @@ export class Dialogs {
 				this.isStagedWinNumberAnimation = false;
 				return;
 			}
-			const audioManager = (window as any).audioManager;
+			const audioManager = getGlobalAudioManager();
 			if (audioManager) {
 				if (typeof audioManager.fadeOutCurrentWinSfx === 'function') {
 					audioManager.fadeOutCurrentWinSfx(200);
@@ -2597,8 +2598,7 @@ export class Dialogs {
 		try {
 			const symbolsAny = context.symbols as any;
 			const hasPendingRetrigger =
-				(symbolsAny && typeof symbolsAny.hasPendingScatterRetrigger === 'function' && symbolsAny.hasPendingScatterRetrigger()) ||
-				(symbolsAny && typeof symbolsAny.hasPendingSymbol0Retrigger === 'function' && symbolsAny.hasPendingSymbol0Retrigger());
+				symbolsAny && typeof symbolsAny.hasAnyPendingScatterRetrigger === 'function' && symbolsAny.hasAnyPendingScatterRetrigger();
 
 			if (!hasPendingRetrigger) {
 				const isFreeSpinAutoplayActive =

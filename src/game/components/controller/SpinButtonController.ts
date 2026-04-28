@@ -8,7 +8,7 @@
 import type { Scene } from 'phaser';
 import { gameEventManager, GameEventType } from '../../../event/EventManager';
 import { gameStateManager } from '../../../managers/GameStateManager';
-import { ensureSpineFactory } from '../../../utils/SpineGuard';
+import { ensureSpineFactory, SPINE_FACTORY_RETRY_MS } from '../../../utils/SpineGuard';
 import { Logger } from '../../../utils/Logger';
 import { startAnimation } from '../../../utils/SpineAnimationHelper';
 
@@ -329,7 +329,7 @@ export class SpinButtonController {
   ): void {
     try {
       if (!ensureSpineFactory(this.scene, '[SpinButtonController]')) {
-        this.scene.time.delayedCall(250, () => {
+        this.scene.time.delayedCall(SPINE_FACTORY_RETRY_MS, () => {
           this.createSpinButtonAnimation(assetScale, container);
         });
         return;

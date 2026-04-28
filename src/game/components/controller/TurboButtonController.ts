@@ -2,11 +2,12 @@ import type { Scene } from 'phaser';
 import { EventBus } from '../../EventBus';
 import { gameEventManager, GameEventType } from '../../../event/EventManager';
 import { NetworkManager } from '../../../managers/NetworkManager';
-import { ensureSpineFactory } from '../../../utils/SpineGuard';
+import { ensureSpineFactory, SPINE_ASSET_CACHE_RETRY_MS, SPINE_FACTORY_RETRY_MS } from '../../../utils/SpineGuard';
 import { gameStateManager } from '../../../managers/GameStateManager';
 import { startAnimation } from '../../../utils/SpineAnimationHelper';
 import type { GameData } from '../GameData';
 import { SoundEffectType } from '../../../managers/AudioManager';
+import { playSoundEffectSafe } from '../../../utils/AudioHelpers';
 
 export interface TurboButtonCallbacks {
   getGameData: () => GameData | null;
@@ -54,11 +55,7 @@ export class TurboButtonController {
     ).setOrigin(0.5, 0.5).setScale(assetScale).setDepth(10);
     turboButton.setInteractive();
     turboButton.on('pointerdown', () => {
-      const audioManager =
-        (this.scene as any)?.audioManager || (window as any)?.audioManager;
-      if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-        audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-      }
+      playSoundEffectSafe(this.scene, SoundEffectType.MENU_CLICK);
       this.handleTurboButtonClick();
     });
     this.buttons.set('turbo', turboButton);
@@ -80,13 +77,13 @@ export class TurboButtonController {
     try {
       if (!ensureSpineFactory(scene, '[SlotController] createTurboButtonAnimation')) {
         console.warn('[SlotController] Spine factory not available yet; will retry turbo spine shortly');
-        scene.time.delayedCall(250, () => this.createTurboButtonAnimation(scene, assetScale));
+        scene.time.delayedCall(SPINE_FACTORY_RETRY_MS, () => this.createTurboButtonAnimation(scene, assetScale));
         return;
       }
 
       if (!scene.cache.json.has('turbo_animation')) {
         console.warn('[SlotController] turbo_animation spine assets not loaded yet, will retry later');
-        scene.time.delayedCall(1000, () => {
+        scene.time.delayedCall(SPINE_ASSET_CACHE_RETRY_MS, () => {
           this.createTurboButtonAnimation(scene, assetScale);
         });
         return;

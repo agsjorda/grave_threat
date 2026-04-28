@@ -7,6 +7,8 @@ export enum GameEventType {
   SPIN_DATA_RESPONSE = 'SPIN_DATA_RESPONSE', // New event for SpinData from GameAPI
   REELS_START = 'REELS_START',
   REELS_STOP = 'REELS_STOP',
+  /** Fired when the full symbol/tumble pipeline for the current spin is done (before REELS_STOP); used to clear isProcessingSpin per shuten_doji. */
+  SYMBOLS_PROCESSING_COMPLETE = 'SYMBOLS_PROCESSING_COMPLETE',
   WIN_START = 'WIN_START',
   WIN_STOP = 'WIN_STOP',
   // Tumble-specific win progress events

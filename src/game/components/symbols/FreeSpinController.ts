@@ -12,6 +12,7 @@ import type { PendingFreeSpinsData } from './types';
 import { gameEventManager, GameEventType } from '../../../event/EventManager';
 import { gameStateManager } from '../../../managers/GameStateManager';
 import { TurboConfig } from '../../../config/TurboConfig';
+import { getFreespinFromSlot, getFreespinFromSpinData } from '../../../backend/SpinData';
 
 /**
  * Manages the free spin autoplay system during bonus mode
@@ -212,7 +213,7 @@ export class FreeSpinController {
       this.lastReportedSpinsLeft = info.spinsLeft;
       this.lastReportedItemsLen = info.itemsLen;
       try {
-        const fs = spinData?.slot?.freespin || spinData?.slot?.freeSpin;
+        const fs = getFreespinFromSpinData(spinData);
         const countValue = typeof fs?.count === 'number' ? fs.count : null;
         if (countValue !== null) {
           this.lastReportedCount = countValue;
@@ -339,7 +340,7 @@ export class FreeSpinController {
   public static isCurrentFreeSpinItemMaxWin(spinData: any): boolean {
     try {
       const slot = spinData?.slot;
-      const fs = slot?.freespin || slot?.freeSpin;
+      const fs = getFreespinFromSlot(slot);
       const items = fs?.items;
       const area = slot?.area;
       if (!Array.isArray(items) || !Array.isArray(area)) return false;
@@ -397,15 +398,14 @@ export class FreeSpinController {
       }
     } catch { }
 
-    // If a scatter or Symbol0 retrigger is pending, wait for the retrigger dialog to finish
+    // If a scatter retrigger is pending (grid or spin-data path), wait for the retrigger dialog to finish
     // before scheduling the next spin.
     try {
       const symbolsAny: any = this.scene as any;
       const symbols = symbolsAny?.symbols;
-      const scatterRetriggerPending = !!(symbols && typeof symbols.hasPendingScatterRetrigger === 'function' && symbols.hasPendingScatterRetrigger());
-      const symbol0RetriggerPending = !!(symbols && typeof symbols.hasPendingSymbol0Retrigger === 'function' && symbols.hasPendingSymbol0Retrigger());
+      const retriggerPending = !!(symbols && typeof symbols.hasAnyPendingScatterRetrigger === 'function' && symbols.hasAnyPendingScatterRetrigger());
       const retriggerAnimating = !!(symbols && typeof symbols.isScatterRetriggerAnimationInProgress === 'function' && symbols.isScatterRetriggerAnimationInProgress()) || !!(symbols && typeof symbols.isSymbol0RetriggerAnimationInProgress === 'function' && symbols.isSymbol0RetriggerAnimationInProgress());
-      if (scatterRetriggerPending || symbol0RetriggerPending || retriggerAnimating) {
+      if (retriggerPending || retriggerAnimating) {
         this.waitForAllDialogsToCloseThenResume();
         return;
       }
@@ -518,10 +518,9 @@ export class FreeSpinController {
         // here — wait for the retrigger dialog to close (next dialogAnimationsComplete).
         try {
           const symbolsAny: any = gameScene?.symbols;
-          const scatterRetriggerPending = !!(symbolsAny && typeof symbolsAny.hasPendingScatterRetrigger === 'function' && symbolsAny.hasPendingScatterRetrigger());
-          const symbol0RetriggerPending = !!(symbolsAny && typeof symbolsAny.hasPendingSymbol0Retrigger === 'function' && symbolsAny.hasPendingSymbol0Retrigger());
+          const retriggerPending = !!(symbolsAny && typeof symbolsAny.hasAnyPendingScatterRetrigger === 'function' && symbolsAny.hasAnyPendingScatterRetrigger());
           const retriggerAnimating = !!(symbolsAny && typeof symbolsAny.isScatterRetriggerAnimationInProgress === 'function' && symbolsAny.isScatterRetriggerAnimationInProgress()) || !!(symbolsAny && typeof symbolsAny.isSymbol0RetriggerAnimationInProgress === 'function' && symbolsAny.isSymbol0RetriggerAnimationInProgress());
-          if (scatterRetriggerPending || symbol0RetriggerPending || retriggerAnimating) {
+          if (retriggerPending || retriggerAnimating) {
             this.scene.events.once('dialogAnimationsComplete', () => {
               this.waitForAllDialogsToCloseThenResume();
             });
@@ -583,8 +582,8 @@ export class FreeSpinController {
       try {
         const symbolsAny: any = this.scene as any;
         const symbols = symbolsAny?.symbols;
-        if (symbols && typeof symbols.hasPendingScatterRetrigger === 'function') {
-          hasPendingRetrigger = symbols.hasPendingScatterRetrigger();
+        if (symbols && typeof symbols.hasAnyPendingScatterRetrigger === 'function') {
+          hasPendingRetrigger = symbols.hasAnyPendingScatterRetrigger();
         }
       } catch { }
       if (!hasPendingRetrigger) {
@@ -614,7 +613,7 @@ export class FreeSpinController {
 
   public getRetriggerIncrementFromSpinData(spinData: any): { added: number; spinsLeft: number } {
     const info = this.getSpinsInfoFromSpinData(spinData);
-    const fs = spinData?.slot?.freespin || spinData?.slot?.freeSpin;
+    const fs = getFreespinFromSpinData(spinData);
     const items = Array.isArray(fs?.items) ? fs.items : [];
     const slotArea = spinData?.slot?.area;
     const countValue = typeof fs?.count === 'number' ? fs.count : null;
@@ -673,7 +672,7 @@ export class FreeSpinController {
 
   private getSpinsInfoFromSpinData(spinData: any): { spinsLeft: number; itemsLen: number } {
     try {
-      const fs = spinData?.slot?.freespin || spinData?.slot?.freeSpin;
+      const fs = getFreespinFromSpinData(spinData);
       const items = Array.isArray(fs?.items) ? fs.items : [];
       const itemsLen = items.length;
 

@@ -5,6 +5,7 @@ import { gameEventManager, GameEventType } from '../../event/EventManager';
 import { SlotController } from './controller/SlotController';
 import { CurrencyManager } from './CurrencyManager';
 import { SoundEffectType } from '../../managers/AudioManager';
+import { playSoundEffectSafe } from '../../utils/AudioHelpers';
 import { formatCurrencyNumber } from '../../utils/NumberPrecisionFormatter';
 import { localizationManager } from '../../managers/LocalizationManager';
 import {
@@ -932,11 +933,7 @@ export class FreeRoundManager {
 		// Make button interactive
 		buttonImage.setInteractive({ useHandCursor: true });
 		buttonImage.on('pointerdown', () => {
-			const audioManager =
-				(this.sceneRef as any)?.audioManager || (window as any)?.audioManager;
-			if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-				audioManager.playSoundEffect(SoundEffectType.MENU_CLICK);
-			}
+			playSoundEffectSafe(this.sceneRef as Scene | undefined, SoundEffectType.MENU_CLICK);
 			if (!this.sceneRef) {
 				// Fallback: no scene reference, hide immediately
 				if (this.panelContainer) {
