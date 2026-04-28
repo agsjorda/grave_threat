@@ -27,6 +27,7 @@ export class Preloader extends Scene
 	private clockDisplay?: ClockDisplay;
 	private preloaderVerticalOffsetModifier: number = PRELOADER_CONFIG.VERTICAL_OFFSET_MODIFIER;
 	private bootProgressHandler?: (progress: number) => void;
+	private initialBalance: number | null = null;
 
 	private buttonSpin?: Phaser.GameObjects.Image;
 	private buttonBg?: Phaser.GameObjects.Image;
@@ -212,6 +213,17 @@ export class Preloader extends Scene
 				localizationManager.setTranslations(JSON.stringify(LOCALIZATION_DEFAULTS));
 			}
 
+			console.log('[Preloader] Fetching initial balance before enabling play...');
+			const initialBalance = Number(await this.gameAPI.initializeBalance());
+			if (Number.isFinite(initialBalance) && initialBalance >= 0) {
+				this.initialBalance = initialBalance;
+				console.log('[Preloader] Initial balance ready:', initialBalance);
+			} else {
+				console.warn('[Preloader] Initial balance was invalid, Game scene will fall back to its own initialization.', {
+					initialBalance
+				});
+			}
+
         } catch (error) {
             console.error('[Preloader] Failed to initialize GameAPI or slot session:', error);
 			localizationManager.setTranslations(JSON.stringify(LOCALIZATION_DEFAULTS));
@@ -279,6 +291,7 @@ export class Preloader extends Scene
 			networkManager: this.networkManager,
 			screenModeManager: this.screenModeManager,
 			gameAPI: this.gameAPI,
+			initialBalance: this.initialBalance,
 			initialFadeInDurationMs: options?.initialFadeInDurationMs
 		});
 	}
