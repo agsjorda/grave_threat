@@ -19,7 +19,7 @@ function isDemoMode(): boolean {
 	} catch {}
 
 	try {
-		if (localStorage.getItem("demo") === "true") return true;
+		if (sessionStorage.getItem("demo") === "true") return true;
 	} catch {}
 
 	try {

@@ -83,7 +83,7 @@ function applyTruncateFreeSpinItems(slot: any): void {
 const getApiBaseUrl = (): string => {
   const configuredUrl = (window as any)?.APP_CONFIG?.["game-url"];
   if (typeof configuredUrl === "string" && configuredUrl.length > 0) {
-    return configuredUrl.replace(/\/$/, "");
+    return configuredUrl.replace(/\/+$/, "");
   }
   return "https://stg-game-launcher.dijoker.com"; // 192.168.0.17:3000/
 };
@@ -200,12 +200,12 @@ export class GameAPI {
   // One-shot debug helper: force the first MANUAL spin to contain 3 scatters (symbol id 0)
   // in the first 3 columns. Enable via:
   // - URL: ?mockFirstManualScatterSpin=true
-  // - localStorage: localStorage.setItem('mockFirstManualScatterSpin','true')
+  // - sessionStorage: sessionStorage.setItem('mockFirstManualScatterSpin','true')
   private static readonly MOCK_FIRST_MANUAL_SCATTER_SPIN_ENABLED: boolean =
     new URLSearchParams(window.location.search).get(
       "mockFirstManualScatterSpin",
     ) === "true" ||
-    localStorage.getItem("mockFirstManualScatterSpin") === "true";
+    sessionStorage.getItem("mockFirstManualScatterSpin") === "true";
   private mockedFirstManualScatterSpin: boolean = false;
 
   private static readonly SAMPLE_FLAG_KEYS = {
@@ -220,7 +220,7 @@ export class GameAPI {
     Object.values(GameAPI.SAMPLE_FLAG_KEYS).map((key) => [
       key,
       new URLSearchParams(window.location.search).get(key) === "true" ||
-        localStorage.getItem(key) === "true",
+        sessionStorage.getItem(key) === "true",
     ]),
   ) as Record<
     (typeof GameAPI.SAMPLE_FLAG_KEYS)[keyof typeof GameAPI.SAMPLE_FLAG_KEYS],
@@ -228,12 +228,12 @@ export class GameAPI {
   >;
 
   // Sample data mode: loads data from src/game/spinDataSample/*.json
-  // Enable via ?sampleData=<file_base_name> or localStorage.setItem('sampleData','<file_base_name>')
+  // Enable via ?sampleData=<file_base_name> or sessionStorage.setItem('sampleData','<file_base_name>')
   // Backwards-compatible aliases: useMaxWin/useFakeData
   private static readonly SAMPLE_DATA_KEY: string | null = (() => {
     const params = new URLSearchParams(window.location.search);
     const paramKey = params.get("sampleData");
-    const storageKey = localStorage.getItem("sampleData");
+    const storageKey = sessionStorage.getItem("sampleData");
     const explicitKey = paramKey || storageKey;
     if (explicitKey) return explicitKey;
     if (GameAPI.SAMPLE_FLAGS_ENABLED.useMaxWin) return "max_win_data";
@@ -722,7 +722,6 @@ export class GameAPI {
    */
   public async initializeGame(): Promise<string> {
     const isDemo = this.getDemoState();
-    localStorage.setItem("demo", isDemo ? "true" : "false");
     sessionStorage.setItem("demo", isDemo ? "true" : "false");
 
     if (this.isSampleDataEnabled()) {
@@ -740,16 +739,14 @@ export class GameAPI {
       const existingToken = getUrlParameter("token");
 
       if (existingToken) {
-        // Store the existing token in localStorage and sessionStorage
-        localStorage.setItem("token", existingToken);
+        // Store the existing token in sessionStorage
         sessionStorage.setItem("token", existingToken);
 
         return existingToken;
       } else {
         const { token } = await this.generateGameUrlToken();
 
-        // Store the token in localStorage and sessionStorage
-        localStorage.setItem("token", token);
+        // Store the token in sessionStorage
         sessionStorage.setItem("token", token);
 
         return token;
@@ -769,7 +766,6 @@ export class GameAPI {
     // Demo mode: don't call backend; return a minimal safe payload and cache it.
     const isDemo =
       this.getDemoState() ||
-      localStorage.getItem("demo") === "true" ||
       sessionStorage.getItem("demo") === "true";
     if (this.isSampleDataEnabled() || isDemo) {
       const payload: SlotInitializeData = {
@@ -832,7 +828,6 @@ export class GameAPI {
         const errorText = await response.text();
         if (response.status === 401 || response.status === 400) {
           this.showTokenExpiredPopup();
-          localStorage.removeItem("token");
           sessionStorage.removeItem("token");
         }
         throw new Error(
@@ -874,7 +869,6 @@ export class GameAPI {
       );
       if (this.isTokenExpiredError(error)) {
         this.showTokenExpiredPopup();
-        localStorage.removeItem("token");
         sessionStorage.removeItem("token");
       }
       throw error;
@@ -1135,10 +1129,10 @@ export class GameAPI {
 
   public async gameLauncher(): Promise<void> {
     try {
-      localStorage.removeItem("token");
-      localStorage.removeItem("exit_url");
-      localStorage.removeItem("what_device");
-      localStorage.removeItem("demo");
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem("exit_url");
+      sessionStorage.removeItem("what_device");
+      sessionStorage.removeItem("demo");
 
       sessionStorage.removeItem("token");
       sessionStorage.removeItem("exit_url");
@@ -1150,20 +1144,19 @@ export class GameAPI {
 
       if (tokenParam) {
         token1 = tokenParam;
-        localStorage.setItem("token", token1);
         sessionStorage.setItem("token", token1);
       }
 
       let deviceUrl = getUrlParameter("device");
       if (deviceUrl) {
-        localStorage.setItem("what_device", deviceUrl);
+        sessionStorage.setItem("what_device", deviceUrl);
         sessionStorage.setItem("what_device", deviceUrl);
       }
 
       let apiUrl = getUrlParameter("api_exit");
       if (apiUrl) {
         this.exitURL = apiUrl;
-        localStorage.setItem("exit_url", apiUrl);
+        sessionStorage.setItem("exit_url", apiUrl);
         sessionStorage.setItem("exit_url", apiUrl);
       }
 
@@ -1171,7 +1164,6 @@ export class GameAPI {
       if (startGame) {
         let { token } = await this.generateGameUrlToken();
         token1 = token;
-        localStorage.setItem("token", token);
         sessionStorage.setItem("token", token);
       }
 
@@ -1186,7 +1178,6 @@ export class GameAPI {
     // Demo mode: return mock balance, no API call, no token requirement.
     const isDemo =
       this.getDemoState() ||
-      localStorage.getItem("demo") === "true" ||
       sessionStorage.getItem("demo") === "true";
     if (this.isSampleDataEnabled() || isDemo) {
       return {
@@ -1230,7 +1221,6 @@ export class GameAPI {
         const error = new Error(`HTTP error! status: ${response.status}`);
         if (response.status === 400 || response.status === 401) {
           this.showTokenExpiredPopup();
-          localStorage.removeItem("token");
           sessionStorage.removeItem("token");
         }
         throw error;
@@ -1334,11 +1324,9 @@ export class GameAPI {
       console.error("[GameAPI] Failed to show session timeout popup:", e);
     }
     try {
-      localStorage.removeItem("token");
       sessionStorage.removeItem("token");
     } catch {}
     try {
-      localStorage.removeItem(GameAPI.REFRESH_TOKEN_KEY);
       sessionStorage.removeItem(GameAPI.REFRESH_TOKEN_KEY);
     } catch {}
     try {
@@ -1356,7 +1344,6 @@ export class GameAPI {
   public initializeRefreshToken(): void {
     const refreshToken = getUrlParameter("refresh_token");
     if (refreshToken) {
-      localStorage.setItem(GameAPI.REFRESH_TOKEN_KEY, refreshToken);
       sessionStorage.setItem(GameAPI.REFRESH_TOKEN_KEY, refreshToken);
     }
   }
@@ -1387,7 +1374,6 @@ export class GameAPI {
     if (!newToken) {
       throw new Error("Refresh response missing token");
     }
-    localStorage.setItem("token", newToken);
     sessionStorage.setItem("token", newToken);
     return newToken;
   }
@@ -1465,7 +1451,6 @@ export class GameAPI {
     // Demo mode: no token required, use analytics endpoint and simplified payload.
     const isDemo =
       this.getDemoState() ||
-      localStorage.getItem("demo") === "true" ||
       sessionStorage.getItem("demo") === "true";
     if (isDemo) {
       try {
@@ -1640,7 +1625,6 @@ export class GameAPI {
         // Legacy behavior showed popup for all 400 responses.
         if (this.isAuthHttpFailure(response.status, errorText)) {
           this.showTokenExpiredPopup();
-          localStorage.removeItem("token");
           sessionStorage.removeItem("token");
         }
 
@@ -1918,7 +1902,6 @@ export class GameAPI {
   public async initializeBalance(): Promise<number> {
     const isDemo =
       this.getDemoState() ||
-      localStorage.getItem("demo") === "true" ||
       sessionStorage.getItem("demo") === "true";
     if (this.isSampleDataEnabled() || isDemo) {
       return GameAPI.DEMO_BALANCE;
@@ -2002,7 +1985,6 @@ export class GameAPI {
     if (!response.ok) {
       if (response.status === 401 || response.status === 400) {
         this.showTokenExpiredPopup();
-        localStorage.removeItem("token");
         sessionStorage.removeItem("token");
       }
       const errorText = await response.text();
