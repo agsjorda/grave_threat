@@ -1159,8 +1159,30 @@ export class SlotController {
 		const featureButton = this.buttons.get('feature');
 
 		if (featureButton) {
+			// While we have cached paused-autoplay spins, Buy Feature must remain disabled.
+			// This prevents a transient enable during "pause → resume after dialog" windows.
+			if (this.pausedAutoplaySpinsRemaining != null && this.pausedAutoplaySpinsRemaining > 0) {
+				const autoplayLive =
+					gameStateManager.isAutoPlaying ||
+					gameStateManager.isAutoPlaySpinRequested ||
+					!!this.resumePausedAutoplayRetryTimer;
+				if (!autoplayLive && !gameStateManager.isBonus && !gameStateManager.isScatter) {
+					this.pausedAutoplaySpinsRemaining = null;
+				} else {
+					return;
+				}
+			}
+			// If a resume retry is scheduled, keep it disabled until resume actually starts.
+			if (this.resumePausedAutoplayRetryTimer) {
+				return;
+			}
+
 			// Keep Buy Feature disabled until the full spin/tumble/win flow is complete.
 			if (gameStateManager.isReelSpinning || this.pendingWinLock || gameStateManager.isShowingWinDialog) {
+				return;
+			}
+			// Keep Buy Feature disabled during base autoplay resume window.
+			if (gameStateManager.isAutoPlaying || gameStateManager.isAutoPlaySpinRequested || this.gameData?.isAutoPlaying) {
 				return;
 			}
 			// Keep Buy Feature disabled while amplify/enhanced bet is active.
@@ -2764,10 +2786,22 @@ export class SlotController {
 		gameEventManager.on(GameEventType.WIN_STOP, () => {
 			this.pendingWinLock = false;
 
+			// Stale retry timer: if we're back in base game with no paused autoplay spins,
+			// cancel any in-flight retry so it doesn't keep blocking feature button re-enable.
+			if (
+				!gameStateManager.isBonus &&
+				!gameStateManager.isScatter &&
+				(this.pausedAutoplaySpinsRemaining == null || this.pausedAutoplaySpinsRemaining <= 0) &&
+				this.resumePausedAutoplayRetryTimer
+			) {
+				try { this.resumePausedAutoplayRetryTimer.destroy(); } catch {}
+				this.resumePausedAutoplayRetryTimer = null;
+			}
+
 			// Finalize base-spin balance only after WIN_STOP (post-tumbles).
-			if (!gameStateManager.isScatter && !gameStateManager.isBonus) {
-				if (this.shouldDeferBalanceSyncToTotalWinDialog()) {
-				} else if (this.balanceController?.hasPendingBalanceUpdate()) {
+			// When TotalWin dialog will run, defer balance sync to the dialog flow instead.
+			if (!gameStateManager.isScatter && !gameStateManager.isBonus && !this.shouldDeferBalanceSyncToTotalWinDialog()) {
+				if (this.balanceController?.hasPendingBalanceUpdate()) {
 					this.balanceController.applyPendingBalanceUpdateIfAny();
 				} else if (!this.balanceApiCalledThisSpin) {
 					try {
@@ -2840,10 +2874,11 @@ export class SlotController {
 			const pausedAutoplaySpins = this.getPausedAutoplaySpinsRemaining();
 			if (
 				pausedAutoplaySpins > 0 &&
-				!gameStateManager.isAutoPlaying &&
 				!gameStateManager.isScatter &&
 				!gameStateManager.isBonus
 			) {
+				// Retrigger exit can leave global autoplay=true for a short window even though
+				// base autoplay is actually paused. Resume should rely on the cached paused spins.
 				this.resumeAutoplayFromPause();
 				return;
 			}
@@ -2871,6 +2906,9 @@ export class SlotController {
 				this.updateAutoplayButtonState();
 				this.updateSpinButtonState();
 			}
+
+			// Ensure bet background is restored after win dialogs (including TotalWin/Congrats)
+			// when the game is otherwise idle.
 			this.enableBetBackgroundInteraction('after win dialog closed');
 
 			// Manual/base-game safety: when the win dialog closes (including TotalWin), the spin may already be fully finished
@@ -3010,27 +3048,55 @@ export class SlotController {
 
 	/**
 	 * Resume base-game autoplay using cached data from `pauseAutoplay()`.
-	 * Safe to call multiple times; it will no-op unless a paused cache exists.
+	 * Does not clear the cache unless resume actually starts (so blocked calls can retry).
 	 */
 	public resumeAutoplayFromPause(): void {
 		const spins = this.pausedAutoplaySpinsRemaining ?? 0;
+		console.log(`[resumeAutoplayFromPause] called: spins=${spins}, isBonus=${gameStateManager.isBonus}, isScatter=${gameStateManager.isScatter}, isShowingWinDialog=${gameStateManager.isShowingWinDialog}, isProcessingSpin=${gameStateManager.isProcessingSpin}, isReelSpinning=${gameStateManager.isReelSpinning}`);
 		if (spins <= 0) {
 			this.pausedAutoplaySpinsRemaining = null;
 			if (this.resumePausedAutoplayRetryTimer) {
 				try { this.resumePausedAutoplayRetryTimer.destroy(); } catch {}
 				this.resumePausedAutoplayRetryTimer = null;
 			}
+			console.log('[resumeAutoplayFromPause] spins=0, returning early');
 			return;
 		}
 
+		// Scatter retrigger animations/dialog closure may temporarily clear/alter GSM flags.
+		// Base-game autoplay must NOT resume (and MUST NOT consume cached spins) until
+		// scatter retrigger flow is fully complete.
+		try {
+			const symbolsComponent: any = (this.scene as any)?.symbols;
+			const hasPendingRetrigger =
+				symbolsComponent && typeof symbolsComponent.hasAnyPendingScatterRetrigger === 'function'
+					? symbolsComponent.hasAnyPendingScatterRetrigger()
+					: false;
+			const retriggerAnimating =
+				symbolsComponent && typeof symbolsComponent.isScatterRetriggerAnimationInProgress === 'function'
+					? symbolsComponent.isScatterRetriggerAnimationInProgress()
+					: false;
+			const scatterResetAnimating =
+				symbolsComponent && typeof symbolsComponent.isScatterResetAnimationInProgress === 'function'
+					? symbolsComponent.isScatterResetAnimationInProgress()
+					: false;
+			if (hasPendingRetrigger || retriggerAnimating || scatterResetAnimating) {
+				console.log('[resumeAutoplayFromPause] blocked by scatter retrigger pending/animating, scheduling retry');
+				this.scheduleResumeAutoplayFromPauseRetry(450, 'waiting-for-scatter-retrigger', spins);
+				return;
+			}
+		} catch {}
+
 		// Only resume in base mode after transitions finish.
 		if (gameStateManager.isBonus || gameStateManager.isScatter || gameStateManager.isShowingWinDialog) {
+			console.log(`[resumeAutoplayFromPause] blocked by state flags, scheduling retry`);
 			this.scheduleResumeAutoplayFromPauseRetry(450, 'waiting-for-bonus-scatter-dialog-state', spins);
 			return;
 		}
 
 		// Do not resume while a spin is still finishing.
 		if (gameStateManager.isProcessingSpin || gameStateManager.isReelSpinning) {
+			console.log(`[resumeAutoplayFromPause] blocked by spin-in-flight, scheduling retry`);
 			this.scheduleResumeAutoplayFromPauseRetry(450, 'spin-in-flight', spins);
 			return;
 		}
@@ -3041,6 +3107,7 @@ export class SlotController {
 		}
 
 		this.consumePausedAutoplaySpinsRemaining();
+		console.log(`[resumeAutoplayFromPause] RESUMING autoplay with ${spins} spins`);
 		this.startAutoplay(spins);
 	}
 
@@ -4195,11 +4262,21 @@ export class SlotController {
 						// Mirrors shuten_doji: explicit base-controls restoration so end-of-bonus
 						// TotalWin/Congrats closures always leave Spin/Autoplay re-enabled.
 						this.restoreBaseControls('setBonusMode(false)');
+						if (this.resumePausedAutoplayRetryTimer) {
+							try { this.resumePausedAutoplayRetryTimer.destroy(); } catch {}
+							this.resumePausedAutoplayRetryTimer = null;
+						}
+						try { this.resumeAutoplayFromPause(); } catch {}
 					});
 				} else {
 					this.updateAllAuxiliaryButtonStates();
 					this.updateFeatureButtonState();
 					this.restoreBaseControls('setBonusMode(false)');
+					if (this.resumePausedAutoplayRetryTimer) {
+						try { this.resumePausedAutoplayRetryTimer.destroy(); } catch {}
+						this.resumePausedAutoplayRetryTimer = null;
+					}
+					try { this.resumeAutoplayFromPause(); } catch {}
 				}
 			}
 		});
@@ -4271,23 +4348,32 @@ export class SlotController {
 
 		// Listen for scatter bonus events with scatter index and actual free spins
 		this.scene.events.on('scatterBonusActivated', (data: { scatterIndex: number; actualFreeSpins: number; isRetrigger?: boolean; fromUnresolvedSpin?: boolean }) => {
-			
 			// Pause normal base-game autoplay when scatter hits (cache spins; resume after bonus).
-			if (!data.fromUnresolvedSpin) {
+			// IMPORTANT: Only the *first* scatter from a base-game spin should touch autoplay.
+			// Retriggers occur entirely inside the bonus and must not modify the paused autoplay cache.
+			const isRetrigger = !!(data && (data as any).isRetrigger);
+			const fromUnresolvedSpin = !!(data && (data as any).fromUnresolvedSpin);
+
+			if (!fromUnresolvedSpin && !isRetrigger) {
 				const spinsRemaining = this.getAutoplaySpinsRemaining();
 				const autoplayActive =
 					spinsRemaining > 0 ||
 					!!gameStateManager.isAutoPlaying ||
 					!!this.getGameData()?.isAutoPlaying;
+				console.log(
+					`[scatterBonusActivated] isRetrigger=${data.isRetrigger}, spinsRemaining=${spinsRemaining}, ` +
+						`isAutoPlaying=${gameStateManager.isAutoPlaying}, autoplayActive=${autoplayActive}, ` +
+						`pausedAutoplaySpinsRemaining=${this.pausedAutoplaySpinsRemaining}`
+				);
 				if (autoplayActive && spinsRemaining > 0) {
 					this.pauseAutoplay('scatterBonusActivated');
-				} else if (autoplayActive && spinsRemaining <= 0) {
-					// REELS_START may have decremented to 0 while scatter still processing; stop without resume.
-					this.stopAutoplay();
+					console.log(
+						`[scatterBonusActivated] called pauseAutoplay, pausedAutoplaySpinsRemaining=${this.pausedAutoplaySpinsRemaining}`
+					);
 				}
 			}
-			
-		// Keep controls disabled/greyed out while scatter/bonus sequence proceeds
+
+			// Keep controls disabled/greyed out while scatter/bonus sequence proceeds
 		this.lockControlsForScatterOrBonus();
 			
 			this.hidePrimaryControllerWithScatter(data.scatterIndex);
@@ -4848,6 +4934,23 @@ export class SlotController {
 		try {
 			const featureButton = this.buttons.get('feature');
 			if (featureButton) {
+				// Respect paused-autoplay resume window: do not hard-force-enable Buy Feature
+				// until resume actually starts and consumes the cached spins.
+				if (
+					((this.pausedAutoplaySpinsRemaining ?? 0) > 0 &&
+						(
+							this.resumePausedAutoplayRetryTimer ||
+							gameStateManager.isAutoPlaying ||
+							gameStateManager.isAutoPlaySpinRequested
+						)) ||
+					this.resumePausedAutoplayRetryTimer ||
+					gameStateManager.isAutoPlaying ||
+					gameStateManager.isAutoPlaySpinRequested
+				) {
+					this.disableFeatureButton();
+					return;
+				}
+
 				const isEnhancedBet = !!this.gameData?.isEnhancedBet;
 				const isLocked = this.isBuyFeatureControlsLocked();
 				let canAfford = true;

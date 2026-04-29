@@ -341,6 +341,15 @@ export class ScatterAnimationManager {
   }
 
   /**
+   * Clears the in-flight scatter animation flag. Long scatter + retrigger chains can
+   * otherwise leave `isAnimating` true if a flow does not fully settle; SlotController
+   * gates Spin / Buy Feature on `isAnimationInProgress()` until this is false.
+   */
+  public clearAnimationInProgress(): void {
+    this.isAnimating = false;
+  }
+
+  /**
    * Set delayed scatter animation data (called when win dialogs need to show first)
    */
   public setDelayedScatterAnimation(data: any): void {

@@ -28,6 +28,9 @@ export class FreeSpinController {
   
   /** Timer for scheduling next spin */
   private autoplayTimer: Phaser.Time.TimerEvent | null = null;
+
+  /** Timer used to retry a blocked `performSpin()` call. */
+  private spinRetryTimer: Phaser.Time.TimerEvent | null = null;
   
   /** Waiting for reels to stop before continuing */
   private waitingForReelsStop: boolean = false;
@@ -41,6 +44,9 @@ export class FreeSpinController {
   /** Waiting for reels to start to decrement counter */
   private awaitingReelsStart: boolean = false;
   
+  /** Timestamp for when the current in-flight spin request was emitted. */
+  private inFlightSpinRequestedAt: number | null = null;
+
   /** Pending free spins data from scatter bonus activation */
   private pendingFreeSpinsData: PendingFreeSpinsData | null = null;
   
@@ -296,8 +302,37 @@ export class FreeSpinController {
 		// If FREE_SPIN_AUTOPLAY is emitted twice, fake data free-spin items can advance twice
 		// and the remaining display will jump unexpectedly (e.g. showing 12).
 		if (this.awaitingReelsStart || this.waitingForReelsStop) {
-			console.warn('[FreeSpinController] performSpin ignored - previous spin still in progress');
-			return;
+			// Safety: if our "reels in-flight" flags are stale, clear them so retrigger
+			// resume can proceed. We only do this after a short grace period to avoid
+			// re-enabling true duplicates that arrive back-to-back.
+			const now = this.scene?.time?.now ?? Date.now();
+			const inFlightMs = this.inFlightSpinRequestedAt == null ? 0 : now - this.inFlightSpinRequestedAt;
+			const idle = !gameStateManager.isReelSpinning && !gameStateManager.isProcessingSpin;
+			const hardStaleMs = 4500;
+
+			if (this.inFlightSpinRequestedAt == null) {
+				console.warn('[FreeSpinController] performSpin clearing in-flight flags (missing inFlightSpinRequestedAt)');
+				this.awaitingReelsStart = false;
+				this.waitingForReelsStop = false;
+			} else if (inFlightMs > hardStaleMs) {
+				console.warn(`[FreeSpinController] performSpin clearing stale in-flight flags (hard timeout: ${inFlightMs}ms)`);
+				this.awaitingReelsStart = false;
+				this.waitingForReelsStop = false;
+				this.inFlightSpinRequestedAt = null;
+			} else if (idle && inFlightMs > 1500) {
+				console.warn('[FreeSpinController] performSpin clearing stale in-flight flags (stalled > 1500ms, idle)');
+				this.awaitingReelsStart = false;
+				this.waitingForReelsStop = false;
+				this.inFlightSpinRequestedAt = null;
+			} else {
+				console.warn('[FreeSpinController] performSpin ignored - previous spin still in progress', {
+					inFlightMs,
+					idle,
+					awaitingReelsStart: this.awaitingReelsStart,
+					waitingForReelsStop: this.waitingForReelsStop
+				});
+				return;
+			}
 		}
 
     
@@ -319,11 +354,35 @@ export class FreeSpinController {
       return;
     }
 
+		// Don't start a new free spin while symbols are mid-flow (tumble/reelDrop/scatter retrigger).
+		// This prevents `Tumble total mismatch` from overlapping tumble state.
+		try {
+			const symbolsAny: any = (this.scene as any)?.symbols;
+			const tumbleInProgress = !!(symbolsAny && (symbolsAny as any).tumbleInProgress);
+			const tumbleDropInProgress = !!(symbolsAny && (symbolsAny as any).tumbleDropInProgress);
+			const reelDropInProgress = !!(symbolsAny && (symbolsAny as any).reelDropInProgress);
+			const scatterRetriggerAnimating =
+				typeof symbolsAny?.isScatterRetriggerAnimationInProgress === 'function'
+					? !!symbolsAny.isScatterRetriggerAnimationInProgress()
+					: !!symbolsAny?.scatterRetriggerAnimationInProgress;
+
+			if (tumbleInProgress || tumbleDropInProgress || reelDropInProgress || scatterRetriggerAnimating) {
+				if (!this.spinRetryTimer) {
+					this.spinRetryTimer = this.scene.time.delayedCall(120, () => {
+						this.spinRetryTimer = null;
+						void this.performSpin();
+					});
+				}
+				return;
+			}
+		} catch {}
+
     try {
       gameEventManager.emit(GameEventType.FREE_SPIN_AUTOPLAY);
       
       this.awaitingReelsStart = true;
       this.waitingForReelsStop = true;
+      this.inFlightSpinRequestedAt = this.scene?.time?.now ?? Date.now();
     } catch (error) {
       console.error('[FreeSpinController] Error during spin:', error);
       this.stop();
@@ -337,6 +396,10 @@ export class FreeSpinController {
     this.waitingForWinAnimation = true;
   }
 
+  /**
+   * True when current spinData's free-spin item (area match) is marked isMaxWin.
+   * After this spin, no further free spins should run; MaxWin dialog ends bonus.
+   */
   public static isCurrentFreeSpinItemMaxWin(spinData: any): boolean {
     try {
       const slot = spinData?.slot;
@@ -348,13 +411,21 @@ export class FreeSpinController {
       const item = items.find(
         (it: any) => Array.isArray(it?.area) && JSON.stringify(it.area) === areaJson,
       );
-      return item?.isMaxWin === true;
+      return (item as any)?.isMaxWin === true;
     } catch {
       return false;
     }
   }
 
+  /**
+   * Stop free-spin autoplay after max win: no congrats queue, no further simulateFreeSpin.
+   * Call when the spin that hit isMaxWin completes (same moment as MaxWin dialog).
+   */
   public stopFreeSpinsAfterMaxWin(): void {
+    if (this.spinRetryTimer) {
+      try { this.spinRetryTimer.destroy(); } catch {}
+      this.spinRetryTimer = null;
+    }
     if (this.autoplayTimer) {
       this.autoplayTimer.destroy();
       this.autoplayTimer = null;
@@ -365,6 +436,7 @@ export class FreeSpinController {
     this.waitingForWinAnimation = false;
     this.hasTriggered = false;
     this.awaitingReelsStart = false;
+    this.inFlightSpinRequestedAt = null;
     this.dialogListenerSetup = false;
     gameStateManager.bonusEndedByMaxWin = true;
     gameStateManager.isAutoPlaying = false;
@@ -404,12 +476,19 @@ export class FreeSpinController {
       const symbolsAny: any = this.scene as any;
       const symbols = symbolsAny?.symbols;
       const retriggerPending = !!(symbols && typeof symbols.hasAnyPendingScatterRetrigger === 'function' && symbols.hasAnyPendingScatterRetrigger());
-      const retriggerAnimating = !!(symbols && typeof symbols.isScatterRetriggerAnimationInProgress === 'function' && symbols.isScatterRetriggerAnimationInProgress()) || !!(symbols && typeof symbols.isSymbol0RetriggerAnimationInProgress === 'function' && symbols.isSymbol0RetriggerAnimationInProgress());
+      const retriggerAnimating = !!(symbols && typeof symbols.isScatterRetriggerAnimationInProgress === 'function' && symbols.isScatterRetriggerAnimationInProgress());
       if (retriggerPending || retriggerAnimating) {
         this.waitForAllDialogsToCloseThenResume();
         return;
       }
     } catch { }
+
+    // Race guard: on some retrigger spins, Symbols hasn't raised retrigger flags yet when WIN_STOP is handled.
+    // Detect retrigger likelihood directly from current spin data to avoid falling into the 3s bonus-total timeout path.
+    if (this.isScatterRetriggerLikelyFromCurrentSpinData()) {
+      this.waitForAllDialogsToCloseThenResume();
+      return;
+    }
 
     if (this.spinsRemaining <= 0) {
 
@@ -480,6 +559,27 @@ export class FreeSpinController {
     });
   }
 
+  private isScatterRetriggerLikelyFromCurrentSpinData(): boolean {
+    if (!gameStateManager.isBonus) return false;
+    try {
+      const spinData =
+        this.callbacks.getCurrentSpinData?.() ?? (this.scene as any)?.symbols?.currentSpinData;
+      const area = spinData?.slot?.area;
+      if (!Array.isArray(area)) return false;
+      let scatterCount = 0;
+      for (const col of area) {
+        if (!Array.isArray(col)) continue;
+        for (const symbol of col) {
+          if (Number(symbol) === 0) {
+            scatterCount++;
+            if (scatterCount >= 3) return true;
+          }
+        }
+      }
+    } catch { }
+    return false;
+  }
+
   /**
    * Wait for all dialogs to close then resume autoplay
    */
@@ -519,7 +619,7 @@ export class FreeSpinController {
         try {
           const symbolsAny: any = gameScene?.symbols;
           const retriggerPending = !!(symbolsAny && typeof symbolsAny.hasAnyPendingScatterRetrigger === 'function' && symbolsAny.hasAnyPendingScatterRetrigger());
-          const retriggerAnimating = !!(symbolsAny && typeof symbolsAny.isScatterRetriggerAnimationInProgress === 'function' && symbolsAny.isScatterRetriggerAnimationInProgress()) || !!(symbolsAny && typeof symbolsAny.isSymbol0RetriggerAnimationInProgress === 'function' && symbolsAny.isSymbol0RetriggerAnimationInProgress());
+          const retriggerAnimating = !!(symbolsAny && typeof symbolsAny.isScatterRetriggerAnimationInProgress === 'function' && symbolsAny.isScatterRetriggerAnimationInProgress());
           if (retriggerPending || retriggerAnimating) {
             this.scene.events.once('dialogAnimationsComplete', () => {
               this.waitForAllDialogsToCloseThenResume();
@@ -558,6 +658,10 @@ export class FreeSpinController {
    * Stop free spin autoplay
    */
   public stop(): void {
+    if (this.spinRetryTimer) {
+      try { this.spinRetryTimer.destroy(); } catch {}
+      this.spinRetryTimer = null;
+    }
     
     // Clear timer
     if (this.autoplayTimer) {
@@ -572,6 +676,7 @@ export class FreeSpinController {
     this.waitingForWinAnimation = false;
     this.hasTriggered = false;
     this.awaitingReelsStart = false;
+    this.inFlightSpinRequestedAt = null;
     this.dialogListenerSetup = false;
     this.lastReportedSpinsLeft = null;
     this.lastReportedItemsLen = null;
@@ -592,10 +697,18 @@ export class FreeSpinController {
     }
     
     // Reset global autoplay state
-    gameStateManager.isAutoPlaying = false;
-    gameStateManager.isAutoPlaySpinRequested = false;
-    if (this.scene.gameData) {
-      this.scene.gameData.isAutoPlaying = false;
+    // Only reset base-game autoplay flags if there are no paused base-game autoplay spins
+    // waiting to resume after the bonus. If base-game autoplay was paused (e.g. scatter triggered
+    // during autoplay with N spins remaining), we must NOT clobber those flags here because
+    // resumeAutoplayFromPause() in SlotController needs them intact to restart autoplay correctly.
+    const slotController: any = (this.scene as any)?.slotController;
+    const hasPausedBaseAutoplay = (slotController?.getPausedAutoplaySpinsRemaining?.() ?? 0) > 0;
+    if (!hasPausedBaseAutoplay) {
+      gameStateManager.isAutoPlaying = false;
+      gameStateManager.isAutoPlaySpinRequested = false;
+      if (this.scene.gameData) {
+        this.scene.gameData.isAutoPlaying = false;
+      }
     }
     
     // Restore win animation timing
@@ -683,11 +796,15 @@ export class FreeSpinController {
         const match = items.find((it: any) => Array.isArray(it?.area) && JSON.stringify(it.area) === areaJson);
         if (match && typeof match.spinsLeft === 'number' && match.spinsLeft > 0) {
           let spinsLeft = match.spinsLeft;
+          // If this item is MaxWin, adjust spinsLeft based on the previous item's spinsLeft
+          // so that the controller display matches "previousSpinsLeft - 1" on the MaxWin spin.
           try {
             const idx = items.indexOf(match);
             const prev = idx > 0 ? items[idx - 1] : null;
-            if (match.isMaxWin === true && prev && typeof prev.spinsLeft === 'number') {
-              spinsLeft = Math.max(0, Number(prev.spinsLeft) - 1);
+            if ((match as any)?.isMaxWin === true && prev && typeof prev.spinsLeft === 'number') {
+              const prevSpinsLeft = Number(prev.spinsLeft) || 0;
+              const adjusted = Math.max(0, prevSpinsLeft - 1);
+              spinsLeft = adjusted;
             }
           } catch { }
           return { spinsLeft, itemsLen };
@@ -705,7 +822,7 @@ export class FreeSpinController {
           try {
             const idx = items.indexOf(bySpins);
             const prev = idx > 0 ? items[idx - 1] : null;
-            if (bySpins.isMaxWin === true && prev && typeof prev.spinsLeft === 'number') {
+            if ((bySpins as any)?.isMaxWin === true && prev && typeof prev.spinsLeft === 'number') {
               spinsLeft = Math.max(0, Number(prev.spinsLeft) - 1);
             }
           } catch { }
@@ -735,6 +852,11 @@ export class FreeSpinController {
       this.autoplayTimer.destroy();
       this.autoplayTimer = null;
     }
+
+    if (this.spinRetryTimer) {
+      try { this.spinRetryTimer.destroy(); } catch {}
+      this.spinRetryTimer = null;
+    }
     
     this._isActive = false;
     this.spinsRemaining = 0;
@@ -742,6 +864,7 @@ export class FreeSpinController {
     this.waitingForWinAnimation = false;
     this.hasTriggered = false;
     this.awaitingReelsStart = false;
+    this.inFlightSpinRequestedAt = null;
     this.dialogListenerSetup = false;
     this.pendingFreeSpinsData = null;
     this.lastReportedCount = null;

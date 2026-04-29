@@ -200,7 +200,6 @@ export class Symbols {
   private hadWinsInCurrentItem: boolean = false;
   private scatterRetriggerAnimationInProgress: boolean = false;
   private pendingScatterRetrigger: PendingScatterRetrigger | null = null;
-  private pendingSymbol0Retrigger: { symbol0Grids: GridPosition[] } | null = null;
   private batTransitionPromise: Promise<void> | null = null;
   private mergeLeadSymbol: SymbolObject | null = null;
   // Active scatter symbols used for merge/win flow (normal trigger / retrigger).
@@ -422,6 +421,11 @@ export class Symbols {
     this.scene.events.on('resetFreeSpinState', () => {
       this.freeSpinController.reset();
       this.dialogListenerSetup = false;
+      try {
+        this.scatterAnimationManager?.clearAnimationInProgress?.();
+      } catch { /* ignore */ }
+      this.scatterRetriggerAnimationInProgress = false;
+      this.scatterResetInProgress = false;
     });
 
     // Create overlay
@@ -495,14 +499,12 @@ export class Symbols {
     // Scatter bonus completed
     this.scene.events.on('scatterBonusCompleted', () => this.handleScatterBonusCompleted());
 
-    // WIN_STOP - handle Symbol0 and scatter retriggers
+    // WIN_STOP - scatter retrigger (Symbol0 === scatter in this game)
     // Defer by 150ms so win dialogs and BONUS_TOTAL_WIN_SHOWN run first.
-    // Flow during bonus: win → win dialogs → Symbol0/scatter win anims → free spin retrigger → continue
+    // Flow during bonus: win → win dialogs → scatter retrigger flow → continue
     gameEventManager.on(GameEventType.WIN_STOP, () => {
       if (this.hasPendingScatterRetrigger()) {
         this.scene.time.delayedCall(150, () => void this.handleWinStopScatterRetrigger());
-      } else if (this.hasPendingSymbol0Retrigger()) {
-        this.scene.time.delayedCall(150, () => void this.handleWinStopSymbol0Retrigger());
       }
     });
 
@@ -557,13 +559,29 @@ export class Symbols {
 
   private triggerAutoplayAfterScatterReset(resetPromise: Promise<void>): void {
     // Wait for scatter symbols to finish unmerging (shrink + move back to grid) before starting autoplay
+    const armOneShotSkipScatterReset = () => {
+      const sceneAny = this.scene as any;
+      sceneAny.__skipScatterResetOnNextEnableSymbols = true;
+      // Safety: if autoplay start is interrupted and onResetScatterSymbols never runs,
+      // clear the one-shot flag so future resets are not skipped indefinitely.
+      this.scene.time.delayedCall(2000, () => {
+        try {
+          if (sceneAny.__skipScatterResetOnNextEnableSymbols === true) {
+            sceneAny.__skipScatterResetOnNextEnableSymbols = false;
+          }
+        } catch { }
+      });
+    };
     resetPromise.then(() => {
-      this.scene.time.delayedCall(1000, () => {
+      // The reset just finished; skip the immediate duplicate reset in FreeSpinController.start().
+      armOneShotSkipScatterReset();
+      this.scene.time.delayedCall(0, () => {
         this.freeSpinController.triggerAutoplay();
       });
     }).catch((e) => {
       console.warn('[Symbols] Scatter reset failed, starting autoplay anyway:', e);
-      this.scene.time.delayedCall(1000, () => {
+      armOneShotSkipScatterReset();
+      this.scene.time.delayedCall(0, () => {
         this.freeSpinController.triggerAutoplay();
       });
     });
@@ -571,7 +589,7 @@ export class Symbols {
 
   /**
    * Wait specifically for the retrigger FreeSpin dialog to be displayed and then closed.
-   * In grave_threat the dialog type emitted is `FreeSpinRetrigger`.
+   * Accepts `FreeSpin` or `FreeSpinRetrigger` (grave_threat typically uses `FreeSpinRetrigger`).
    *
    * This avoids racing on the shared `dialogAnimationsComplete` event which can be emitted
    * by unrelated win dialogs in the queue.
@@ -591,9 +609,9 @@ export class Symbols {
         resolve();
       };
 
-      // Wait until the FreeSpinRetrigger dialog is actually visible, then wait for its close.
+      // Wait until the FreeSpin / FreeSpinRetrigger dialog is actually visible, then wait for its close.
       const onFullyDisplayed = (dialogType: string) => {
-        if (dialogType !== 'FreeSpinRetrigger') return;
+        if (dialogType !== 'FreeSpin' && dialogType !== 'FreeSpinRetrigger') return;
         scene.events.once('dialogAnimationsComplete', finish);
       };
       scene.events.once('dialogFullyDisplayed', onFullyDisplayed);
@@ -607,7 +625,6 @@ export class Symbols {
     if (!(gameStateManager.isBonus && this.pendingScatterRetrigger?.scatterGrids)) {
       return;
     }
-    this.pendingSymbol0Retrigger = null;
     const retrigger = this.pendingScatterRetrigger;
 
     try {
@@ -648,56 +665,17 @@ export class Symbols {
     }
   }
 
-  private async handleWinStopSymbol0Retrigger(): Promise<void> {
-    if (!(gameStateManager.isBonus && this.pendingSymbol0Retrigger?.symbol0Grids)) {
-      return;
-    }
-    (this.scene as any).__skipScatterResetOnNextEnableSymbols = true;
-
-    const retrigger = this.pendingSymbol0Retrigger;
-
-    try {
-      await this.waitForAnimationsAndTumblesToFinish();
-      await this.waitForWinDialogsToFinish();
-    } catch { }
-
-    this.pendingSymbol0Retrigger = null;
-    this.scatterRetriggerAnimationInProgress = true;
-
-    try {
-      const symbol0Grids = retrigger.symbol0Grids;
-      await this.playSymbol0RetriggerSequence(symbol0Grids);
-      // Clearing/resetting Symbol0 symbols after retrigger is disabled for now
-      gameEventManager.emit(GameEventType.SYMBOL0_RETRIGGER_ANIMATION_COMPLETE);
-    } catch (e) {
-      console.warn('[Symbols] Symbol0 retrigger sequence failed:', e);
-      gameEventManager.emit(GameEventType.SYMBOL0_RETRIGGER_ANIMATION_COMPLETE);
-    }
-
-    try {
-      this.applyRetriggerDialogAndCount('Symbol0');
-    } catch (e) {
-      console.warn('[Symbols] Failed to show Symbol0 retrigger dialog:', e);
-      this.scatterRetriggerAnimationInProgress = false;
-    }
-
-    try {
-      await this.waitForRetriggerFreeSpinDialogToClose();
-    } catch { /* ignore */ }
-
-    this.scatterRetriggerAnimationInProgress = false;
-    this.resumeAutoplayAfterRetriggerDialog();
-    this.freeSpinController.waitForAllDialogsToCloseThenResume();
-    this.scene.time.delayedCall(0, () => {
-      (this.scene as any).__skipScatterResetOnNextEnableSymbols = false;
-    });
-  }
-
   private resumeAutoplayAfterRetriggerDialog(): void {
     try {
-      gameStateManager.isAutoPlaying = true;
+      const slot = (this.scene as any)?.slotController;
+      const hadBaseGameAutoplay =
+        typeof slot?.getPausedAutoplaySpinsRemaining === 'function' &&
+        slot.getPausedAutoplaySpinsRemaining() > 0;
+      const freeSpinAutoplayActive = this.freeSpinController?.isActive === true;
+      if (!hadBaseGameAutoplay && !freeSpinAutoplayActive) {
+        return;
+      }
       gameStateManager.isAutoPlaySpinRequested = true;
-      if (this.scene?.gameData) this.scene.gameData.isAutoPlaying = true;
     } catch { }
   }
 
@@ -758,194 +736,14 @@ export class Symbols {
     this.scene.events.on('postupdate', listener);
   }
 
-  private async playSymbol0RetriggerSequence(symbol0Grids: GridPosition[]): Promise<void> {
-    if (!symbol0Grids.length) return;
-
-    const winAnimName = 'Symbol0_GT_win';
-    const idleAnimName = 'Symbol0_GT_idle';
-
-    const animationPromises = symbol0Grids.map((grid) => {
-      return new Promise<void>((resolve) => {
-        try {
-          let symbol: any = this.grid.getSymbol(grid.x, grid.y);
-
-          if (!symbol || (symbol as any).destroyed) {
-            console.warn(`[Symbols] Symbol0 at (${grid.x}, ${grid.y}) not found or destroyed`);
-            resolve();
-            return;
-          }
-
-          // Capture scale before win animation so we can restore it after dialog closes
-          const scaleX = Number((symbol as any).scaleX);
-          const scaleY = Number((symbol as any).scaleY);
-          const capturedScale = (isFinite(scaleX) && scaleX > 0 && isFinite(scaleY) && scaleY > 0)
-            ? { scaleX, scaleY }
-            : null;
-
-          // Ensure Symbol0 is a Spine symbol so it can play win/idle animations.
-          let animState = (symbol as any).animationState;
-          if (!animState?.setAnimation) {
-            try {
-              const spineKey = `symbol_${SCATTER_SYMBOL_ID}_spine`;
-              const spineAtlasKey = `${spineKey}-atlas`;
-              if (typeof (this.scene.add as any).spine === 'function') {
-                const x = symbol.x;
-                const y = symbol.y;
-                const prevScaleX = Number((symbol as any).scaleX);
-                const prevScaleY = Number((symbol as any).scaleY);
-                try { symbol.destroy?.(); } catch { }
-                const spineSymbol = (this.scene.add as any).spine(x, y, spineKey, spineAtlasKey);
-                if (spineSymbol) {
-                  spineSymbol.setOrigin?.(0.5, 0.5);
-                  try { (spineSymbol as any).symbolValue = SCATTER_SYMBOL_ID; } catch { }
-                  // Preserve the previous symbol's scale to avoid a visible scale-pop during retrigger.
-                  // Only fit as a fallback when previous scale is unavailable.
-                  try {
-                    if (isFinite(prevScaleX) && prevScaleX > 0 && isFinite(prevScaleY) && prevScaleY > 0) {
-                      spineSymbol.setScale?.(prevScaleX, prevScaleY);
-                    } else {
-                      this.animationsModule.fitSpineToSymbolBox(spineSymbol);
-                    }
-                  } catch {
-                    try { this.animationsModule.fitSpineToSymbolBox(spineSymbol); } catch { }
-                  }
-                  if (capturedScale) (spineSymbol as any).__symbol0ScaleBeforeWin = capturedScale;
-                  symbol = spineSymbol;
-                  this.grid.setSymbol(grid.x, grid.y, symbol);
-                  try { this.container.add(spineSymbol); } catch { }
-                  animState = (symbol as any).animationState;
-                }
-              }
-            } catch { }
-          } else if (capturedScale) {
-            (symbol as any).__symbol0ScaleBeforeWin = capturedScale;
-          }
-
-          if (!animState?.setAnimation) {
-            console.warn(`[Symbols] Symbol0 at (${grid.x}, ${grid.y}) has no animation state`);
-            resolve();
-            return;
-          }
-
-          let finished = false;
-          let listenerRef: any = null;
-          let timeoutId: Phaser.Time.TimerEvent | null = null;
-
-          const cleanup = () => {
-            if (finished) return;
-            finished = true;
-
-            // Remove listener
-            try {
-              if (animState.removeListener && listenerRef) {
-                animState.removeListener(listenerRef);
-              }
-            } catch { }
-
-            // Clear timeout
-            try {
-              if (timeoutId) {
-                timeoutId.destroy();
-                timeoutId = null;
-              }
-            } catch { }
-
-            // Set to idle
-            try {
-              if (animState.setAnimation && !symbol.destroyed) {
-                animState.setAnimation(0, idleAnimName, true);
-              }
-            } catch { }
-
-            resolve();
-          };
-
-          // Add completion listener
-          try {
-            if (animState.addListener) {
-              listenerRef = {
-                complete: (entry: any) => {
-                  try {
-                    if (!entry || entry.animation?.name !== winAnimName) return;
-                  } catch { }
-                  cleanup();
-                }
-              };
-              animState.addListener(listenerRef);
-            }
-          } catch (e) {
-            console.warn(`[Symbols] Failed to add listener for Symbol0 at (${grid.x}, ${grid.y}):`, e);
-          }
-
-          // Play win animation
-          try {
-            animState.setAnimation(0, winAnimName, false);
-          } catch (e) {
-            console.warn(`[Symbols] Failed to play win animation for Symbol0 at (${grid.x}, ${grid.y}):`, e);
-            cleanup();
-            return;
-          }
-
-          // Safety timeout (2s - shorter for faster recovery)
-          timeoutId = this.scene.time.delayedCall(2000, () => {
-            console.warn(`[Symbols] Symbol0 animation timeout at (${grid.x}, ${grid.y})`);
-            cleanup();
-          });
-        } catch (e) {
-          console.warn(`[Symbols] Error in Symbol0 animation at (${grid.x}, ${grid.y}):`, e);
-          resolve();
-        }
-      });
-    });
-
-    await Promise.all(animationPromises);
-  }
-
-  private getLiveSymbol0Grids(): GridPosition[] {
-    const positions: GridPosition[] = [];
-    if (!this.symbols || !Array.isArray(this.symbols)) return positions;
-
-    for (let col = 0; col < this.symbols.length; col++) {
-      if (!Array.isArray(this.symbols[col])) continue;
-      for (let row = 0; row < this.symbols[col].length; row++) {
-        const symbol = this.symbols[col][row];
-        if (!symbol || (symbol as any).destroyed) continue;
-        const symbolValue = (symbol as any)?.symbolValue;
-        if (symbolValue === 0) {
-          positions.push({ x: col, y: row });
-        }
-      }
-    }
-    return positions;
-  }
-
-  private applyRetriggerDialogAndCount(logLabel: string): void {
-    const retriggerInfo = this.freeSpinController?.getRetriggerIncrementFromSpinData?.(this.currentSpinData) ?? {
-      added: 0,
-      spinsLeft: 0
-    };
-    const spinsLeftFromSpinData = Math.max(0, retriggerInfo.spinsLeft);
-    const retriggerSpins = Math.max(0, retriggerInfo.added);
-    this.freeSpinController?.setSpinsRemaining?.(spinsLeftFromSpinData);
-    try {
-      this.scene?.events?.emit('fakeDataRetriggerComputed', {
-        nextSpinsLeft: spinsLeftFromSpinData,
-        added: retriggerSpins
-      });
-    } catch { }
-    this.scatterAnimationManager?.showRetriggerFreeSpinsDialog(retriggerSpins);
-  }
-
-  private countSymbol0InArea(area: number[][]): number {
+  /** Count scatter symbols in the free-spin item `area` from spin data (column-major symbol ids). */
+  private countScatterSymbolsInSpinArea(area: number[][]): number {
     let count = 0;
     if (!Array.isArray(area)) return count;
-
     for (let col = 0; col < area.length; col++) {
       if (!Array.isArray(area[col])) continue;
       for (let row = 0; row < area[col].length; row++) {
-        if (area[col][row] === 0) {
-          count++;
-        }
+        if (area[col][row] === SCATTER_SYMBOL_ID) count++;
       }
     }
     return count;
@@ -991,25 +789,12 @@ export class Symbols {
     return this.scatterResetInProgress;
   }
 
-  public setPendingSymbol0Retrigger(symbol0Grids: GridPosition[]): void {
-    this.pendingSymbol0Retrigger = { symbol0Grids };
-  }
-
-  public hasPendingSymbol0Retrigger(): boolean {
-    return !!(this.pendingSymbol0Retrigger?.symbol0Grids?.length);
-  }
-
   /**
-   * True when any scatter retrigger is queued: grid-based detection OR spin-data
-   * fallback. When `SCATTER_SYMBOL_ID` is 0, both paths describe the same symbol;
-   * this method is the single predicate for “retrigger queued” at component boundaries.
+   * True when a scatter retrigger is queued (final grid and spin-data fallback both use
+   * `pendingScatterRetrigger`).
    */
   public hasAnyPendingScatterRetrigger(): boolean {
-    return this.hasPendingScatterRetrigger() || this.hasPendingSymbol0Retrigger();
-  }
-
-  public isSymbol0RetriggerAnimationInProgress(): boolean {
-    return this.scatterRetriggerAnimationInProgress && !!this.pendingSymbol0Retrigger;
+    return this.hasPendingScatterRetrigger();
   }
 
   public setFreeSpinAutoplaySpinsRemaining(spinsRemaining: number): void {
@@ -1914,21 +1699,19 @@ export class Symbols {
         }
       }
 
-    // Check for Symbol0 retrigger (3+ Symbol0s) using spin data as source of truth.
-    // Use the current free spin item's area from spin data to decide; use live grid for positions to animate.
+    // Scatter retrigger fallback: spin-data `area` may show enough scatters before grid snapshot agrees.
     if (gameStateManager.isBonus) {
       try {
         const areaFromSpinData = (freeSpinItem && Array.isArray(freeSpinItem.area)) ? freeSpinItem.area : null;
-        const symbol0CountFromArea = areaFromSpinData ? this.countSymbol0InArea(areaFromSpinData) : 0;
-        const symbol0Grids = this.getLiveSymbol0Grids();
-        // Trigger when spin data area has 3+ Symbol0s (what the backend says) and we have at least one to animate.
-        const shouldRetrigger = symbol0CountFromArea >= 3 && symbol0Grids.length > 0;
-        // If scatter retrigger is pending, keep flow on scatter path (merge/unmerge) for consistency.
-        if (shouldRetrigger && !this.pendingScatterRetrigger) {
-          this.setPendingSymbol0Retrigger(symbol0Grids);
+        const scatterCountFromArea = areaFromSpinData ? this.countScatterSymbolsInSpinArea(areaFromSpinData) : 0;
+        const liveScatterGrids = this.getLiveScatterGrids();
+        const shouldRetriggerFromArea =
+          scatterCountFromArea >= MIN_SCATTER_FOR_RETRIGGER && liveScatterGrids.length > 0;
+        if (shouldRetriggerFromArea && !this.pendingScatterRetrigger) {
+          this.setPendingScatterRetrigger(liveScatterGrids);
         }
       } catch (e) {
-        console.warn('[Symbols] Failed to check for Symbol0 retrigger:', e);
+        console.warn('[Symbols] Failed to check for scatter retrigger from spin area:', e);
       }
     }
 
