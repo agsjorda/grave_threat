@@ -184,19 +184,43 @@ export class ScatterAnimationManager {
   }
 
   /**
-   * Get free spins from SpinData using the first item's spinsLeft
+   * SpinData attached to Symbols, or the same payload from GameAPI (fallback if `symbols` is unavailable).
+   */
+  private getCurrentSpinDataFromScene(): SpinData | undefined {
+    if (!this.scene) return undefined;
+    const anyScene = this.scene as any;
+    const fromSymbols = anyScene?.symbols?.currentSpinData;
+    if (fromSymbols?.slot) return fromSymbols as SpinData;
+    const fromApi = anyScene?.gameAPI?.getCurrentSpinData?.();
+    if (fromApi?.slot) return fromApi;
+    return undefined;
+  }
+
+  /** Backend may send counts as strings; treat any finite positive number as valid. */
+  private toPositiveSpinCount(value: unknown): number {
+    if (value == null || value === '') return 0;
+    const n = typeof value === 'number' ? value : Number(String(value).trim());
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return Math.floor(n);
+  }
+
+  /**
+   * Get free spins from SpinData using free-spin items' spinsLeft or freespin.count.
    */
   private getFreeSpinsFromSpinData(): number {
-    if (!this.scene) return 0;
-    const gameScene = this.scene as any;
-    const currentSpinData: SpinData | undefined = gameScene?.symbols?.currentSpinData;
+    const currentSpinData = this.getCurrentSpinDataFromScene();
     const fsData = currentSpinData?.slot?.freeSpin || currentSpinData?.slot?.freespin;
-    const items = Array.isArray(fsData?.items) ? fsData!.items : [];
-    const positiveItem = items.find((it: any) => typeof it?.spinsLeft === 'number' && it.spinsLeft > 0);
-    const firstItemSpinsLeft = items.length > 0 && typeof items[0]?.spinsLeft === 'number' ? items[0].spinsLeft : 0;
-    const countValue = typeof (fsData as any)?.count === 'number' ? (fsData as any).count : 0;
-    const derived = Number(positiveItem?.spinsLeft ?? firstItemSpinsLeft ?? 0) || 0;
-    return derived > 0 ? derived : countValue > 0 ? countValue : 0;
+    if (!fsData) return 0;
+
+    const items = Array.isArray(fsData.items) ? fsData.items : [];
+    const itemSpins = (it: any) =>
+      this.toPositiveSpinCount(it?.spinsLeft ?? it?.spins_left);
+    const positiveItem = items.find((it: any) => itemSpins(it) > 0);
+    const firstItemSpins = items.length > 0 ? itemSpins(items[0]) : 0;
+    const derived = positiveItem ? itemSpins(positiveItem) : firstItemSpins;
+    const countValue = this.toPositiveSpinCount((fsData as any)?.count);
+
+    return derived > 0 ? derived : countValue;
   }
 
   /**
@@ -302,10 +326,10 @@ export class ScatterAnimationManager {
     try {
       const audioMgr = getGlobalAudioManager();
       if (audioMgr && typeof audioMgr.playSoundEffect === 'function') {
-        audioMgr.playSoundEffect(SoundEffectType.DIALOG_FREESPIN);
+        audioMgr.playSoundEffect(SoundEffectType.DIALOG_RETRIGGER);
       }
     } catch (e) {
-      console.warn('[ScatterAnimationManager] Failed to play free spin dialog SFX', e);
+      console.warn('[ScatterAnimationManager] Failed to play retrigger SFX', e);
     }
     // A retrigger explicitly means the bonus is continuing, so make sure any
     // tentative "bonus finished" state set earlier in the spin (e.g. from
