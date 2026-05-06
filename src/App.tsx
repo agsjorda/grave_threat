@@ -14,7 +14,9 @@ function App()
 	return (
 		<div id="app">
 			<PhaserGame ref={phaserRef} currentActiveScene={currentSceneHandler} />
-			<Main currentScene={scene} />
+			<div className="app-ui-layer">
+				<Main currentScene={scene} />
+			</div>
 		</div>
 	)
 }

@@ -1,18 +1,115 @@
+/*
+ * Shell + orientation modal (see docs/orientation-modal-porting-guide.md).
+ * html/body → #root → #app → #game-container (Phaser parent).
+ */
+html {
+    height: 100%;
+    min-height: 100%;
+}
+
 body {
+    height: 100%;
+    min-height: 100%;
     margin: 0;
     padding: 0;
+    overflow: hidden;
     color: rgba(255, 255, 255, 0);
-    background-color: #000000; 
+    background-color: #000000;
     font-family: Arial, Helvetica, sans-serif;
 }
 
-#app {
+#root {
+    position: relative;
+    z-index: 1;
     width: 100%;
-    height: 100vh;
+    height: 100%;
+    min-height: 100%;
+    box-sizing: border-box;
+}
+
+#root canvas {
+    filter: drop-shadow(0 16px 24px rgba(0, 0, 0, 0.7));
+    border-radius: 8px;
     overflow: hidden;
+}
+
+#app {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+}
+
+#game-container {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    box-sizing: border-box;
+}
+
+.app-ui-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.app-ui-layer > * {
+    pointer-events: auto;
+}
+
+#orientation-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.80);
+    cursor: pointer;
+    pointer-events: auto;
+    touch-action: none;
+}
+
+#orientation-modal.orientation-modal--hidden {
+    display: none;
+}
+
+#orientation-modal .orientation-modal__icon {
+    max-width: min(80vw, 320px);
+    max-height: min(50vh, 320px);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+#orientation-modal .orientation-modal__copy {
+    margin-top: 1.25rem;
+    width: 100%;
+    max-width: min(90vw, 360px);
+    text-align: center;
+}
+
+#orientation-modal .orientation-modal__copy p {
+    margin: 0.35rem 0 0;
+    color: #ffffff;
+    font-size: 1rem;
+    line-height: 1.45;
+    font-family: 'Poppins-Regular', 'Poppins', system-ui, sans-serif;
+}
+
+#orientation-modal .orientation-modal__copy p:first-child {
+    margin-top: 0;
+}
+
+#orientation-modal .orientation-modal__copy strong {
+    color: #09FF5C;
+    font-family: 'Poppins-Bold', 'Poppins-Regular', 'Poppins', system-ui, sans-serif;
 }
 
 .spritePosition {

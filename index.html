@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8" />
 	<link rel="icon" type="image/png" href="/favicon.png" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 	
 	<!-- Resource hints for faster loading -->
 	<!-- Preload critical background image -->
@@ -16,12 +16,6 @@
 	<title>Grave Threat</title>
 	<link rel="stylesheet" href="/main.scss">
 	<style>
-		body {
-			margin: 0;
-			padding: 0;
-			overflow: hidden;
-		}
-		
 		.background-container {
 			position: fixed;
 			top: 0;
@@ -41,18 +35,10 @@
 			object-fit: cover;
 			object-position: center bottom;
 			border-radius: 0;
-		}
-		
-		#root {
-			position: relative;
-			z-index: 1;
-		}
-
-		/* Add drop shadow under the game view (canvas inside #root) */
-		#root canvas {
-			filter: drop-shadow(0 16px 24px rgba(0, 0, 0, 0.7));
-			border-radius: 8px;      /* or whatever radius you want */
-			overflow: hidden;         /* helps ensure content respects rounding */
+			user-select: none;
+			-webkit-user-select: none;
+			-webkit-user-drag: none;
+			pointer-events: none;
 		}
 	</style>
 </head>
@@ -63,9 +49,22 @@
 			class="background-image"
 			src="/assets/portrait/high/background/fullscreen_bg.webp"
 			alt="Fullscreen background"
+			draggable="false"
 		/>
 	</div>
 	<div id="root"></div>
+	<div id="orientation-modal" class="orientation-modal orientation-modal--hidden" aria-hidden="true">
+		<img
+			class="orientation-modal__icon"
+			src="/assets/portrait/high/loading/orientation_icon.webp"
+			alt="Rotate your device"
+			draggable="false"
+		/>
+		<div class="orientation-modal__copy">
+			<p>Please switch back to <strong>Portrait mode</strong></p>
+			<p>to continue the game.</p>
+		</div>
+	</div>
 	<script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
