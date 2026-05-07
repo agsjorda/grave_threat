@@ -645,7 +645,10 @@ export class SlotController {
 		
 		this.spinButtonController = new SpinButtonController(scene, this.controllerContainer, {
 			onSpinRequested: () => this.handleSpin(),
-			onSpinBlocked: (reason: string) => {},
+			onSpinBlocked: (reason: string) => {
+				if (reason !== 'Already spinning') return;
+				this.tryRequestSpinButtonSkip();
+			},
 			isAutoplayActive: () => this.autoplayController?.isActive() || false,
 			stopAutoplay: () => this.stopAutoplay(),
 		});
@@ -1557,6 +1560,7 @@ export class SlotController {
 				return;
 			}
 			if (gameStateManager.isReelSpinning) {
+				this.tryRequestSpinButtonSkip();
 				return;
 			}
 			// Hard guard: block spin if balance can't cover current bet.
@@ -1983,6 +1987,7 @@ export class SlotController {
 				return;
 			}
 			if (gameStateManager.isReelSpinning) {
+				this.tryRequestSpinButtonSkip();
 				return;
 			}
 			
@@ -4834,6 +4839,9 @@ export class SlotController {
 		if (spinButton) {
 			spinButton.disableInteractive();
 			spinButton.setTint(0x666666);
+			if (gameStateManager.isReelSpinning) {
+				spinButton.setInteractive();
+			}
 		}
 		if (this.spinIcon) {
 			this.spinIcon.setAlpha(0.5);
@@ -4867,6 +4875,15 @@ export class SlotController {
 		}
 		if (this.spinIconTween) {
 			this.spinIconTween.resume();
+		}
+	}
+
+	private tryRequestSpinButtonSkip(): boolean {
+		try {
+			const symbols: any = (this.scene as any)?.symbols;
+			return !!symbols?.tryRequestSkipReelDrops?.();
+		} catch {
+			return false;
 		}
 	}
 

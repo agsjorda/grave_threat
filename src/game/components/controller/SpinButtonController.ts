@@ -269,6 +269,9 @@ export class SpinButtonController {
   private async handleSpinButtonClick(): Promise<void> {
     log.debug('Spin button clicked');
     if (this.isDisabled) {
+      if (gameStateManager.isReelSpinning) {
+        this.callbacks.onSpinBlocked('Already spinning');
+      }
       log.debug('Spin button click ignored - disabled');
       return;
     }
