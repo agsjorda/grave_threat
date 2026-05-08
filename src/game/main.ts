@@ -5,6 +5,8 @@ import { Preloader } from './scenes/Preloader';
 import { SpinePlugin } from '@esotericsoftware/spine-phaser-v3';
 import { getGlobalAudioManager } from '../utils/AudioHelpers';
 
+const GAME_DESIGN_WIDTH = 428;
+const GAME_DESIGN_HEIGHT = 926;
 // Install guards to prevent InvalidStateError when resuming/suspending a closed AudioContext
 function installAudioContextGuards(): void {
 	try {
@@ -54,9 +56,9 @@ function installAudioContextGuards(): void {
 //  https://docs.phaser.io/api-documentation/typedef/types-core#gameconfig
 
 const config: Phaser.Types.Core.GameConfig = {
-    type: Phaser.WEBGL,
-    width: 428,
-    height: 926,
+    type: Phaser.AUTO,
+    width: GAME_DESIGN_WIDTH,
+	height: GAME_DESIGN_HEIGHT,
     parent: 'game-container',
     backgroundColor: 'transparent',
 		scale: {
@@ -87,8 +89,14 @@ const config: Phaser.Types.Core.GameConfig = {
     render: {
 		antialias: true,
 		clearBeforeRender: false,
-	},
-    
+		batchSize: 4096,
+		pixelArt: false,
+		roundPixels: false,
+		/** Hint the browser to use the discrete/high-performance GPU on dual-GPU devices.
+		 *  On most modern phones and laptops this prevents the game from being scheduled
+		 *  on the power-saving integrated GPU with no visible cost. */
+		powerPreference: 'high-performance',
+	}
 };
 
 const StartGame = (parent: string) => {
