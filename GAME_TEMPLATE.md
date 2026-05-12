@@ -58,6 +58,16 @@ File: `src/game/components/MenuTabs/HelpScreen.ts`
 - Payout labels
 - Scatter and free-spin text
 
+### Mobile viewport and orientation gate
+
+Shared shell (ported from the repo viewport pipeline): visible viewport sizing, generated landscape gate on phone-like devices, Phaser scale refresh ladder, and iframe `postMessage` for launchers.
+
+- **`src/bootstrap/MobileViewport.ts`** — keep behavior aligned with other skins; when cloning a title, set the iframe payload `game` string (currently **`grave_threat`**) for `dijoker:game-orientation` listeners.
+- **`src/main.tsx`** — imports `./bootstrap/MobileViewport` before React mounts.
+- **`src/game/main.ts`** — calls `registerMobileViewportGame(game, { parent })` after the Phaser instance is created (replaces ad hoc `visualViewport` / orientation handlers on the game side).
+- **`public/style.css`** — `--tb-viewport-*` shell chain and `.mobile-orientation-gate*` presentation.
+- **`index.html`** — background layer uses `var(--tb-viewport-width)` / `var(--tb-viewport-height)` so first paint matches runtime sizing.
+
 ## 3. What Not To Change (Template Boundaries)
 
 - `src/backend/` is shared template backend integration; do not rework API shapes for skinning.
