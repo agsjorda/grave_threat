@@ -4,8 +4,6 @@ import { AUTO, Game } from 'phaser';
 import { Preloader } from './scenes/Preloader';
 import { SpinePlugin } from '@esotericsoftware/spine-phaser-v3';
 import { getGlobalAudioManager } from '../utils/AudioHelpers';
-import { registerMobileViewportGame } from '../bootstrap/MobileViewport';
-
 const GAME_DESIGN_WIDTH = 428;
 const GAME_DESIGN_HEIGHT = 926;
 // Install guards to prevent InvalidStateError when resuming/suspending a closed AudioContext
@@ -190,7 +188,6 @@ const StartGame = (parent: string) => {
 	installAudioVisibilityPolicy(game);
 
 	try {
-		registerMobileViewportGame(game, { parent });
 	} catch (_e) {
 		/* no-op */
 	}
