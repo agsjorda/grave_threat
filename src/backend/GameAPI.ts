@@ -19,7 +19,7 @@ type ImportMetaWithGlob = ImportMeta & {
 };
 
 const SAMPLE_DATA_URLS = (import.meta as ImportMetaWithGlob).glob(
-  "/src/game/spinDataSample/**/*.json",
+  "../game/spinDataSample/**/*.json",
   {
     query: "?url",
     import: "default",
@@ -542,11 +542,11 @@ export class GameAPI {
 
   private createMockFirstManualScatterSpinData(bet: number): SpinData {
     // NOTE: In this project, slot.area is [column][row] and the grid is 7 columns x 7 rows.
-    const cols = Number(SLOT_COLUMNS || 6);
-    const rows = Number(SLOT_ROWS || 5);
+    const cols = Number(SLOT_COLUMNS);
+    const rows = Number(SLOT_ROWS);
 
     const area: number[][] = Array.from({ length: cols }, (_, col) =>
-      Array.from({ length: rows }, (_, row) => ((col * 3 + row) % 9) + 1),
+      Array.from({ length: rows }, (_, row) => ((col * 3 + row) % 7) + 1),
     );
 
     // Place scatters (symbol id 0) on columns 0,1,2 at the middle row

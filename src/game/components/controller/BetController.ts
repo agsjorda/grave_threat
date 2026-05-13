@@ -23,13 +23,37 @@ export const BET_LEVELS: readonly number[] = Object.freeze([
   3.2, 3.6, 4, 5, 6,
   8, 10, 14, 18, 24,
   32, 40, 60, 80, 100,
-  110, 120, 130, 140, 150
+  110, 120, 130, 140, 150,
 ]);
 
-/** Cold-start default step on the ladder (before init/API overrides). */
 export const DEFAULT_BET_LEVEL_INDEX = 4;
-/** Default base bet; must equal `BET_LEVELS[DEFAULT_BET_LEVEL_INDEX]`. */
 export const DEFAULT_BASE_BET = BET_LEVELS[DEFAULT_BET_LEVEL_INDEX];
+
+export function cloneBetLevels(levels?: readonly number[] | null): number[] {
+  if (Array.isArray(levels) && levels.length > 0) {
+    return [...levels];
+  }
+  return [...BET_LEVELS];
+}
+
+export function getClosestNumberIndex(values: readonly number[], target: number): number {
+  if (!Array.isArray(values) || values.length === 0) {
+    return 0;
+  }
+
+  let closestIndex = 0;
+  let closestDifference = Math.abs(values[0] - target);
+
+  for (let i = 1; i < values.length; i++) {
+    const difference = Math.abs(values[i] - target);
+    if (difference < closestDifference) {
+      closestDifference = difference;
+      closestIndex = i;
+    }
+  }
+
+  return closestIndex;
+}
 
 export interface BetDisplayConfig {
   x: number;
@@ -77,9 +101,9 @@ export class BetController {
   private getBetLevelsArray(): number[] {
     const levels = this.callbacks.getGameData?.()?.betLevels;
     if (Array.isArray(levels) && levels.length > 0) {
-      return levels;
+      return cloneBetLevels(levels);
     }
-    return [...BET_LEVELS];
+    return cloneBetLevels();
   }
 
   /**
@@ -452,16 +476,6 @@ export class BetController {
   }
 
   private getClosestBetIndex(currentBet: number): number {
-    const levels = this.getBetLevelsArray();
-    let idx = 0;
-    let bestDiff = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < levels.length; i++) {
-      const diff = Math.abs(levels[i] - currentBet);
-      if (diff < bestDiff) {
-        bestDiff = diff;
-        idx = i;
-      }
-    }
-    return idx;
+    return getClosestNumberIndex(this.getBetLevelsArray(), currentBet);
   }
 }

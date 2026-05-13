@@ -7,6 +7,7 @@ import { startAnimation } from "../../utils/SpineAnimationHelper";
 import { formatCurrencyNumber } from "../../utils/NumberPrecisionFormatter";
 import { SoundEffectType } from "../../managers/AudioManager";
 import { playSoundEffectSafe } from "../../utils/AudioHelpers";
+import { BET_LEVELS, cloneBetLevels, getClosestNumberIndex } from "./controller";
 
 export interface BetOptionsConfig {
 	position?: { x: number; y: number };
@@ -33,14 +34,7 @@ export class BetOptions {
 	private readonly BUTTON_PADDING: number = 6;
 	private readonly MIN_FONT_SIZE: number = 14;
 	private readonly MAX_FONT_SIZE: number = 22;
-	private betOptions: number[] = [
-		0.2, 0.4, 0.6, 0.8, 1,
-		1.2, 1.6, 2, 2.4, 2.8,
-		3.2, 3.6, 4, 5, 6,
-		8, 10, 14, 18, 24,
-		32, 40, 60, 80, 100,
-		110, 120, 130, 140, 150
-	];
+	private betOptions: number[] = cloneBetLevels(BET_LEVELS);
 	private betButtons: Phaser.GameObjects.Container[] = [];
 	private selectedButtonIndex: number = -1;
 	private closeButton: Phaser.GameObjects.Text;
@@ -60,7 +54,7 @@ export class BetOptions {
 	create(scene: Scene): void {
 		const levels = (scene as any).gameData?.betLevels;
 		if (Array.isArray(levels) && levels.length > 0) {
-			this.betOptions = levels;
+			this.betOptions = cloneBetLevels(levels);
 		}
 
 		// Create main container
@@ -553,24 +547,8 @@ export class BetOptions {
 
 		this.updateBetOptionButtonLabels();
 		
-		// Find and select the button that matches the current bet
-		const matchingIndex = this.betOptions.findIndex(option => Math.abs(option - this.currentBet) < 0.01);
-		if (matchingIndex !== -1) {
-			this.selectButton(matchingIndex, this.betOptions[matchingIndex]);
-		} else {
-			// If no exact match, select the closest option
-			let closestIndex = 0;
-			let closestDifference = Math.abs(this.betOptions[0] - this.currentBet);
-			
-			for (let i = 1; i < this.betOptions.length; i++) {
-				const difference = Math.abs(this.betOptions[i] - this.currentBet);
-				if (difference < closestDifference) {
-					closestDifference = difference;
-					closestIndex = i;
-				}
-			}
-			this.selectButton(closestIndex, this.betOptions[closestIndex]);
-		}
+		const selectedIndex = getClosestNumberIndex(this.betOptions, this.currentBet);
+		this.selectButton(selectedIndex, this.betOptions[selectedIndex]);
 		
 		this.updateBetDisplay();
 		if (this.isEnhancedBet) {

@@ -1,19 +1,41 @@
 /**
- * AutoplayController - Manages autoplay state and UI
- * 
- * Extracted from SlotController.ts for better code organization.
- * Handles autoplay spins, animations, and stop conditions.
+ * AutoplayController - Manages base-game autoplay state, counter, and UI
+ *
+ * Owned by: SlotController (instantiated in SlotController.create(), held as `this.autoplayController`).
+ * Entry point: SlotController.startAutoplay() → autoplayController.startAutoplay(spins).
+ *
+ * Responsibilities:
+ * - Tracks autoplay spins remaining and decrements on REELS_START.
+ * - Schedules the next autoplay spin after WIN_STOP or WIN_DIALOG_CLOSED.
+ * - Renders the autoplay button, stop icon, and spins-remaining counter text.
+ * - Emits AUTO_START / AUTO_STOP via gameEventManager (picked up by GameStateManager, SlotController).
+ *
+ * Key interactions:
+ * - SlotController.startAutoplay(spins)  → calls autoplayController.startAutoplay(spins).
+ * - SlotController.stopAutoplay()        → calls autoplayController.stopAutoplay().
+ * - SlotController.pauseAutoplay()       → stops autoplayController and caches remaining count.
+ * - SlotController.resumeAutoplayFromPause() → calls autoplayController.startAutoplay(cached spins).
+ * - FreeSpinController                   → uses SlotController.startFreeRoundAutoplay(), NOT this class.
+ *
+ * Lifecycle:
+ * - destroy() MUST be called when the scene shuts down to unsubscribe event listeners
+ *   and kill the pending next-spin timer (prevents memory leaks on scene restart).
+ *   Called by SlotController.cleanupControllerLifecycleResources().
  */
 
-import type { Scene } from 'phaser';
-import { gameEventManager, GameEventType } from '../../../event/EventManager';
-import { gameStateManager } from '../../../managers/GameStateManager';
-import { TurboConfig } from '../../../config/TurboConfig';
-import { ensureSpineFactory, SPINE_FACTORY_RETRY_MS } from '../../../utils/SpineGuard';
-import { Logger } from '../../../utils/Logger';
-import { startAnimation } from '../../../utils/SpineAnimationHelper';
-import { SoundEffectType } from '../../../managers/AudioManager';
-import { playSoundEffectSafe } from '../../../utils/AudioHelpers';
+import type { Scene } from "phaser";
+import { gameEventManager, GameEventType } from "../../../event/EventManager";
+import { gameStateManager } from "../../../managers/GameStateManager";
+import { TurboConfig } from "../../../config/TurboConfig";
+import {
+  ensureSpineFactory,
+  SPINE_FACTORY_RETRY_MS,
+} from "../../../utils/SpineGuard";
+import { Logger } from "../../../utils/Logger";
+import { startAnimation } from "../../../utils/SpineAnimationHelper";
+import { SoundEffectType } from "../../../managers/AudioManager";
+import { playSoundEffectSafe } from "../../../utils/AudioHelpers";
+import type { Symbols } from "../symbols";
 
 const log = Logger.slot;
 
@@ -21,14 +43,14 @@ export interface AutoplayCallbacks {
   onSpinRequested: () => Promise<void>;
   onAutoplayStarted: () => void;
   onAutoplayStopped: () => void;
-  getSymbols: () => any;
+  getSymbols: () => Symbols | null;
 }
 
 export class AutoplayController {
   private scene: Scene;
   private container: Phaser.GameObjects.Container;
   private callbacks: AutoplayCallbacks;
-  
+
   // UI Elements
   private autoplayButton: Phaser.GameObjects.Image | null = null;
   private autoplayButtonAnimation: any = null;
@@ -37,7 +59,7 @@ export class AutoplayController {
   private autoplayButtonTextureOn: string | null = null;
   private autoplayButtonTextureOff: string | null = null;
   private uiContainer: Phaser.GameObjects.Container | null = null;
-  
+
   // State
   private autoplaySpinsRemaining: number = 0;
   private autoplayTimer: Phaser.Time.TimerEvent | null = null;
@@ -45,16 +67,21 @@ export class AutoplayController {
   private hasDecrementedAutoplayForCurrentSpin: boolean = false;
   private isManagingAutoplay: boolean = false;
   private showBaseUi: boolean = true;
+  // Guard: WIN_STOP and WIN_DIALOG_CLOSED can both fire for the same winning spin.
+  // Ensures only one next-spin timer is scheduled per spin cycle (MDC §5).
+  private hasScheduledNextAutoplaySpin: boolean = false;
+  // Unsubscribe handles for all gameEventManager listeners, cleaned up in destroy().
+  private readonly _unsubscribers: Array<() => void> = [];
 
   constructor(
     scene: Scene,
     container: Phaser.GameObjects.Container,
-    callbacks: AutoplayCallbacks
+    callbacks: AutoplayCallbacks,
   ) {
     this.scene = scene;
     this.container = container;
     this.callbacks = callbacks;
-    
+
     this.setupEventListeners();
   }
 
@@ -79,25 +106,26 @@ export class AutoplayController {
     x: number,
     y: number,
     assetScale: number,
-    primaryControllers: Phaser.GameObjects.Container
+    primaryControllers: Phaser.GameObjects.Container,
   ): Phaser.GameObjects.Image {
-    this.autoplayButton = this.scene.add.image(x, y, 'auto')
+    this.autoplayButton = this.scene.add
+      .image(x, y, "auto")
       .setOrigin(0.5, 0.5)
       .setScale(assetScale)
       .setDepth(10)
       .setInteractive();
-    
-    this.autoplayButton.on('pointerdown', () => {
-      log.debug('Autoplay button clicked');
+
+    this.autoplayButton.on("pointerdown", () => {
+      log.debug("Autoplay button clicked");
       playSoundEffectSafe(this.scene, SoundEffectType.MENU_CLICK);
       this.handleAutoplayButtonClick();
     });
-    
+
     primaryControllers.add(this.autoplayButton);
-    
+
     // Create spine animation
     this.createAutoplayButtonAnimation(x, y, assetScale, primaryControllers);
-    
+
     return this.autoplayButton;
   }
 
@@ -137,21 +165,20 @@ export class AutoplayController {
    */
   public createSpinsRemainingText(
     spinButton: Phaser.GameObjects.Image,
-    primaryControllers: Phaser.GameObjects.Container
+    primaryControllers: Phaser.GameObjects.Container,
   ): void {
-    this.autoplaySpinsRemainingText = this.scene.add.text(
-      spinButton.x,
-      spinButton.y,
-      '',
-      {
-        fontSize: '24px',
-        color: '#ffffff',
-        fontFamily: 'poppins-bold',
-        stroke: '#000000',
-        strokeThickness: 4
-      }
-    ).setOrigin(0.5, 0.5).setDepth(14).setVisible(false);
-    
+    this.autoplaySpinsRemainingText = this.scene.add
+      .text(spinButton.x, spinButton.y, "", {
+        fontSize: "24px",
+        color: "#ffffff",
+        fontFamily: "poppins-bold",
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(14)
+      .setVisible(false);
+
     primaryControllers.add(this.autoplaySpinsRemainingText);
   }
 
@@ -161,37 +188,42 @@ export class AutoplayController {
   public createStopIcon(
     spinButton: Phaser.GameObjects.Image,
     primaryControllers: Phaser.GameObjects.Container,
-    assetScale: number
+    assetScale: number,
   ): Phaser.GameObjects.Image {
-    this.autoplayStopIcon = this.scene.add.image(
-      spinButton.x,
-      spinButton.y,
-      'autoplay_stop_icon'
-    ).setOrigin(0.5, 0.5).setScale(assetScale).setDepth(13).setVisible(false);
-    
+    this.autoplayStopIcon = this.scene.add
+      .image(spinButton.x, spinButton.y, "autoplay_stop_icon")
+      .setOrigin(0.5, 0.5)
+      .setScale(assetScale)
+      .setDepth(13)
+      .setVisible(false);
+
     primaryControllers.add(this.autoplayStopIcon);
-    
+
     return this.autoplayStopIcon;
   }
 
   /**
    * Start autoplay with specified number of spins
    */
-  public startAutoplay(spins: number, options?: { showBaseUi?: boolean }): void {
+  public startAutoplay(
+    spins: number,
+    options?: { showBaseUi?: boolean },
+  ): void {
     log.debug(`Starting autoplay with ${spins} spins`);
-    
+
     this.autoplaySpinsRemaining = spins;
     this.isManagingAutoplay = true;
     this.showBaseUi = options?.showBaseUi !== false;
+    this.hasScheduledNextAutoplaySpin = false;
     gameStateManager.isAutoPlaying = true;
     gameStateManager.isAutoPlaySpinRequested = true;
-    
+
     // Apply turbo mode to animations if enabled
     const symbols = this.callbacks.getSymbols();
     if (gameStateManager.isTurbo && symbols?.setTurboMode) {
       symbols.setTurboMode(true);
     }
-    
+
     // Show autoplay UI
     if (this.showBaseUi) {
       this.setButtonTextureState(true);
@@ -203,10 +235,10 @@ export class AutoplayController {
       this.hideSpinsRemainingText();
       this.hideStopIcon();
     }
-    
+
     // Notify
     this.callbacks.onAutoplayStarted();
-    
+
     // Start first spin
     this.performAutoplaySpin();
   }
@@ -215,42 +247,43 @@ export class AutoplayController {
    * Stop autoplay
    */
   public stopAutoplay(emitAutoStop: boolean = true): void {
-    log.debug('Stopping autoplay');
-    
+    log.debug("Stopping autoplay");
+
     // Clear timer
     if (this.autoplayTimer) {
       this.autoplayTimer.destroy();
       this.autoplayTimer = null;
     }
-    
+
     // Reset state
     this.autoplaySpinsRemaining = 0;
     this.isFreeRoundAutoplay = false;
     this.hasDecrementedAutoplayForCurrentSpin = false;
+    this.hasScheduledNextAutoplaySpin = false;
     this.isManagingAutoplay = false;
     this.showBaseUi = true;
-    
+
     // Update global state
     gameStateManager.isAutoPlaying = false;
     gameStateManager.isAutoPlaySpinRequested = false;
-    
+
     // Hide autoplay UI
     this.setButtonTextureState(false);
     this.hideSpinsRemainingText();
     this.hideStopIcon();
     this.stopAutoplayAnimation();
-    
+
     // Restore win animation timing
     const symbols = this.callbacks.getSymbols();
     if (symbols?.setTurboMode) {
       symbols.setTurboMode(false);
     }
-    
+
     // Emit event when requested (autoplay finished naturally)
     if (emitAutoStop) {
       gameEventManager.emit(GameEventType.AUTO_STOP);
     }
-    
+
     // Notify
     this.callbacks.onAutoplayStopped();
   }
@@ -259,20 +292,24 @@ export class AutoplayController {
    * Decrement autoplay counter (called on REELS_START)
    */
   public decrementSpinsIfNeeded(): void {
-    if (!this.isManagingAutoplay || !gameStateManager.isAutoPlaying || this.hasDecrementedAutoplayForCurrentSpin) {
+    if (
+      !this.isManagingAutoplay ||
+      !gameStateManager.isAutoPlaying ||
+      this.hasDecrementedAutoplayForCurrentSpin
+    ) {
       return;
     }
-    
+
     this.hasDecrementedAutoplayForCurrentSpin = true;
     this.autoplaySpinsRemaining = Math.max(0, this.autoplaySpinsRemaining - 1);
-    
+
     this.updateSpinsRemainingText(this.autoplaySpinsRemaining);
     this.bounceSpinsRemainingText();
-    
+
     log.debug(`Autoplay spins remaining: ${this.autoplaySpinsRemaining}`);
-    
+
     if (this.autoplaySpinsRemaining <= 0) {
-      log.debug('Autoplay spins exhausted');
+      log.debug("Autoplay spins exhausted");
     }
   }
 
@@ -283,20 +320,29 @@ export class AutoplayController {
     if (!this.isManagingAutoplay || !gameStateManager.isAutoPlaying) {
       return;
     }
+    // Guard: WIN_STOP and WIN_DIALOG_CLOSED can both fire for the same winning spin.
+    // Only schedule one next-spin timer per spin cycle (MDC §5).
+    if (this.hasScheduledNextAutoplaySpin) {
+      log.debug(
+        "[AutoplayController] continueAutoplayIfNeeded: next spin already scheduled, skipping duplicate",
+      );
+      return;
+    }
     if (this.autoplaySpinsRemaining <= 0) {
       this.stopAutoplay(true);
       return;
     }
-    
+
     // Reset decrement flag for next spin
     this.hasDecrementedAutoplayForCurrentSpin = false;
-    
+    this.hasScheduledNextAutoplaySpin = true;
+
     // Calculate delay
     const baseDelay = 500;
-    const delay = gameStateManager.isTurbo 
-      ? baseDelay * TurboConfig.TURBO_DELAY_MULTIPLIER 
+    const delay = gameStateManager.isTurbo
+      ? baseDelay * TurboConfig.TURBO_DELAY_MULTIPLIER
       : baseDelay;
-    
+
     // Schedule next spin
     this.autoplayTimer = this.scene.time.delayedCall(delay, () => {
       this.performAutoplaySpin();
@@ -345,50 +391,64 @@ export class AutoplayController {
 
   private setupEventListeners(): void {
     // REELS_START - decrement counter
-    gameEventManager.on(GameEventType.REELS_START, () => {
-      if (this.isManagingAutoplay) {
-        this.decrementSpinsIfNeeded();
-      }
-    });
-    
+    this._unsubscribers.push(
+      gameEventManager.on(GameEventType.REELS_START, () => {
+        if (this.isManagingAutoplay) {
+          this.decrementSpinsIfNeeded();
+        }
+      }),
+    );
+
     // WIN_STOP - continue autoplay
-    gameEventManager.on(GameEventType.WIN_STOP, () => {
-      // If a scatter has triggered, let the scatter / bonus flow take over.
-      // Normal base-game autoplay should not advance to the next spin while
-      // the scatter animations and FreeSpin dialog are running.
-      if (gameStateManager.isScatter) {
-        log.debug('[AutoplayController] WIN_STOP: scatter active - skipping autoplay continue');
-        return;
-      }
+    this._unsubscribers.push(
+      gameEventManager.on(GameEventType.WIN_STOP, () => {
+        // If a scatter has triggered, let the scatter / bonus flow take over.
+        // Normal base-game autoplay should not advance to the next spin while
+        // the scatter animations and FreeSpin dialog are running.
+        if (gameStateManager.isScatter) {
+          log.debug(
+            "[AutoplayController] WIN_STOP: scatter active - skipping autoplay continue",
+          );
+          return;
+        }
 
-      if (this.isManagingAutoplay && gameStateManager.isAutoPlaying && !gameStateManager.isShowingWinDialog) {
-        this.continueAutoplayIfNeeded();
-      }
-    });
-    
+        if (
+          this.isManagingAutoplay &&
+          gameStateManager.isAutoPlaying &&
+          !gameStateManager.isShowingWinDialog
+        ) {
+          this.continueAutoplayIfNeeded();
+        }
+      }),
+    );
+
     // WIN_DIALOG_CLOSED - continue autoplay after dialog
-    gameEventManager.on(GameEventType.WIN_DIALOG_CLOSED, () => {
-      // When a scatter has been detected, dialog closure typically leads into
-      // scatter / bonus handling (including delayed scatter flows). In that case,
-      // do not resume base-game autoplay here; FreeSpinController will manage
-      // its own autoplay sequence once the scatter flow completes.
-      if (gameStateManager.isScatter) {
-        log.debug('[AutoplayController] WIN_DIALOG_CLOSED: scatter active - skipping autoplay continue');
-        return;
-      }
+    this._unsubscribers.push(
+      gameEventManager.on(GameEventType.WIN_DIALOG_CLOSED, () => {
+        // When a scatter has been detected, dialog closure typically leads into
+        // scatter / bonus handling (including delayed scatter flows). In that case,
+        // do not resume base-game autoplay here; FreeSpinController will manage
+        // its own autoplay sequence once the scatter flow completes.
+        if (gameStateManager.isScatter) {
+          log.debug(
+            "[AutoplayController] WIN_DIALOG_CLOSED: scatter active - skipping autoplay continue",
+          );
+          return;
+        }
 
-      if (this.isManagingAutoplay && gameStateManager.isAutoPlaying) {
-        this.continueAutoplayIfNeeded();
-      }
-    });
+        if (this.isManagingAutoplay && gameStateManager.isAutoPlaying) {
+          this.continueAutoplayIfNeeded();
+        }
+      }),
+    );
   }
 
   private handleAutoplayButtonClick(): void {
     if (gameStateManager.isReelSpinning) {
-      log.debug('Cannot toggle autoplay while spinning');
+      log.debug("Cannot toggle autoplay while spinning");
       return;
     }
-    
+
     if (gameStateManager.isAutoPlaying) {
       this.stopAutoplay();
     } else {
@@ -398,20 +458,21 @@ export class AutoplayController {
   }
 
   private async performAutoplaySpin(): Promise<void> {
+    this.hasScheduledNextAutoplaySpin = false;
     if (this.autoplaySpinsRemaining <= 0) {
       this.stopAutoplay();
       return;
     }
-    
+
     if (gameStateManager.isShowingWinDialog) {
-      log.debug('Autoplay paused - win dialog showing');
+      log.debug("Autoplay paused - win dialog showing");
       return;
     }
-    
+
     try {
       await this.callbacks.onSpinRequested();
     } catch (error) {
-      log.warn('Autoplay spin failed:', error);
+      log.warn("Autoplay spin failed:", error);
       this.stopAutoplay();
     }
   }
@@ -420,71 +481,73 @@ export class AutoplayController {
     x: number,
     y: number,
     assetScale: number,
-    container: Phaser.GameObjects.Container
+    container: Phaser.GameObjects.Container,
   ): void {
     try {
-      if (!ensureSpineFactory(this.scene, '[AutoplayController]')) {
+      if (!ensureSpineFactory(this.scene, "[AutoplayController]")) {
         this.scene.time.delayedCall(SPINE_FACTORY_RETRY_MS, () => {
           this.createAutoplayButtonAnimation(x, y, assetScale, container);
         });
         return;
       }
 
-      if (!this.scene.cache.json.has('button_animation_idle')) {
-        log.warn('Autoplay animation spine assets not loaded');
+      if (!this.scene.cache.json.has("button_animation_idle")) {
+        log.warn("Autoplay animation spine assets not loaded");
         return;
       }
 
       this.autoplayButtonAnimation = this.scene.add.spine(
         x - 4,
         y - 26,
-        'button_animation_idle',
-        'button_animation_idle-atlas'
+        "button_animation_idle",
+        "button_animation_idle-atlas",
       );
-      
+
       this.autoplayButtonAnimation.setOrigin(0.5, 0.5);
       this.autoplayButtonAnimation.setScale(assetScale * 0.16);
       this.autoplayButtonAnimation.setDepth(11);
       this.autoplayButtonAnimation.animationState.timeScale = 1;
       this.autoplayButtonAnimation.setVisible(false);
-      
+
       container.add(this.autoplayButtonAnimation);
-      
-      log.debug('Autoplay button animation created');
+
+      log.debug("Autoplay button animation created");
     } catch (error) {
-      log.warn('Failed to create autoplay animation:', error);
+      log.warn("Failed to create autoplay animation:", error);
     }
   }
 
   private startAutoplayAnimation(): void {
     if (!this.autoplayButtonAnimation) return;
-    
+
     try {
       this.autoplayButtonAnimation.setVisible(true);
       startAnimation(this.autoplayButtonAnimation, {
-        animationName: 'animation',
+        animationName: "animation",
         loop: true,
-        logWhenMissing: false
+        logWhenMissing: false,
       });
     } catch (error) {
-      log.warn('Failed to start autoplay animation:', error);
+      log.warn("Failed to start autoplay animation:", error);
     }
   }
 
   private stopAutoplayAnimation(): void {
     if (!this.autoplayButtonAnimation) return;
-    
+
     try {
       this.autoplayButtonAnimation.setVisible(false);
       this.autoplayButtonAnimation.animationState.clearTracks();
     } catch (error) {
-      log.warn('Failed to stop autoplay animation:', error);
+      log.warn("Failed to stop autoplay animation:", error);
     }
   }
 
   private setButtonTextureState(isOn: boolean): void {
     if (!this.autoplayButton) return;
-    const key = isOn ? this.autoplayButtonTextureOn : this.autoplayButtonTextureOff;
+    const key = isOn
+      ? this.autoplayButtonTextureOn
+      : this.autoplayButtonTextureOff;
     if (key) {
       this.autoplayButton.setTexture(key);
     }
@@ -493,7 +556,10 @@ export class AutoplayController {
   private showSpinsRemainingText(): void {
     if (this.autoplaySpinsRemainingText) {
       this.autoplaySpinsRemainingText.setVisible(true);
-      const parent = (this.autoplaySpinsRemainingText as any).parentContainer || this.uiContainer || this.container;
+      const parent =
+        (this.autoplaySpinsRemainingText as any).parentContainer ||
+        this.uiContainer ||
+        this.container;
       if (parent && parent.bringToTop) {
         parent.bringToTop(this.autoplaySpinsRemainingText);
       }
@@ -514,28 +580,31 @@ export class AutoplayController {
 
   private bounceSpinsRemainingText(): void {
     if (!this.autoplaySpinsRemainingText) return;
-    
+
     try {
       this.scene.tweens.add({
         targets: this.autoplaySpinsRemainingText,
         scaleX: 1.45,
         scaleY: 1.45,
         duration: 100,
-        ease: 'Power2',
+        ease: "Power2",
         yoyo: true,
         onComplete: () => {
           this.autoplaySpinsRemainingText?.setScale(1, 1);
-        }
+        },
       });
     } catch (error) {
-      log.warn('Failed to bounce spins text:', error);
+      log.warn("Failed to bounce spins text:", error);
     }
   }
 
   private showStopIcon(): void {
     if (this.autoplayStopIcon) {
       this.autoplayStopIcon.setVisible(true);
-      const parent = (this.autoplayStopIcon as any).parentContainer || this.uiContainer || this.container;
+      const parent =
+        (this.autoplayStopIcon as any).parentContainer ||
+        this.uiContainer ||
+        this.container;
       if (parent && parent.bringToTop) {
         parent.bringToTop(this.autoplayStopIcon);
       }
@@ -546,5 +615,26 @@ export class AutoplayController {
     if (this.autoplayStopIcon) {
       this.autoplayStopIcon.setVisible(false);
     }
+  }
+
+  /**
+   * Clean up all event listeners and timers owned by this controller.
+   *
+   * MUST be called when the Phaser scene shuts down or is destroyed to prevent
+   * stale listeners from firing in a new scene instance.
+   * Called by: SlotController.cleanupControllerLifecycleResources()
+   *   which is wired to the scene 'shutdown' and 'destroy' events in SlotController.create().
+   */
+  public destroy(): void {
+    // Kill pending next-spin timer
+    if (this.autoplayTimer) {
+      try { this.autoplayTimer.destroy(); } catch {}
+      this.autoplayTimer = null;
+    }
+    // Unsubscribe all gameEventManager listeners
+    for (const unsub of this._unsubscribers) {
+      try { unsub(); } catch {}
+    }
+    this._unsubscribers.length = 0;
   }
 }

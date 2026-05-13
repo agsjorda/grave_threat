@@ -8,7 +8,7 @@ import { startAnimation } from "../../utils/SpineAnimationHelper";
 import { formatCurrencyNumber } from "../../utils/NumberPrecisionFormatter";
 import { SoundEffectType } from "../../managers/AudioManager";
 import { playSoundEffectSafe } from "../../utils/AudioHelpers";
-import { DEFAULT_BASE_BET, DEFAULT_BET_LEVEL_INDEX } from "./controller";
+import { DEFAULT_BASE_BET, DEFAULT_BET_LEVEL_INDEX, cloneBetLevels, getClosestNumberIndex } from "./controller";
 
 export interface AutoplayOptionsConfig {
 	position?: { x: number; y: number };
@@ -53,14 +53,7 @@ export class AutoplayOptions {
 	private autoplayOptions: number[] = [
 		10, 30, 50, 75, 100, 150, 500, 1000
 	];
-	private betOptions: number[] = [
-		0.2, 0.4, 0.6, 0.8, 1,
-		1.2, 1.6, 2, 2.4, 2.8,
-		3.2, 3.6, 4, 5, 6,
-		8, 10, 14, 18, 24,
-		32, 40, 60, 80, 100,
-		110, 120, 130, 140, 150
-	];
+	private betOptions: number[] = cloneBetLevels();
 	private autoplayButtons: Phaser.GameObjects.Container[] = [];
 	private selectedButtonIndex: number = -1;
 	private selectedBetIndex: number = -1;
@@ -111,7 +104,7 @@ export class AutoplayOptions {
 	private applyBetLevelsFromGameData(scene: Scene): void {
 		const levels = (scene as any).gameData?.betLevels;
 		if (Array.isArray(levels) && levels.length > 0) {
-			this.betOptions = levels;
+			this.betOptions = cloneBetLevels(levels);
 			const defaultBet = !Number.isFinite(this.currentBet) || Math.abs(this.currentBet - DEFAULT_BASE_BET) < 0.0001;
 			const idx = DEFAULT_BET_LEVEL_INDEX;
 			const fallbackIdx = Math.max(0, Math.min(levels.length - 1, idx));
@@ -685,40 +678,12 @@ export class AutoplayOptions {
 		this.updateBalanceDisplay();
 		
 		// Find and select the button that matches the current autoplay count
-		const matchingIndex = this.autoplayOptions.findIndex(option => option === this.currentAutoplayCount);
-		if (matchingIndex !== -1) {
-			this.selectButton(matchingIndex, this.autoplayOptions[matchingIndex]);
-		} else {
-			// If no exact match, select the closest option
-			let closestIndex = 0;
-			let closestDifference = Math.abs(this.autoplayOptions[0] - this.currentAutoplayCount);
-			
-			for (let i = 1; i < this.autoplayOptions.length; i++) {
-				const difference = Math.abs(this.autoplayOptions[i] - this.currentAutoplayCount);
-				if (difference < closestDifference) {
-					closestDifference = difference;
-					closestIndex = i;
-				}
-			}
-			this.selectButton(closestIndex, this.autoplayOptions[closestIndex]);
-		}
+		const autoplayIndex = getClosestNumberIndex(this.autoplayOptions, this.currentAutoplayCount);
+		this.selectButton(autoplayIndex, this.autoplayOptions[autoplayIndex]);
 		
 		// Initialize bet selector to match current bet (closest option)
-		const betMatchingIndex = this.betOptions.findIndex(option => Math.abs(option - this.currentBet) < 0.01);
-		if (betMatchingIndex !== -1) {
-			this.selectBet(betMatchingIndex, this.betOptions[betMatchingIndex]);
-		} else {
-			let closestBetIndex = 0;
-			let closestBetDifference = Math.abs(this.betOptions[0] - this.currentBet);
-			for (let i = 1; i < this.betOptions.length; i++) {
-				const difference = Math.abs(this.betOptions[i] - this.currentBet);
-				if (difference < closestBetDifference) {
-					closestBetDifference = difference;
-					closestBetIndex = i;
-				}
-			}
-			this.selectBet(closestBetIndex, this.betOptions[closestBetIndex]);
-		}
+		const betIndex = getClosestNumberIndex(this.betOptions, this.currentBet);
+		this.selectBet(betIndex, this.betOptions[betIndex]);
 
 		this.updateAutoplayDisplay();
 		this.updateStartAutoplayButtonState();

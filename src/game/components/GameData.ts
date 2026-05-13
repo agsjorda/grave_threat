@@ -2,6 +2,7 @@
 
 import { DROP_REEL_START_INTERVAL_RATIO, TIMING_CONFIG, ANIMATION_CONFIG } from '../../config/GameConfig';
 import { Logger } from '../../utils/Logger';
+import { BET_LEVELS, cloneBetLevels } from './controller';
 
 /**
  * GameData - Holds runtime game state and timing configuration
@@ -23,14 +24,7 @@ export class GameData {
 	 * Bet ladder; single source of truth for SlotController, BetOptions,
 	 * AutoplayOptions, BuyFeature. Overwritten from initialization data in Game.create() when available.
 	 */
-	public betLevels: number[] = [
-		0.2, 0.4, 0.6, 0.8, 1,
-		1.2, 1.6, 2, 2.4, 2.8,
-		3.2, 3.6, 4, 5, 6,
-		8, 10, 14, 18, 24,
-		32, 40, 60, 80, 100,
-		110, 120, 130, 140, 150,
-	];
+	public betLevels: number[] = cloneBetLevels(BET_LEVELS);
 	
 	// Animation timing properties
 	public winUpHeight: number = GameData.WIN_UP_HEIGHT;

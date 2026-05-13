@@ -6,11 +6,10 @@
  */
 
 import type { Scene } from 'phaser';
-import { gameEventManager, GameEventType } from '../../../event/EventManager';
 import { gameStateManager } from '../../../managers/GameStateManager';
 import { ensureSpineFactory, SPINE_FACTORY_RETRY_MS } from '../../../utils/SpineGuard';
 import { Logger } from '../../../utils/Logger';
-import { startAnimation } from '../../../utils/SpineAnimationHelper';
+import { startAnimation, startAnimationWithEntry } from '../../../utils/SpineAnimationHelper';
 
 const log = Logger.slot;
 
@@ -19,6 +18,12 @@ export interface SpinButtonCallbacks {
   onSpinBlocked: (reason: string) => void;
   isAutoplayActive: () => boolean;
   stopAutoplay: () => void;
+  onSpinClickStarted?: () => void;
+  isInFreeRoundSpins?: () => boolean;
+  canAffordCurrentSpin?: () => boolean;
+  isSpinLocked?: () => boolean;
+  isPendingWinLock?: () => boolean;
+  isTumbleSequenceInProgress?: () => boolean;
 }
 
 export class SpinButtonController {
@@ -30,6 +35,7 @@ export class SpinButtonController {
   private spinButton: Phaser.GameObjects.Image | null = null;
   private spinIcon: Phaser.GameObjects.Image | null = null;
   private spinIconTween: Phaser.Tweens.Tween | null = null;
+  private autoplayStopIcon: Phaser.GameObjects.Image | null = null;
   
   // Spine animations
   private spinButtonAnimation: any = null;
@@ -58,7 +64,9 @@ export class SpinButtonController {
     x: number,
     y: number,
     assetScale: number,
-    primaryControllers: Phaser.GameObjects.Container
+    stopIconScale: number,
+    primaryControllers: Phaser.GameObjects.Container,
+    animationBaseScale: number = assetScale
   ): Phaser.GameObjects.Image {
     // Spin button (main button)
     this.spinButton = this.scene.add.image(x, y, 'spin')
@@ -80,6 +88,14 @@ export class SpinButtonController {
       .setDepth(12);
     
     primaryControllers.add(this.spinIcon);
+
+    // Autoplay-stop icon (hidden by default; shown by AutoplayController)
+    this.autoplayStopIcon = this.scene.add.image(x, y, 'autoplay_stop_icon')
+      .setOrigin(0.5, 0.5)
+      .setScale(stopIconScale)
+      .setDepth(13)
+      .setVisible(false);
+    primaryControllers.add(this.autoplayStopIcon);
     
     // Start continuous rotation
     this.spinIconTween = this.scene.tweens.add({
@@ -90,8 +106,8 @@ export class SpinButtonController {
       ease: 'Linear'
     });
     
-    // Create spine animations
-    this.createSpinButtonAnimation(assetScale, primaryControllers);
+    // Create spine animations using base asset scale (avoid portrait double-scaling)
+    this.createSpinButtonAnimation(animationBaseScale, primaryControllers);
     
     return this.spinButton;
   }
@@ -124,6 +140,11 @@ export class SpinButtonController {
     if (this.spinButton) {
       this.spinButton.disableInteractive();
       this.spinButton.setTint(0x666666); // Gray out the button
+      // Match grave_threat: keep spin button clickable while reels are spinning
+      // so the player can request skip on additional taps.
+      if (gameStateManager.isReelSpinning) {
+        this.spinButton.setInteractive();
+      }
     }
     if (this.spinIcon) {
       this.spinIcon.setAlpha(0.5);
@@ -157,6 +178,13 @@ export class SpinButtonController {
   }
 
   /**
+   * Get the autoplay stop icon overlay
+   */
+  public getAutoplayStopIcon(): Phaser.GameObjects.Image | null {
+    return this.autoplayStopIcon;
+  }
+
+  /**
    * Play spin button animation
    */
   public playSpinAnimation(): void {
@@ -170,51 +198,76 @@ export class SpinButtonController {
       }
     }
     
-    // Play main animation
-    if (this.spinButtonAnimation) {
-      try {
-        const animationName = 'animation';
-        this.spinButtonAnimation.setVisible(true);
-        startAnimation(this.spinButtonAnimation, {
-          animationName,
-          loop: false,
-          fallbackToFirstAvailable: true,
-          logWhenMissing: false
-        });
-        
-        this.spinButtonAnimation.animationState.addListener({
-          complete: (entry: any) => {
-            if (entry.animation.name === animationName) {
-              this.spinButtonAnimation.setVisible(false);
-              // Ensure icon alpha is correct based on disabled state
-              if (this.spinIcon) {
-                if (this.isDisabled) {
-                  this.spinIcon.setAlpha(this.DISABLED_ALPHA);
-                } else {
-                  this.spinIcon.setAlpha(1.0);
-                }
-              }
-            }
-          }
-        });
-        
-        log.debug('Spin button animation played');
-      } catch (error) {
-        log.warn('Failed to play spin button animation:', error);
+    const isInFreeRoundSpins = this.callbacks.isInFreeRoundSpins?.() === true;
+    const targetAnimation = isInFreeRoundSpins && this.freeRoundSpinButtonAnimation
+      ? this.freeRoundSpinButtonAnimation
+      : this.spinButtonAnimation;
+
+    if (!targetAnimation) return;
+
+    try {
+      // Keep only one spin effect visible at a time
+      if (targetAnimation === this.freeRoundSpinButtonAnimation && this.spinButtonAnimation) {
         this.spinButtonAnimation.setVisible(false);
-        // Ensure icon alpha is correct based on disabled state
-        if (this.spinIcon) {
-          if (this.isDisabled) {
-            this.spinIcon.setAlpha(this.DISABLED_ALPHA);
-          } else {
-            this.spinIcon.setAlpha(1.0);
+      }
+      if (targetAnimation === this.spinButtonAnimation && this.freeRoundSpinButtonAnimation) {
+        this.freeRoundSpinButtonAnimation.setVisible(false);
+      }
+
+      const animationName = targetAnimation === this.freeRoundSpinButtonAnimation
+        ? 'Button_Bonus_Bottom'
+        : 'animation';
+
+      targetAnimation.setVisible(true);
+      const startResult = startAnimationWithEntry(targetAnimation, {
+        animationName,
+        loop: false,
+        timeScale: 1,
+        fallbackToFirstAvailable: true,
+        logWhenMissing: false
+      });
+
+      const playedAnimationName = startResult?.animationName ?? animationName;
+      const trackEntry: any = startResult?.entry;
+
+      if (!startResult) {
+        targetAnimation.setVisible(false);
+        return;
+      }
+
+      // Match grave_threat free-round clamp behavior
+      if (targetAnimation === this.freeRoundSpinButtonAnimation && trackEntry) {
+        try {
+          const anySpine: any = targetAnimation;
+          const animData = anySpine?.skeleton?.data?.findAnimation?.(playedAnimationName);
+          const duration: number | undefined = animData?.duration;
+          if (typeof duration === 'number' && duration > 0.01) {
+            trackEntry.animationEnd = Math.max(0, duration - 0.01);
           }
+        } catch (e) {
+          log.warn('Failed to clamp free-round spin animationEnd:', e);
         }
       }
+
+      targetAnimation.animationState.addListener({
+        complete: (entry: any) => {
+          if (entry.animation.name === playedAnimationName) {
+            targetAnimation.setVisible(false);
+            if (this.spinIcon) {
+              this.spinIcon.setAlpha(this.isDisabled ? this.DISABLED_ALPHA : 1.0);
+            }
+          }
+        }
+      });
+
+      log.debug('Spin button animation played');
+    } catch (error) {
+      log.warn('Failed to play spin button animation:', error);
+      targetAnimation.setVisible(false);
+      if (this.spinIcon) {
+        this.spinIcon.setAlpha(this.isDisabled ? this.DISABLED_ALPHA : 1.0);
+      }
     }
-    
-    // Rotate icon briefly
-    this.rotateSpinButton();
   }
 
   /**
@@ -268,10 +321,14 @@ export class SpinButtonController {
 
   private async handleSpinButtonClick(): Promise<void> {
     log.debug('Spin button clicked');
+
+    // Match grave_threat click flow: during reel spinning, clicking spin requests skip.
+    if (gameStateManager.isReelSpinning) {
+      this.callbacks.onSpinBlocked('Already spinning');
+      return;
+    }
+
     if (this.isDisabled) {
-      if (gameStateManager.isReelSpinning) {
-        this.callbacks.onSpinBlocked('Already spinning');
-      }
       log.debug('Spin button click ignored - disabled');
       return;
     }
@@ -289,12 +346,25 @@ export class SpinButtonController {
       return;
     }
     
-    // Check if already spinning
-    if (gameStateManager.isReelSpinning) {
-      this.callbacks.onSpinBlocked('Already spinning');
+    // Respect external locks from SlotController when available
+    if (
+      this.callbacks.isSpinLocked?.() ||
+      this.callbacks.isPendingWinLock?.() ||
+      this.callbacks.isTumbleSequenceInProgress?.() ||
+      gameStateManager.isShowingWinDialog
+    ) {
+      log.debug('Spin button click ignored - locked');
+      return;
+    }
+
+    if (this.callbacks.canAffordCurrentSpin && !this.callbacks.canAffordCurrentSpin()) {
+      log.debug('Spin button click ignored - cannot afford');
       return;
     }
     
+    // Lock all controls for this spin action when parent provides a lock callback
+    this.callbacks.onSpinClickStarted?.();
+
     // Disable button and play animation
     this.disable();
     this.playSpinAnimation();

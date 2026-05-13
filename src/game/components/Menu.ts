@@ -662,7 +662,7 @@ export class Menu {
     const isDemo = scene.gameAPI?.getDemoState();
     const silent = !!options?.silent;
 
-    // Ensure containers exist and are parented correctly (mirrors beelze_bop behavior)
+    // Ensure containers exist and are parented correctly.
     if (!this.historyHeaderContainer || !this.historyHeaderContainer.scene) {
       this.historyHeaderContainer = scene.add.container(0, 0);
       const historyText = scene.add.text(

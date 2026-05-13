@@ -11,7 +11,7 @@ import type { Game } from '../../scenes/Game';
 import type { SpineAnimationListener, SymbolObject } from './types';
 import { SymbolAnimations } from './SymbolAnimations';
 import type { SymbolOverlay } from './SymbolOverlay';
-import { gameStateManager } from '../../../managers/GameStateManager';
+import { normalizeSymbolValueForGrid } from '../../../utils/GridTransform';
 
 /** Resolve symbol animation name (grave_threat: GT naming only). */
 export function resolveSymbolAnimationName(skeletonData: any, value: number, type: 'drop' | 'idle' | 'win'): string | null {
@@ -93,6 +93,7 @@ export class SymbolFactory {
   private resetCommonSymbolState(obj: any, value: number, x: number, y: number, alpha: number): void {
     try { obj.symbolValue = value; } catch { /* ignore */ }
     try { obj.__pooled = false; } catch { /* ignore */ }
+    try { obj.__oldDropToken = undefined; } catch { /* ignore */ }
     try { obj.active = true; } catch { /* ignore */ }
     try { obj.setVisible?.(true); } catch { /* ignore */ }
     try { obj.setAlpha?.(alpha); } catch { /* ignore */ }
@@ -113,11 +114,15 @@ export class SymbolFactory {
     }
   }
 
-  private prepareSpineSymbol(spineObj: any, value: number, x: number, y: number, alpha: number): SymbolObject {
+  private prepareSpineSymbol(spineObj: any, value: number, x: number, y: number, alpha: number, playDropAnimation: boolean): SymbolObject {
     this.resetCommonSymbolState(spineObj, value, x, y, alpha);
     try { spineObj.setOrigin?.(0.5, 0.5); } catch { /* ignore */ }
     this.animations.fitSpineToSymbolBox(spineObj);
-    this.playDropThenIdle(spineObj, value);
+    if (playDropAnimation) {
+      this.playDropThenIdle(spineObj, value);
+    } else {
+      this.playIdle(spineObj, value);
+    }
     return spineObj as SymbolObject;
   }
 
@@ -135,7 +140,7 @@ export class SymbolFactory {
       for (let i = 0; i < SymbolFactory.PREWARM_INSTANCES_PER_VALUE; i++) {
         try {
           const created =
-            this.instantiateSpineSymbol(value, SymbolFactory.POOLED_HIDE_POSITION, SymbolFactory.POOLED_HIDE_POSITION, 1)
+            this.instantiateSpineSymbol(value, SymbolFactory.POOLED_HIDE_POSITION, SymbolFactory.POOLED_HIDE_POSITION, 1, false)
             ?? this.instantiatePngSymbol(value, SymbolFactory.POOLED_HIDE_POSITION, SymbolFactory.POOLED_HIDE_POSITION, 1);
           this.releaseSymbol(created);
         } catch (error) {
@@ -185,6 +190,7 @@ export class SymbolFactory {
     try { obj.__winText = null; } catch { /* ignore */ }
     try { obj.__winBorder = null; } catch { /* ignore */ }
     try { obj.__bounceTween = null; } catch { /* ignore */ }
+    try { obj.__oldDropToken = undefined; } catch { /* ignore */ }
     try { obj.__gridCol = undefined; obj.__gridRow = undefined; } catch { /* ignore */ }
     this.detachSymbol(obj);
     try {
@@ -209,34 +215,31 @@ export class SymbolFactory {
     value: number,
     x: number,
     y: number,
-    alpha: number = 1
+    alpha: number = 1,
+    playDropAnimation: boolean = true
   ): SymbolObject {
+    const symbolValue = normalizeSymbolValueForGrid(value);
     let created: SymbolObject | null = null;
 
     // Try Spine for symbols 0-7
-    if (value >= 0 && value <= 7) {
+    if (symbolValue >= 0 && symbolValue <= 7) {
       try {
-        const spineSymbol = this.createSpineSymbol(value, x, y, alpha);
+        const spineSymbol = this.createSpineSymbol(symbolValue, x, y, alpha, playDropAnimation);
         if (spineSymbol) {
           created = spineSymbol;
         }
       } catch (error) {
-        console.warn(`[SymbolFactory] Failed to create Spine symbol ${value}, falling back to PNG:`, error);
-        created = this.createPngSymbol(value, x, y, alpha);
+        console.warn(`[SymbolFactory] Failed to create Spine symbol ${symbolValue}, falling back to PNG:`, error);
+        created = this.createPngSymbol(symbolValue, x, y, alpha);
       }
       if (!created) {
-        created = this.createPngSymbol(value, x, y, alpha);
+        created = this.createPngSymbol(symbolValue, x, y, alpha);
       }
-    }
-
-    // Symbols 8+ (previously multiplier) are not used; replace with scatter (0) if backend sends them
-    if (!created && value >= 8) {
-      return this.createSugarOrPngSymbol(0, x, y, alpha);
     }
 
     // Fallback to PNG sprite for any other values
     if (!created) {
-      created = this.createPngSymbol(value, x, y, alpha);
+      created = this.createPngSymbol(symbolValue, x, y, alpha);
     }
 
     return created;
@@ -249,21 +252,23 @@ export class SymbolFactory {
     value: number,
     x: number,
     y: number,
-    alpha: number
+    alpha: number,
+    playDropAnimation: boolean
   ): SymbolObject | null {
     const pooled = this.acquireFromPool('spine', value);
     if (pooled) {
-      return this.prepareSpineSymbol(pooled as any, value, x, y, alpha);
+      return this.prepareSpineSymbol(pooled as any, value, x, y, alpha, playDropAnimation);
     }
 
-    return this.instantiateSpineSymbol(value, x, y, alpha);
+    return this.instantiateSpineSymbol(value, x, y, alpha, playDropAnimation);
   }
 
   private instantiateSpineSymbol(
     value: number,
     x: number,
     y: number,
-    alpha: number
+    alpha: number,
+    playDropAnimation: boolean = true
   ): SymbolObject | null {
 
     const spineKey = `symbol_${value}_spine`;
@@ -294,8 +299,11 @@ export class SymbolFactory {
       spineObj.setAlpha(alpha);
     }
     
-    // Play drop animation, then transition to idle
-    this.playDropThenIdle(spineObj, value);
+    if (playDropAnimation) {
+      this.playDropThenIdle(spineObj, value);
+    } else {
+      this.playIdle(spineObj, value);
+    }
     
     // Add to container
     this.container.add(spineObj);
@@ -309,8 +317,8 @@ export class SymbolFactory {
   private playDropThenIdle(spineObj: any, value: number): void {
     try {
       const skelData = spineObj?.skeleton?.data;
-      const dropName = resolveSymbolAnimationName(skelData, value, 'drop') ?? `Symbol${value}_GT_drop`;
-      const idleName = resolveSymbolAnimationName(skelData, value, 'idle') ?? `Symbol${value}_GT_idle`;
+      const dropName = resolveSymbolAnimationName(skelData, value, 'drop');
+      const idleName = resolveSymbolAnimationName(skelData, value, 'idle');
 
       const animState = spineObj.animationState;
       if (!animState || typeof animState.setAnimation !== 'function') {
@@ -318,10 +326,12 @@ export class SymbolFactory {
         return;
       }
 
-      const hasDrop = !!skelData?.findAnimation?.(dropName);
-      
-      
-      if (hasDrop) {
+      if (!idleName) {
+        console.warn(`[SymbolFactory] No idle animation for symbol ${value}`);
+        return;
+      }
+
+      if (dropName) {
         animState.setAnimation(0, dropName, false);
         
         // Add listener to transition to idle
@@ -387,6 +397,19 @@ export class SymbolFactory {
     }
   }
 
+  private playIdle(spineObj: any, value: number): void {
+    try {
+      const animState = spineObj?.animationState;
+      if (!animState || typeof animState.setAnimation !== 'function') return;
+      const idleName = resolveSymbolAnimationName(spineObj?.skeleton?.data, value, 'idle');
+      if (!idleName) return;
+      const idleEntry = animState.setAnimation(0, idleName, true);
+      if (idleEntry && typeof idleEntry.timeScale === 'number') {
+        idleEntry.timeScale = 0.95 + Math.random() * 0.1;
+      }
+    } catch { /* ignore */ }
+  }
+
   /**
    * Create a placeholder symbol (colored rectangle with value text)
    */
@@ -449,11 +472,19 @@ export class SymbolFactory {
     alpha: number = 1
   ): SymbolObject {
 
-    const spriteKey = `symbol_${value}`;
+    const symbolValue = normalizeSymbolValueForGrid(value);
+    const spriteKey = `symbol_${symbolValue}`;
     
     // Check if texture exists
     if (!this.scene.textures.exists(spriteKey)) {
-      throw new Error(`[SymbolFactory] Texture '${spriteKey}' not found`);
+      const fallbackKey = 'symbol_0';
+      if (symbolValue !== 0 && this.scene.textures.exists(fallbackKey)) {
+        const fallback = this.instantiatePngSymbol(0, x, y, alpha);
+        try { (fallback as any).symbolValue = symbolValue; } catch { /* ignore */ }
+        return fallback;
+      }
+      console.warn(`[SymbolFactory] Texture '${spriteKey}' not found; using placeholder`);
+      return this.createPlaceholderSymbol(symbolValue, x, y, alpha);
     }
     const sprite = this.scene.add.sprite(x, y, spriteKey);
     try { (sprite as any).__poolKind = 'png'; } catch { /* ignore */ }
@@ -463,7 +494,7 @@ export class SymbolFactory {
     sprite.setAlpha(alpha);
     
     // Store symbol value
-    (sprite as any).symbolValue = value;
+    (sprite as any).symbolValue = symbolValue;
     
     // Add to container
     this.container.add(sprite);

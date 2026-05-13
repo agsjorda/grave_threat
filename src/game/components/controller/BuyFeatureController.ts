@@ -1,3 +1,21 @@
+/**
+ * BuyFeatureController - Manages the Buy Feature button, purchase flow, and HUD locking.
+ *
+ * Owned by: SlotController (instantiated in constructor, held as `this.buyFeatureController`).
+ * Called from: SlotController constructor wires callbacks; BuyFeature.ts triggers the purchase.
+ *
+ * Responsibilities:
+ * - Creates the BuyFeature UI overlay via BuyFeature.create(scene).
+ * - Tracks the buy-feature spin lock (buyFeatureSpinLock) that blocks normal spins during purchase.
+ * - Locks/unlocks the full HUD during the buy-feature flow using coarse hooks
+ *   (lockControlsForBuyFeatureFlow / unlockControlsAfterBuyFeatureFlow) provided by SlotController.
+ *   Falls back to calling individual enable/disable callbacks if the coarse hooks are not provided.
+ * - Exposes isSpinLocked() so SlotController.isBuyFeatureControlsLocked() can gate spin entry.
+ *
+ * Key flows:
+ * - Buy Feature selected → lockControls() → GameAPI buys feature → result delivered as normal spin.
+ * - Free spins from buy feature complete → unlockControls() is called when dialog closes.
+ */
 import type { Scene } from 'phaser';
 import { gameEventManager, GameEventType } from '../../../event/EventManager';
 import { gameStateManager } from '../../../managers/GameStateManager';
@@ -31,7 +49,8 @@ export interface BuyFeatureCallbacks {
   disableBetBackgroundInteraction: (reason: string) => void;
   showOutOfBalancePopup: () => void;
   updateSpinButtonState: () => void;
-  setExternalControlLock?: (locked: boolean) => void;
+  lockControlsForBuyFeatureFlow?: (reason: string) => void;
+  unlockControlsAfterBuyFeatureFlow?: (reason: string) => void;
 }
 
 export class BuyFeatureController {
@@ -49,17 +68,6 @@ export class BuyFeatureController {
     this.buyFeature.setSlotController(slotController);
   }
 
-  public resetBetFromExternal(baseBet: number): void {
-    if (!this.buyFeature) return;
-    if (typeof this.buyFeature.resetBetFromExternal === 'function') {
-      try {
-        (this.buyFeature as any).resetBetFromExternal(baseBet);
-      } catch (e) {
-        console.warn('[BuyFeatureController] Failed to reset bet from external base bet:', e);
-      }
-    }
-  }
-
   public create(scene: Scene): void {
     if (!this.buyFeature) return;
     this.buyFeature.create(scene);
@@ -73,7 +81,16 @@ export class BuyFeatureController {
     this.buyFeatureSpinLock = locked;
   }
 
+  public resetBetFromExternal(baseBet: number): void {
+    if (!this.buyFeature) return;
+    this.buyFeature.resetBetFromExternal(baseBet);
+  }
+
   private lockControls(reason: string): void {
+    if (this.callbacks.lockControlsForBuyFeatureFlow) {
+      this.callbacks.lockControlsForBuyFeatureFlow(reason);
+      return;
+    }
     this.callbacks.disableSpinButton();
     this.callbacks.disableAutoplayButton();
     this.callbacks.disableFeatureButton();
@@ -84,6 +101,10 @@ export class BuyFeatureController {
   }
 
   private unlockControls(reason: string): void {
+    if (this.callbacks.unlockControlsAfterBuyFeatureFlow) {
+      this.callbacks.unlockControlsAfterBuyFeatureFlow(reason);
+      return;
+    }
     this.callbacks.enableSpinButton();
     this.callbacks.enableAutoplayButton();
     this.callbacks.enableFeatureButton();

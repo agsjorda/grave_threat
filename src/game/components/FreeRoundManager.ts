@@ -1461,7 +1461,8 @@ export class FreeRoundManager {
 		if (this.spinIcon) {
 			this.spinIcon.setVisible(true);
 		}
-		if (this.autoplayStopIcon) {
+		// Only show autoplay stop icon if autoplay is currently active
+		if (this.autoplayStopIcon && gameStateManager.isAutoPlaying) {
 			this.autoplayStopIcon.setVisible(true);
 		}
 

@@ -1,4 +1,9 @@
-import { SLOT_COLUMNS, SLOT_ROWS } from '../config/GameConfig';
+import {
+  ALL_SYMBOLS,
+  SCATTER_SYMBOL_ID,
+  SLOT_COLUMNS,
+  SLOT_ROWS,
+} from '../config/GameConfig';
 
 /**
  * Grid Transformation Utilities
@@ -13,6 +18,28 @@ import { SLOT_COLUMNS, SLOT_ROWS } from '../config/GameConfig';
 
 /** Default symbol used when padding area to game config size */
 const PAD_SYMBOL = 1;
+const SUPPORTED_SYMBOL_VALUES = new Set<number>(ALL_SYMBOLS);
+
+export function normalizeSymbolValueForGrid(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return PAD_SYMBOL;
+  }
+
+  const symbolValue = Math.trunc(numeric);
+  if (SUPPORTED_SYMBOL_VALUES.has(symbolValue)) {
+    return symbolValue;
+  }
+
+  // Backend multiplier/legacy symbols are not cell symbols in grave_threat.
+  // Keep the previous behavior for 8+ by rendering them as scatter instead of
+  // trying to create missing symbol textures.
+  if (symbolValue >= 8) {
+    return SCATTER_SYMBOL_ID;
+  }
+
+  return PAD_SYMBOL;
+}
 
 /**
  * Normalize slot.area to the grid size defined in GameConfig (SLOT_COLUMNS x SLOT_ROWS).
@@ -29,13 +56,7 @@ export function normalizeAreaToGameConfig(area: number[][] | undefined): number[
     const col: number[] = [];
     const srcCol = Array.isArray(area) && area[c] ? area[c] : [];
     for (let r = 0; r < rows; r++) {
-      let symbolValue = typeof srcCol[r] === 'number' ? srcCol[r] : PAD_SYMBOL;
-      // Replace symbols 8 and 9 (multiplier symbols 2x, 3x - not yet implemented) with symbol 0 (scatter)
-      // TODO: Remove this filter when multiplier functionality is implemented
-      if (symbolValue === 8 || symbolValue === 9) {
-        symbolValue = 0;
-      }
-      col[r] = symbolValue;
+      col[r] = normalizeSymbolValueForGrid(srcCol[r]);
     }
     result.push(col);
   }

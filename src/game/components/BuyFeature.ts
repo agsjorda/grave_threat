@@ -13,7 +13,7 @@ import {
   POPUP_BUYFEAT_RANDOM_SCATTER,
   POPUP_BUYFEAT_START_MULTIPLIER,
 } from '../../backend/LocalizationData';
-import { DEFAULT_BASE_BET, DEFAULT_BET_LEVEL_INDEX } from './controller';
+import { DEFAULT_BASE_BET, DEFAULT_BET_LEVEL_INDEX, cloneBetLevels, getClosestNumberIndex } from './controller';
 
 export interface BuyFeatureConfig {
 	position?: { x: number; y: number };
@@ -40,10 +40,7 @@ export class BuyFeature {
   private currentBet: number = DEFAULT_BASE_BET;
   private slotController: SlotController | null = null;
   private readonly BET_MULTIPLIER: number = 100; // Multiplier for price display
-  private betOptions: number[] = [
-    0.2, 0.4, 0.6, 0.8, 1, 1.2, 1.6, 2, 2.4, 2.8, 3.2, 3.6, 4, 5, 6, 8, 10, 14,
-    18, 24, 32, 40, 60, 80, 100, 110, 120, 130, 140, 150,
-  ];
+  private betOptions: number[] = cloneBetLevels();
   // Index in betOptions array; -1 means "not initialized from base bet yet"
   private currentBetIndex: number = -1;
   private closeButton!: Phaser.GameObjects.Text;
@@ -218,15 +215,7 @@ export class BuyFeature {
    */
   public resetBetFromExternal(baseBet: number): void {
     if (!Number.isFinite(baseBet) || baseBet <= 0) return;
-    let closestIndex = 0;
-    let closestDifference = Math.abs(this.betOptions[0] - baseBet);
-    for (let i = 1; i < this.betOptions.length; i++) {
-      const difference = Math.abs(this.betOptions[i] - baseBet);
-      if (difference < closestDifference) {
-        closestDifference = difference;
-        closestIndex = i;
-      }
-    }
+    const closestIndex = getClosestNumberIndex(this.betOptions, baseBet);
     this.currentBetIndex = closestIndex;
     this.currentBet = this.betOptions[closestIndex];
     this.lastExternalBaseBet = this.currentBet;
@@ -244,16 +233,7 @@ export class BuyFeature {
       const currentBaseBet = this.slotController.getBaseBetAmount();
 
       // Find the closest bet option
-      let closestIndex = 0;
-      let closestDifference = Math.abs(this.betOptions[0] - currentBaseBet);
-
-      for (let i = 1; i < this.betOptions.length; i++) {
-        const difference = Math.abs(this.betOptions[i] - currentBaseBet);
-        if (difference < closestDifference) {
-          closestDifference = difference;
-          closestIndex = i;
-        }
-      }
+      const closestIndex = getClosestNumberIndex(this.betOptions, currentBaseBet);
 
       this.currentBetIndex = closestIndex;
       this.currentBet = this.betOptions[closestIndex];
@@ -264,10 +244,10 @@ export class BuyFeature {
   private applyBetLevelsFromGameData(scene: Scene): void {
     const levels = (scene as any).gameData?.betLevels;
     if (Array.isArray(levels) && levels.length > 0) {
-      this.betOptions = levels;
+      this.betOptions = cloneBetLevels(levels);
       const defaultBet = Math.abs(this.currentBet - DEFAULT_BASE_BET) < 0.0001;
-      const idxInNew = this.betOptions.findIndex(v => Math.abs(v - this.currentBet) < 0.0001);
-      if (!Number.isFinite(this.currentBet) || defaultBet || idxInNew === -1) {
+      const idxInNew = getClosestNumberIndex(this.betOptions, this.currentBet);
+      if (!Number.isFinite(this.currentBet) || defaultBet) {
         const idx = Math.max(0, Math.min(this.betOptions.length - 1, DEFAULT_BET_LEVEL_INDEX));
         this.currentBetIndex = idx;
         this.currentBet = Number(this.betOptions[idx]);

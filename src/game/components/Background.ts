@@ -2,11 +2,9 @@ import { Scene } from "phaser";
 import { NetworkManager } from "../../managers/NetworkManager";
 import { ScreenModeManager } from "../../managers/ScreenModeManager";
 import { gameStateManager } from "../../managers/GameStateManager";
-import { ensureSpineFactory, SPINE_ASSET_CACHE_RETRY_MS, SPINE_FACTORY_RETRY_MS } from "../../utils/SpineGuard";
 import { gameEventManager, GameEventType } from "../../event/EventManager";
 import { BG_BORDER_OFFSET_Y, BG_BORDER_DEPTH, BACKGROUND_COVER_CONFIG } from "../../config/GameConfig";
 import { scaleBottomCoverImage } from "./BackgroundCoverLayout";
-import { startAnimation, stopAnimation } from "../../utils/SpineAnimationHelper";
 
 export class Background {
 	private bgContainer!: Phaser.GameObjects.Container;
@@ -14,17 +12,15 @@ export class Background {
 	private networkManager: NetworkManager;
 	private screenModeManager: ScreenModeManager;
 	private normalBgCover: Phaser.GameObjects.Image | null = null;
-private bgDefault: Phaser.GameObjects.Image | null = null;
-private bgBorder: Phaser.GameObjects.Image | null = null;
+	private bgDefault: Phaser.GameObjects.Image | null = null;
+	private bgBorder: Phaser.GameObjects.Image | null = null;
 	// ADJUST HERE (Spine background): manual scale multipliers.
-	// These affect the Spine background ONLY (NormalGame_BZ).
+	// These affect the optional Spine background only.
 	// The Spine now scales to fit WIDTH (no left/right cropping, same as BG-Default).
-	// - `spineBaseScaleMultiplier` is applied once when the Spine is created.
 	// - `spineContainFitMultiplier` is applied during layout/resize (after width-fit).
 	// Notes:
 	// - 1 = normal (fills width), 0.95 = 95%, 1.05 = 105%.
 	// - Values < 1 zoom out, > 1 zoom in (may crop top/bottom).
-	private spineBaseScaleMultiplier: number = 1;
 	private spineContainFitMultiplier: number = 0.8;
 	// ADJUST HERE (BG-Default): scale multiplier for the static background image.
 	// The BG-Default will scale to fit the screen WIDTH (preserving aspect ratio, no cropping).
@@ -49,7 +45,7 @@ private bgBorder: Phaser.GameObjects.Image | null = null;
 	private activeShineCount: number = 0;
 	private readonly MAX_SHINES: number = 5;
 	private shineTimer: Phaser.Time.TimerEvent | null = null;
-	private normalGameSpine: any = null; // Spine animation for NormalGame_BZ
+	private normalGameSpine: any = null;
 
 	constructor(networkManager: NetworkManager, screenModeManager: ScreenModeManager) {
 		this.networkManager = networkManager;
@@ -115,76 +111,15 @@ private bgBorder: Phaser.GameObjects.Image | null = null;
 	}
 
 	/**
-	 * Create the NormalGame_BZ Spine animation background
+	 * Optional normal-game Spine background hook.
 	 */
-	private createNormalGameSpine(scene: Scene, assetScale: number): void {
-		try {
-			if (!this.preferSpineBackground) {
-				// Using BG-Default only.
-				if (this.bgDefault) this.bgDefault.setVisible(true);
-				if (this.normalGameSpine) {
-					try { this.normalGameSpine.setVisible(false); } catch { }
-				}
-				return;
-			}
-
-			if (!ensureSpineFactory(scene, '[Background] createNormalGameSpine')) {
-				console.warn('[Background] Spine factory not available yet; will retry shortly');
-				scene.time.delayedCall(SPINE_FACTORY_RETRY_MS, () => this.createNormalGameSpine(scene, assetScale));
-				return;
-			}
-
-			// Check if the spine assets are loaded
-			if (!scene.cache.json.has('NormalGame_BZ')) {
-				console.warn('[Background] NormalGame_BZ spine assets not loaded yet, will retry later');
-				scene.time.delayedCall(SPINE_ASSET_CACHE_RETRY_MS, () => {
-					this.createNormalGameSpine(scene, assetScale);
-				});
-				return;
-			}
-
-			// Create spine animation at center of screen
-			const centerX = scene.scale.width * 0.5;
-			const centerY = scene.scale.height * 0.5;
-
-			this.normalGameSpine = scene.add.spine(
-				centerX,
-				centerY,
-				'NormalGame_BZ',
-				'NormalGame_BZ-atlas'
-			);
-
-			// Set properties
-			this.normalGameSpine.setOrigin(0.5, 0);
-			// ADJUST HERE (Spine background): base scale multiplier.
-			// This is the earliest place the Spine scale is set (but layout() will recalculate it).
-			const initialScale = assetScale * Phaser.Math.Clamp(this.spineBaseScaleMultiplier, 0, 5);
-			this.normalGameSpine.setScale(initialScale);
-			const started = startAnimation(this.normalGameSpine, {
-				animationName: 'NormalGame_BZ_idle',
-				loop: true,
-				trackIndex: 0,
-				logWhenMissing: true
-			});
-			if (started) {
-			}
-
-			// Add to container
-			this.bgContainer.add(this.normalGameSpine);
-			// BG-Default is a static fallback; when Spine is available, prefer Spine.
-			if (this.bgDefault) this.bgDefault.setVisible(false);
-			// Delay layout slightly to ensure Spine skeleton is fully initialized before getting bounds.
-			scene.time.delayedCall(50, () => {
-				this.layout(scene);
-			});
-
-		} catch (error) {
-			console.error('[Background] Error creating NormalGame_BZ Spine animation:', error);
-			// If Spine fails, keep the BG-Default fallback visible.
-			if (this.bgDefault) {
-				this.bgDefault.setVisible(true);
-			}
-			this.normalGameSpine = null;
+	private createNormalGameSpine(_scene: Scene, _assetScale: number): void {
+		// grave_threat currently uses the static NormalGame.webp background.
+		if (this.bgDefault) {
+			this.bgDefault.setVisible(true);
+		}
+		if (this.normalGameSpine) {
+			try { this.normalGameSpine.setVisible(false); } catch { }
 		}
 	}
 

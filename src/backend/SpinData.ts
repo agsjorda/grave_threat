@@ -24,7 +24,7 @@ export interface SpinData {
  * Slot data containing the game grid and win information
  */
 export interface SlotData {
-  /** 3x5 grid of symbols (columns x rows) */
+  /** Grid of symbols (columns x rows) */
   area: number[][];
   
   /** Array of winning paylines */
@@ -98,7 +98,7 @@ export interface FreespinItem {
   /** Win amount for this specific free spin */
   subTotalWin: number;
   
-  /** 3x5 grid of symbols for this free spin (columns x rows) */
+  /** Grid of symbols for this free spin (columns x rows) */
   area: number[][];
   
   /** Array of winning paylines for this free spin */

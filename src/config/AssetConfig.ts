@@ -19,13 +19,9 @@ export class AssetConfig {
 	}
 
 	private getAssetPrefix(): string {
-		const screenConfig = this.screenModeManager.getScreenConfig();
-		const isHighSpeed = this.networkManager.getNetworkSpeed();
-
-		const orientation = screenConfig.isPortrait ? 'portrait' : 'landscape';
-		const quality = isHighSpeed ? 'high' : 'low';
-
-		return `assets/${orientation}/${quality}`;
+		// grave_threat currently ships only portrait/high game art. Falling back to
+		// missing landscape/low paths causes loader errors and missing textures.
+		return 'assets/portrait/high';
 	}
 
 	getBackgroundAssets(): AssetGroup {
@@ -125,32 +121,32 @@ export class AssetConfig {
 
 	// Add more asset groups as needed
 	getSymbolAssets(): AssetGroup {
-		// Symbols and related bonus art live under portrait/high for pastry_cub.
+		// Symbols and related bonus art live under portrait/high for grave_threat.
 		const suffix = 'GT';
-		const pcPath = 'assets/portrait/high/symbols/';
+		const symbolPath = 'assets/portrait/high/symbols/';
 
-		// Generate symbol assets for all symbols (0-10)
+		// Generate symbol assets for active cell symbols (0-7)
 		const symbolImages: { [key: string]: string } = {};
 		const symbolSpine: { [key: string]: { atlas: string; json: string } } = {};
 
 		// Symbol Spine: 0-7 (scatter + regular)
 		for (const i of [0, 1, 2, 3, 4, 5, 6, 7]) {
 			const spineKey = `symbol_${i}_spine`;
-			symbolSpine[spineKey] = { atlas: `${pcPath}/Symbol${i}_${suffix}.atlas`, json: `${pcPath}/Symbol${i}_${suffix}.json` };
+			symbolSpine[spineKey] = { atlas: `${symbolPath}/Symbol${i}_${suffix}.atlas`, json: `${symbolPath}/Symbol${i}_${suffix}.json` };
 		}
 
 		// symbols for helper (HelpScreen, etc.): 0-7 only
 		for (let i = 0; i <= 7; i++) {
-			const spritePath = `${pcPath}/statics/symbol${i}.png`;
+			const spritePath = `${symbolPath}/statics/symbol${i}.png`;
 			symbolImages[`symbol${i}`] = spritePath;
 			symbolImages[`symbol_${i}`] = spritePath;
 		}
 
 		// Multiplier overlays for bonus grid image tiers (1st mark->x1, 2nd->x2, ...).
-		// Files expected in: assets/portrait/high/symbols/pastry_cub_symbols/multiplier_symbols/x1.webp, x2.webp, ...
+		// Files expected in: assets/portrait/high/symbols/multiplier_symbols/x1.webp, x2.webp, ...
 		BONUS_MULTIPLIER_IMAGE_BY_MARK_COUNT.forEach((mult, index) => {
 			const key = `bonus_multiplier_x${mult}`;
-			const path = `${pcPath}/multiplier_symbols/x${mult}.webp`;
+			const path = `${symbolPath}/multiplier_symbols/x${mult}.webp`;
 			symbolImages[key] = path;
 		});
 
@@ -161,11 +157,9 @@ export class AssetConfig {
 	}
 
 	getButtonAssets(): AssetGroup {
-		// Controller buttons now follow portrait/landscape structure
-		const screenConfig = this.screenModeManager.getScreenConfig();
-		const isHighSpeed = this.networkManager.getNetworkSpeed();
-		const quality = isHighSpeed ? 'high' : 'low';
-		const screenMode = screenConfig.isPortrait ? 'portrait' : 'landscape';
+		// Controller art also exists only under portrait/high.
+		const quality = 'high';
+		const screenMode = 'portrait';
 
 
 		return {

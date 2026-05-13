@@ -690,8 +690,8 @@ export class Dialogs {
 			this.autoCloseTimer = null;
 		}
 
-		// MaxWin dialog never auto-closes (user must dismiss).
-		if (this.currentDialogType === 'MaxWin') {
+		// MaxWin and TotalWin dialogs never auto-close (user must dismiss).
+		if (this.currentDialogType === 'MaxWin' || this.currentDialogType === 'TotalWin') {
 			return;
 		}
 

@@ -18,6 +18,12 @@ import {
   SCALE_UP_DELAY_MS,
 } from '../../../config/GameConfig';
 
+function resolveSymbolAnimationName(skeletonData: any, value: number, type: 'drop' | 'idle' | 'win'): string | null {
+  if (!skeletonData?.findAnimation) return null;
+  const name = `Symbol${value}_GT_${type}`;
+  return skeletonData.findAnimation(name) ? name : null;
+}
+
 /**
  * Handles animations for symbol objects
  */
@@ -212,7 +218,7 @@ export class SymbolAnimations {
             : null;
           
           if (value !== null) {
-            idleName = `Symbol${value}_PC_idle`;
+            idleName = resolveSymbolAnimationName((symbol as any)?.skeleton?.data, value, 'idle');
           }
         } catch { /* ignore */ }
 
@@ -271,11 +277,22 @@ export class SymbolAnimations {
       const symbolValue = (symbol as any)?.symbolValue;
       if (typeof symbolValue !== 'number') return;
       
-      const dropName = `Symbol${symbolValue}_PC_drop`;
-      const idleName = `Symbol${symbolValue}_PC_idle`;
+      const skeletonData = (symbol as any)?.skeleton?.data;
+      const dropName = resolveSymbolAnimationName(skeletonData, symbolValue, 'drop');
+      const idleName = resolveSymbolAnimationName(skeletonData, symbolValue, 'idle');
       
-      const hasDrop = !!(symbol as any)?.skeleton?.data?.findAnimation?.(dropName);
-      if (!hasDrop) return;
+      if (!idleName) return;
+      if (!dropName) {
+        animState.setAnimation(0, idleName, true);
+        return;
+      }
+
+      try {
+        const prevListener = (symbol as any).__dropIdleListener;
+        if (prevListener && animState.removeListener) {
+          animState.removeListener(prevListener);
+        }
+      } catch { /* ignore */ }
       
       animState.setAnimation(0, dropName, false);
       
@@ -286,9 +303,16 @@ export class SymbolAnimations {
             try {
               if (entry?.animation?.name !== dropName) return;
               animState?.setAnimation?.(0, idleName, true);
+              try {
+                if (animState.removeListener) {
+                  animState.removeListener(listener);
+                }
+                (symbol as any).__dropIdleListener = null;
+              } catch { /* ignore */ }
             } catch { /* ignore */ }
           }
         };
+        try { (symbol as any).__dropIdleListener = listener; } catch { /* ignore */ }
         animState.addListener(listener);
       }
     } catch { /* ignore */ }
