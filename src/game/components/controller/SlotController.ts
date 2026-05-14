@@ -31,7 +31,6 @@ import {
 	canAffordAmount,
 	canAffordSpin,
 	getRequiredSpinBet,
-	shouldDisableAmplifyForBalance,
 } from './index';
 
 /**
@@ -1062,67 +1061,53 @@ export class SlotController {
 		}
 	}
 
+	private shouldDisableFeatureButton(): boolean {
+		// While we have cached paused-autoplay spins, Buy Feature must remain disabled.
+		// This prevents a transient enable during "pause -> resume after dialog" windows.
+		if (this.pausedAutoplaySpinsRemaining != null && this.pausedAutoplaySpinsRemaining > 0) return true;
+
+		// If a resume retry is scheduled, keep it disabled until resume actually starts.
+		if (this.resumePausedAutoplayRetryTimer) return true;
+
+		// Keep Buy Feature disabled until the full spin/tumble/win flow is complete.
+		if (gameStateManager.isReelSpinning || this.pendingWinLock || gameStateManager.isShowingWinDialog) return true;
+
+		// Keep Buy Feature disabled during base autoplay resume window.
+		if (gameStateManager.isAutoPlaying || gameStateManager.isAutoPlaySpinRequested || this.gameData?.isAutoPlaying) return true;
+
+		// Keep Buy Feature disabled while amplify/enhanced bet is active.
+		if (this.gameData?.isEnhancedBet) return true;
+
+		// Guard: do not re-enable during bonus or before explicit allow.
+		if (gameStateManager.isBonus || !this.canEnableFeatureButton) return true;
+
+		// Also keep Buy Feature disabled while buy feature flow or free spins are active.
+		if (this.isBuyFeatureControlsLocked()) return true;
+
+		try {
+			const price = this.getBuyFeaturePrice();
+			const balance = this.getBalanceAmount() || 0;
+			return !canAffordAmount(balance, price);
+		} catch {
+			return false;
+		}
+	}
+
 	/**
 	 * Enable feature button (restore opacity and enable interaction)
 	 */
 	private enableFeatureButton(): void {
 		const featureButton = this.buttons.get('feature');
+		if (!featureButton) return;
 
-		if (featureButton) {
-			// While we have cached paused-autoplay spins, Buy Feature must remain disabled.
-			// This prevents a transient enable during "pause → resume after dialog" windows.
-			if (this.pausedAutoplaySpinsRemaining != null && this.pausedAutoplaySpinsRemaining > 0) {
-				const autoplayLive =
-					gameStateManager.isAutoPlaying ||
-					gameStateManager.isAutoPlaySpinRequested ||
-					!!this.resumePausedAutoplayRetryTimer;
-				if (!autoplayLive && !gameStateManager.isBonus && !gameStateManager.isScatter) {
-					this.pausedAutoplaySpinsRemaining = null;
-				} else {
-					return;
-				}
-			}
-			// If a resume retry is scheduled, keep it disabled until resume actually starts.
-			if (this.resumePausedAutoplayRetryTimer) {
-				return;
-			}
-
-			// Keep Buy Feature disabled until the full spin/tumble/win flow is complete.
-			if (gameStateManager.isReelSpinning || this.pendingWinLock || gameStateManager.isShowingWinDialog) {
-				return;
-			}
-			// Keep Buy Feature disabled during base autoplay resume window.
-			if (gameStateManager.isAutoPlaying || gameStateManager.isAutoPlaySpinRequested || this.gameData?.isAutoPlaying) {
-				return;
-			}
-			// Keep Buy Feature disabled while amplify/enhanced bet is active.
-			if (this.gameData?.isEnhancedBet) {
-				this.disableFeatureButton();
-				return;
-			}
-			// Guard: do not re-enable during bonus or before explicit allow
-			if (gameStateManager.isBonus || !this.canEnableFeatureButton) {
-				return;
-			}
-			// Also keep Buy Feature disabled while buy feature flow or free spins are active
-			if (this.isBuyFeatureControlsLocked()) {
-				return;
-			}
-			// Also keep Buy Feature disabled if balance cannot afford its price.
-			try {
-				const price = this.getBuyFeaturePrice();
-				const balance = this.getBalanceAmount() || 0;
-				if (!canAffordAmount(balance, price)) {
-					this.disableFeatureButton();
-					return;
-				}
-			} catch {}
-			featureButton.setAlpha(1.0); // Restore full opacity
-			featureButton.clearTint(); // Remove grey tint
-			if (this.featureButtonHitbox) {
-				this.featureButtonHitbox.setInteractive();
-			}
+		if (this.shouldDisableFeatureButton()) {
+			this.disableFeatureButton();
+			return;
 		}
+
+		featureButton.setAlpha(1.0);
+		featureButton.clearTint();
+		this.featureButtonHitbox?.setInteractive();
 	}
 
 	private handleBuyFeaturePress(): void {
@@ -2855,24 +2840,6 @@ export class SlotController {
 			this.disableAmplifyButton();
 			return;
 		}
-		// Enforce affordability here too, because many flows call enableAmplifyButton()
-		// directly (bypassing updateAmplifyButtonStateWithLock()).
-		try {
-			const isBalanceReady = this.balanceController?.hasInitializedBalance() ?? false;
-			if (isBalanceReady) {
-				const gameData = this.getGameData();
-				const baseBet = this.getBaseBetAmount() || 0;
-				const balance = this.getBalanceAmount() || 0;
-				if (shouldDisableAmplifyForBalance({
-					balance,
-					baseBet,
-					isEnhancedBet: !!gameData?.isEnhancedBet,
-				})) {
-					this.disableAmplifyButton();
-					return;
-				}
-			}
-		} catch {}
 		this.hudController.enableAmplifyButton();
 	}
 
@@ -2950,13 +2917,12 @@ export class SlotController {
 	 * Apply 25% bet increase when amplify bet is activated
 	 */
 	private applyAmplifyBetIncrease(): void {
-		const currentBetText = this.getBetAmountText();
-		if (!currentBetText) {
-			console.warn('[SlotController] No current bet amount to increase');
+		const currentBet = this.getBaseBetAmount() || this.baseBetAmount || 0;
+		if (!Number.isFinite(currentBet) || currentBet <= 0) {
+			console.warn('[SlotController] No valid base bet amount to increase');
 			return;
 		}
 
-		const currentBet = parseFloat(currentBetText);
 		const increasedBet = currentBet * 1.25; // Add 25%
 		
 		// Only update the display, keep baseBetAmount unchanged for API calls
@@ -4754,24 +4720,6 @@ export class SlotController {
 			this.disableAmplifyButton();
 			return;
 		}
-		// Disable amplify when balance is insufficient for the current bet (or for enabling amplify).
-		try {
-			const isBalanceReady = this.balanceController?.hasInitializedBalance() ?? false;
-			if (isBalanceReady) {
-				const gameData = this.getGameData();
-				const baseBet = this.getBaseBetAmount() || 0;
-				const balance = this.getBalanceAmount() || 0;
-				if (shouldDisableAmplifyForBalance({
-					balance,
-					baseBet,
-					isEnhancedBet: !!gameData?.isEnhancedBet,
-				})) {
-					this.disableAmplifyButton();
-					return;
-				}
-			}
-		} catch {}
-		// Otherwise enable amplify button
 		this.enableAmplifyButton();
 	}
 

@@ -108,6 +108,8 @@ export interface UnresolvedSpin {
   index: number;
   /** Original spin response payload used to resume autoplay */
   response: SpinData;
+  /** Optional bet size for this unresolved bonus round (string to match backend payload). */
+  bet_size?: string;
 }
 
 /**

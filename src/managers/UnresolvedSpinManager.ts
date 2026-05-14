@@ -174,6 +174,7 @@ export class UnresolvedSpinManager {
     }
 
     const uuidRaw = (raw as any).uuid;
+    const betSizeRaw = (raw as any).bet_size as unknown;
     const indexRaw = (raw as any).index;
     const responseRaw = (raw as any).response ?? (raw as any).spinData ?? (raw as any).data;
 
@@ -193,10 +194,13 @@ export class UnresolvedSpinManager {
       return;
     }
 
+    const bet_size = typeof betSizeRaw === "string" && betSizeRaw.length > 0 ? betSizeRaw : undefined;
+
     this._unresolvedSpin = {
       uuid,
       index,
       response: (response ?? {}) as any,
+      bet_size,
     };
   }
 
@@ -224,6 +228,17 @@ export class UnresolvedSpinManager {
     });
     this._popup.show();
     return true;
+  }
+
+  /**
+   * Parse and validate unresolved bet_size (string) as a base bet number.
+   * Returns null when missing/invalid.
+   */
+  public getUnresolvedBetSize(): number | null {
+    const raw = (this._unresolvedSpin as any)?.bet_size;
+    if (typeof raw !== "string" || raw.length === 0) return null;
+    const parsed = parseFloat(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }
 
   /**

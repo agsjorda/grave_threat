@@ -609,12 +609,6 @@ export class Game extends Scene {
 						this.slotController.updateBetAmount(unresolvedBet);
 					}
 				}
-				if (unresolved) {
-					const remainingSpins = this.getRemainingSpinsFromUnresolved(unresolved);
-					const spinsToShow = remainingSpins > 0 ? remainingSpins : 1;
-					(this.slotController as any).clearFreeSpinDisplaySuppression?.();
-					this.slotController.showFreeSpinDisplayWithActualValue(spinsToShow);
-				}
 			}
 		} catch (e) {
 			console.warn('[Game] Failed to force unresolved free-spin display:', e);
@@ -787,10 +781,10 @@ export class Game extends Scene {
 		const spinData = this.symbols.currentSpinData;
 		let freeSpinItem: any | null = null;
 		let totalWin = 0;
-		const betAmount = parseFloat(spinData.bet);
+		const betAmount = this.getBaseBetAmount();
 		if (!Number.isFinite(betAmount) || betAmount <= 0) {
 			// Without a valid bet, tiering logic can incorrectly fall through to BigWin.
-			console.warn('[Game] WIN_STOP: invalid bet for win dialog tiering - skipping', { bet: spinData.bet });
+			console.warn('[Game] WIN_STOP: invalid bet for win dialog tiering - skipping', { bet: spinData.bet, baseBet: betAmount });
 			gameStateManager.isShowingWinDialog = false;
 			this.handlePostWinStopSideEffects();
 			return;
