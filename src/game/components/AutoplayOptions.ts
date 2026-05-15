@@ -83,6 +83,10 @@ export class AutoplayOptions {
 		}
 	}
 
+	private isAutoplayLocked(): boolean {
+		return !!(gameStateManager.isAutoPlaying || gameStateManager.isAutoPlaySpinRequested);
+	}
+
 	private updateStartAutoplayButtonState(): void {
 		if (!this.confirmButtonImage) return;
 
@@ -532,6 +536,9 @@ export class AutoplayOptions {
 	}
 
 	private selectButton(index: number, value: number): void {
+		if (this.isAutoplayLocked()) {
+			return;
+		}
 		// Use the same dimensions as defined in createAutoplayOptionsGrid
 		const buttonWidth = 79;
 		const buttonHeight = 60;
@@ -582,12 +589,18 @@ export class AutoplayOptions {
 	}
 
 	private selectPreviousAutoplay(): void {
+		if (this.isAutoplayLocked()) {
+			return;
+		}
 		if (this.selectedButtonIndex > 0) {
 			this.selectButton(this.selectedButtonIndex - 1, this.autoplayOptions[this.selectedButtonIndex - 1]);
 		}
 	}
 
 	private selectNextAutoplay(): void {
+		if (this.isAutoplayLocked()) {
+			return;
+		}
 		if (this.selectedButtonIndex < this.autoplayOptions.length - 1) {
 			this.selectButton(this.selectedButtonIndex + 1, this.autoplayOptions[this.selectedButtonIndex + 1]);
 		}
@@ -598,6 +611,19 @@ export class AutoplayOptions {
 	 * (same behavior as BetController and BetOptions).
 	 */
 	private updateBetLimitButtons(): void {
+		if (this.isAutoplayLocked()) {
+			if (this.minusButton) {
+				this.minusButton.setAlpha(0.5);
+				this.minusButton.setTint(0x555555);
+				this.minusButton.disableInteractive();
+			}
+			if (this.plusButton) {
+				this.plusButton.setAlpha(0.5);
+				this.plusButton.setTint(0x555555);
+				this.plusButton.disableInteractive();
+			}
+			return;
+		}
 		const isAtMin = this.selectedBetIndex <= 0;
 		const isAtMax = this.selectedBetIndex >= this.betOptions.length - 1;
 
@@ -627,6 +653,9 @@ export class AutoplayOptions {
 	}
 
 	private selectBet(index: number, value: number): void {
+		if (this.isAutoplayLocked()) {
+			return;
+		}
 		this.selectedBetIndex = index;
 		this.currentBet = value;
 		this.updateAutoplayDisplay();
@@ -635,12 +664,18 @@ export class AutoplayOptions {
 	}
 
 	private selectPreviousBet(): void {
+		if (this.isAutoplayLocked()) {
+			return;
+		}
 		if (this.selectedBetIndex > 0) {
 			this.selectBet(this.selectedBetIndex - 1, this.betOptions[this.selectedBetIndex - 1]);
 		}
 	}
 
 	private selectNextBet(): void {
+		if (this.isAutoplayLocked()) {
+			return;
+		}
 		if (this.selectedBetIndex < this.betOptions.length - 1) {
 			this.selectBet(this.selectedBetIndex + 1, this.betOptions[this.selectedBetIndex + 1]);
 		}

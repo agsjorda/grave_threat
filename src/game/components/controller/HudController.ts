@@ -76,25 +76,25 @@ export class HudController {
 
   public disableBetButtons(): void {
     const buttons = this.callbacks.getButtons();
-    const buttonKeys = ['betminus', 'betplus'];
+    const buttonKeys = ['betminus', 'betplus', 'decrease_bet', 'increase_bet'];
     for (const key of buttonKeys) {
       const button = buttons.get(key);
       if (button) {
-        button.setAlpha(0.5);
-        button.setTint(0x555555);
+        button.setAlpha(this.disabledAlpha);
+        button.setTint(this.disabledTint);
         button.disableInteractive();
       }
     }
     const betAmountText = this.callbacks.getBetAmountText();
     if (betAmountText) {
-      betAmountText.setAlpha(0.5);
+      betAmountText.setAlpha(this.disabledAlpha);
       betAmountText.disableInteractive();
     }
   }
 
   public enableBetButtons(): void {
     const buttons = this.callbacks.getButtons();
-    const buttonKeys = ['betminus', 'betplus'];
+    const buttonKeys = ['betminus', 'betplus', 'decrease_bet', 'increase_bet'];
     for (const key of buttonKeys) {
       const button = buttons.get(key);
       if (button) {

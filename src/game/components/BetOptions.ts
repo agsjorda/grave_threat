@@ -1,4 +1,5 @@
 import { Scene } from 'phaser';
+import { gameStateManager } from '../../managers/GameStateManager';
 import { NetworkManager } from "../../managers/NetworkManager";
 import { ScreenModeManager } from "../../managers/ScreenModeManager";
 import { ensureSpineFactory } from "../../utils/SpineGuard";
@@ -380,6 +381,9 @@ export class BetOptions {
 	}
 
 	private selectButton(index: number, value: number): void {
+		if (this.isAutoplayLocked()) {
+			return;
+		}
 		// Deselect previous button
 		if (this.selectedButtonIndex >= 0 && this.selectedButtonIndex < this.betButtons.length) {
 			const prevButton = this.betButtons[this.selectedButtonIndex];
@@ -479,11 +483,28 @@ export class BetOptions {
 		}
 	}
 
+	private isAutoplayLocked(): boolean {
+		return !!(gameStateManager.isAutoPlaying || gameStateManager.isAutoPlaySpinRequested);
+	}
+
 	/**
 	 * Update - / + button states: disable - at minimum bet, disable + at maximum bet
 	 * (same behavior as BetController in SlotController).
 	 */
 	private updateBetLimitButtons(): void {
+		if (this.isAutoplayLocked()) {
+			if (this.minusButton) {
+				this.minusButton.setAlpha(0.5);
+				this.minusButton.setTint(0x555555);
+				this.minusButton.disableInteractive();
+			}
+			if (this.plusButton) {
+				this.plusButton.setAlpha(0.5);
+				this.plusButton.setTint(0x555555);
+				this.plusButton.disableInteractive();
+			}
+			return;
+		}
 		const isAtMin = this.selectedButtonIndex <= 0;
 		const isAtMax = this.selectedButtonIndex >= this.betOptions.length - 1;
 
@@ -513,12 +534,18 @@ export class BetOptions {
 	}
 
 	private selectPreviousBet(): void {
+		if (this.isAutoplayLocked()) {
+			return;
+		}
 		if (this.selectedButtonIndex > 0) {
 			this.selectButton(this.selectedButtonIndex - 1, this.betOptions[this.selectedButtonIndex - 1]);
 		}
 	}
 
 	private selectNextBet(): void {
+		if (this.isAutoplayLocked()) {
+			return;
+		}
 		if (this.selectedButtonIndex < this.betOptions.length - 1) {
 			this.selectButton(this.selectedButtonIndex + 1, this.betOptions[this.selectedButtonIndex + 1]);
 		}

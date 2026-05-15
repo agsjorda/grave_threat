@@ -840,6 +840,7 @@ export class SlotController {
 		if (gameData) {
 			gameData.isAutoPlaying = true;
 		}
+		this.disableBetButtons();
 		this.updateTurboButtonStateWithLock();
 	}
 
@@ -851,6 +852,7 @@ export class SlotController {
 		if (gameData) {
 			gameData.isAutoPlaying = false;
 		}
+		this.enableBetButtons();
 		// Runs after AUTO_STOP listeners; re-evaluate spin when autoplay session ends.
 		this.updateSpinButtonState();
 	}
@@ -954,6 +956,10 @@ export class SlotController {
 	 * Enable bet buttons (restore opacity and enable interaction)
 	 */
 	private enableBetButtons(): void {
+		if (gameStateManager.isAutoPlaying || gameStateManager.isAutoPlaySpinRequested || this.gameData?.isAutoPlaying) {
+			this.disableBetButtons();
+			return;
+		}
 		if (this.isBuyFeatureControlsLocked()) {
 			this.disableBetButtons();
 			return;
@@ -987,6 +993,10 @@ export class SlotController {
 	 * is at the minimum or maximum level in the bet ladder.
 	 */
 	private updateBetLimitButtons(currentBet: number): void {
+		if (gameStateManager.isAutoPlaying || gameStateManager.isAutoPlaySpinRequested || this.gameData?.isAutoPlaying) {
+			this.disableBetButtons();
+			return;
+		}
 		if (this.isBuyFeatureControlsLocked()) {
 			this.disableBetButtons();
 			return;
@@ -1429,6 +1439,9 @@ export class SlotController {
 		).setOrigin(0.5, 0.5).setScale(assetScale * 0.55).setDepth(10);
 		decreaseBetButton.setInteractive();
 		decreaseBetButton.on('pointerdown', () => {
+			if (gameStateManager.isAutoPlaying || gameStateManager.isAutoPlaySpinRequested || this.gameData?.isAutoPlaying) {
+				return;
+			}
 			playSoundEffectSafe(this.scene, SoundEffectType.MENU_CLICK);
 			this.adjustBetByStep(-1);
 		});
@@ -1443,6 +1456,9 @@ export class SlotController {
 		).setOrigin(0.5, 0.5).setScale(assetScale * 0.55).setDepth(10);
 		increaseBetButton.setInteractive();
 		increaseBetButton.on('pointerdown', () => {
+			if (gameStateManager.isAutoPlaying || gameStateManager.isAutoPlaySpinRequested || this.gameData?.isAutoPlaying) {
+				return;
+			}
 			playSoundEffectSafe(this.scene, SoundEffectType.MENU_CLICK);
 			this.adjustBetByStep(1);
 		});

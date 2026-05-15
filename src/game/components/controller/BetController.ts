@@ -7,6 +7,7 @@
 
 import type { Scene } from 'phaser';
 import { gameEventManager, GameEventType } from '../../../event/EventManager';
+import { gameStateManager } from '../../../managers/GameStateManager';
 import { ensureSpineFactory } from '../../../utils/SpineGuard';
 import { Logger } from '../../../utils/Logger';
 import { startAnimation } from '../../../utils/SpineAnimationHelper';
@@ -85,7 +86,7 @@ export class BetController {
   // State
   private baseBetAmount: number = DEFAULT_BASE_BET;
   private isButtonsDisabled: boolean = false;
-  private disabledAlpha: number = 0.5;
+  private disabledAlpha: number = 0.7;
 
   constructor(
     scene: Scene,
@@ -125,6 +126,15 @@ export class BetController {
    */
   public setBaseBetAmount(amount: number): void {
     this.baseBetAmount = amount;
+  }
+
+  private isAutoplayLocked(): boolean {
+    const gameData = this.callbacks.getGameData?.();
+    return !!(
+      gameStateManager.isAutoPlaying ||
+      gameStateManager.isAutoPlaySpinRequested ||
+      gameData?.isAutoPlaying
+    );
   }
 
   /**
@@ -220,6 +230,10 @@ export class BetController {
    */
   public adjustBetByStep(direction: 1 | -1): void {
     try {
+      if (this.isButtonsDisabled || this.isAutoplayLocked()) {
+        return;
+      }
+
       const currentBaseBet = this.callbacks.getBaseBetAmount() || DEFAULT_BASE_BET;
 
       const levels = this.getBetLevelsArray();
@@ -250,7 +264,7 @@ export class BetController {
       return;
     }
 
-    if (this.isButtonsDisabled) {
+    if (this.isButtonsDisabled || this.isAutoplayLocked()) {
       this.disableBetButtons(this.disabledAlpha);
       return;
     }
@@ -265,7 +279,7 @@ export class BetController {
     // Update decrease button
     if (this.decreaseBetButton) {
       if (isAtMin || !shouldAllowEnable) {
-        this.decreaseBetButton.setAlpha(0.5);
+        this.decreaseBetButton.setAlpha(this.disabledAlpha);
         this.decreaseBetButton.setTint(0x555555);
         this.decreaseBetButton.disableInteractive();
       } else {
@@ -278,7 +292,7 @@ export class BetController {
     // Update increase button
     if (this.increaseBetButton) {
       if (isAtMax || !shouldAllowEnable) {
-        this.increaseBetButton.setAlpha(0.5);
+        this.increaseBetButton.setAlpha(this.disabledAlpha);
         this.increaseBetButton.setTint(0x555555);
         this.increaseBetButton.disableInteractive();
       } else {
@@ -292,7 +306,7 @@ export class BetController {
   /**
    * Disable bet buttons
    */
-  public disableBetButtons(alpha: number = 0.5): void {
+  public disableBetButtons(alpha: number = this.disabledAlpha): void {
     this.isButtonsDisabled = true;
     this.disabledAlpha = alpha;
     if (this.decreaseBetButton) {
@@ -312,6 +326,11 @@ export class BetController {
    * Enable bet buttons
    */
   public enableBetButtons(): void {
+    if (this.isAutoplayLocked()) {
+      this.disableBetButtons(this.disabledAlpha);
+      return;
+    }
+
     this.isButtonsDisabled = false;
     if (this.decreaseBetButton) {
       this.decreaseBetButton.setAlpha(1.0);
