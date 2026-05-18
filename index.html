@@ -2,59 +2,60 @@
 <html lang="en">
 <head>
 	<meta charset="UTF-8" />
-	<link rel="icon" type="image/png" href="/favicon.png" />
+	<link rel="icon" type="image/png" href="./favicon.png" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-	
-	<!-- Resource hints for faster loading -->
-	<!-- Preload critical background image -->
-	<link rel="preload" as="image" href="/assets/portrait/high/background/fullscreen_bg.webp" type="image/webp" />
-	<!-- Fonts are loaded by the game (Boot/Preloader); preloading here triggers "not used within a few seconds" warnings -->
-	<!-- Prefetch DNS for external resources (if any) -->
-	<!-- <link rel="dns-prefetch" href="https://api.example.com" /> -->
-	
-	<link rel="stylesheet" href="/style.css">
+	<link rel="stylesheet" href="./style.css">
 	<title>Grave Threat</title>
-	<link rel="stylesheet" href="/main.scss">
+	<link rel="stylesheet" href="./main.scss">
 	<style>
-		.background-container {
-			position: fixed;
-			top: 0;
-			left: 0;
-			width: var(--tb-viewport-width, 100dvw);
-			height: var(--tb-viewport-height, 100dvh);
-			z-index: -1;
-			overflow: hidden;
-			pointer-events: none;
+		:root {
+			--tb-shell-background-image: url("./fullscreen_bg.webp");
 		}
 
-		.background-image {
-			position: absolute;
-			inset: 0;
+		html,
+		body {
+			margin: 0;
+			padding: 0;
 			width: 100%;
 			height: 100%;
-			min-width: 100%;
 			min-height: 100%;
-			object-fit: cover;
-			object-position: center bottom;
-			border-radius: 0;
-			user-select: none;
-			-webkit-user-select: none;
-			-webkit-user-drag: none;
-			pointer-events: none;
+			overflow: hidden;
+			background: #000000;
+			background-image: var(--tb-shell-background-image);
+			background-size: cover;
+			background-position: center bottom;
+			background-repeat: no-repeat;
+		}
+
+		.background-container,
+		.background-image {
+			display: none !important;
+			pointer-events: none !important;
+			visibility: hidden !important;
+		}
+
+		#root {
+			position: relative;
+			z-index: 1;
+			width: 100%;
+			height: 100%;
+			min-height: 100%;
+			background: transparent;
+		}
+
+		#root:fullscreen,
+		#root:-webkit-full-screen {
+			background-color: #000000;
+			background-image: var(--tb-shell-background-image);
+			background-size: cover;
+			background-position: center bottom;
+			background-repeat: no-repeat;
 		}
 	</style>
 </head>
 
 <body>
-	<div class="background-container">
-		<img
-			class="background-image"
-			src="/assets/portrait/high/background/fullscreen_bg.webp"
-			alt="Fullscreen background"
-			draggable="false"
-		/>
-	</div>
 	<div id="root"></div>
-	<script type="module" src="/src/main.tsx"></script>
+	<script type="module" src="./src/main.tsx"></script>
 </body>
 </html>

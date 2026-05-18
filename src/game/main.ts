@@ -4,6 +4,7 @@ import { AUTO, Game } from 'phaser';
 import { Preloader } from './scenes/Preloader';
 import { SpinePlugin } from '@esotericsoftware/spine-phaser-v3';
 import { getGlobalAudioManager } from '../utils/AudioHelpers';
+import { registerMobileViewportGame } from '../bootstrap/MobileViewport';
 const GAME_DESIGN_WIDTH = 428;
 const GAME_DESIGN_HEIGHT = 926;
 // Install guards to prevent InvalidStateError when resuming/suspending a closed AudioContext
@@ -187,10 +188,14 @@ const StartGame = (parent: string) => {
     const game = new Game({ ...config, parent });
 	installAudioVisibilityPolicy(game);
 
+	let mobileViewportCleanup: (() => void) | null = null;
 	try {
-	} catch (_e) {
-		/* no-op */
-	}
+		mobileViewportCleanup = registerMobileViewportGame(game, { parent });
+		game.events?.once?.('destroy', () => {
+			try { mobileViewportCleanup?.(); } catch {}
+			mobileViewportCleanup = null;
+		});
+	} catch {}
 
     (window as any).phaserGame = game;
     /** Call from browser console to open a dialog by type and optional values. Example: showDialog({ type: 'TotalWin', winAmount: 50000 }) */

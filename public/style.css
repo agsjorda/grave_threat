@@ -7,6 +7,7 @@
     --tb-viewport-height: 100dvh;
     --tb-viewport-left: 0px;
     --tb-viewport-top: 0px;
+    --tb-shell-background-image: url("./fullscreen_bg.webp");
 }
 
 html {
@@ -15,6 +16,11 @@ html {
     min-height: 100%;
     overflow: hidden;
     overscroll-behavior: none;
+    background-color: #000000;
+    background-image: var(--tb-shell-background-image);
+    background-size: cover;
+    background-position: center bottom;
+    background-repeat: no-repeat;
 }
 
 body {
@@ -28,6 +34,13 @@ body {
     overscroll-behavior: none;
     touch-action: none;
     -webkit-text-size-adjust: 100%;
+    background-color: #000000;
+    background-image: var(--tb-shell-background-image);
+    background-size: cover;
+    background-position: center bottom;
+    background-repeat: no-repeat;
+    position: relative;
+    isolation: isolate;
 }
 
 .tb-viewport-managed,
@@ -37,14 +50,82 @@ body {
     min-height: var(--tb-viewport-height);
 }
 
+.tb-native-fullscreen,
+.tb-soft-fullscreen {
+    background-color: #000000;
+    background-image: var(--tb-shell-background-image);
+    background-size: cover;
+    background-position: center bottom;
+    background-repeat: no-repeat;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+.tb-soft-fullscreen body {
+    position: fixed;
+    inset: 0;
+    width: var(--tb-viewport-width);
+    height: var(--tb-viewport-height);
+    min-height: var(--tb-viewport-height);
+    overflow: hidden;
+}
+
+.tb-soft-fullscreen #root {
+    position: fixed;
+    inset: var(--tb-viewport-top) auto auto var(--tb-viewport-left);
+    width: var(--tb-viewport-width);
+    height: var(--tb-viewport-height);
+    min-height: var(--tb-viewport-height);
+}
+
+.tb-soft-fullscreen #app,
+.tb-soft-fullscreen #game-container {
+    width: var(--tb-viewport-width);
+    height: var(--tb-viewport-height);
+    min-height: var(--tb-viewport-height);
+    max-width: var(--tb-viewport-width);
+    max-height: var(--tb-viewport-height);
+}
+
+#root:fullscreen,
+#root:-webkit-full-screen {
+    width: 100vw;
+    height: 100dvh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #000000;
+    background-image: var(--tb-shell-background-image);
+    background-size: cover;
+    background-position: center bottom;
+    background-repeat: no-repeat;
+    overflow: hidden;
+}
+
 #root {
     position: relative;
-    z-index: 1;
+    z-index: 10;
     width: 100%;
     height: 100%;
     min-height: 100%;
     box-sizing: border-box;
     overflow: hidden;
+    background: transparent;
+}
+
+.background-container {
+    display: none !important;
+    visibility: hidden !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+}
+
+.background-image,
+.background-container .background-image {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
 #root canvas {
@@ -55,6 +136,7 @@ body {
 
 #app {
     position: relative;
+    z-index: 1;
     width: 100%;
     height: 100%;
     min-height: 100%;
@@ -66,6 +148,8 @@ body {
 }
 
 #game-container {
+    position: relative;
+    z-index: 1;
     width: 100%;
     height: 100%;
     min-height: 100%;
@@ -107,6 +191,7 @@ body {
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
+    isolation: isolate;
 }
 
 .mobile-orientation-gate[hidden],
@@ -236,7 +321,7 @@ body {
 }
 
 .tb-orientation-blocked #root {
-    pointer-events: none;
+    pointer-events: none !important;
 }
 
 /*
