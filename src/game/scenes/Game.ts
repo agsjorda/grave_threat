@@ -48,6 +48,7 @@ import {
 import { FreeRoundManager } from '../components/FreeRoundManager';
 import { ensureSpineFactory } from '../../utils/SpineGuard';
 import { CurrencyManager } from '../components/CurrencyManager';
+import { forceShowReplayPopup } from '../../managers/PopupManager';
 import { setDecimalPlaces } from '../../utils/NumberPrecisionFormatter';
 import {
 	calculateTotalWinFromTumbles as spinCalculateTotalWinFromTumbles,
@@ -80,6 +81,8 @@ export class Game extends Scene {
 	private initialFadeInDurationMs: number = GAME_SCENE_FADE_IN_DURATION_MS;
 
 	// Queue for wins that occur while a dialog is already showing
+	/** Counts how many times the replay popup has been shown; first show uses 'initial', subsequent use 'summary'. */
+	private replayPopupShowCount: number = 0;
 	private winQueue: Array<{ payout: number; bet: number }> = [];
 	private suppressWinDialogsUntilNextSpin: boolean = false;
 	private initialBalance: number | null = null;
@@ -125,7 +128,8 @@ export class Game extends Scene {
 		this.networkManager = data.networkManager;
 		this.screenModeManager = data.screenModeManager;
 		const parsedInitialBalance = Number(data?.initialBalance);
-		this.initialBalance = Number.isFinite(parsedInitialBalance) && parsedInitialBalance >= 0
+		// `-1` is the replay-mode sentinel — propagate it so initializeGameBalance does not re-fetch.
+		this.initialBalance = Number.isFinite(parsedInitialBalance) && (parsedInitialBalance >= 0 || parsedInitialBalance === -1)
 			? parsedInitialBalance
 			: null;
 
@@ -325,12 +329,120 @@ export class Game extends Scene {
 	}
 
 	private createCharactersAndClock(): void {
+		const isReplay = !!this.gameAPI?.getReplayState?.();
 		this.clockDisplay = new ClockDisplay(this, {
 			...CLOCK_DISPLAY_CONFIG,
-			suffixText: ` | ${GAME_DISPLAY_NAME}${this.gameAPI.getDemoState() ? ' | DEMO' : ''}`,
+			suffixText: isReplay
+				? this.getReplayClockText()
+				: ` | ${GAME_DISPLAY_NAME}${this.gameAPI.getDemoState() ? ' | DEMO' : ''}`,
+			showClock: !isReplay,
 			additionalText: CLOCK_DISPLAY_NAME,
 		});
 		this.clockDisplay.create();
+		if (isReplay) {
+			this.startReplayClockTitleRetry();
+		}
+	}
+
+	private getReplayClockText(): string {
+		const roundId = this.gameAPI?.getReplayData?.()?.round_id;
+		const idPart =
+			roundId === undefined || roundId === null || String(roundId).trim() === ''
+				? '...'
+				: String(roundId);
+		return `${GAME_DISPLAY_NAME} | Replay\nID: ${idPart}`;
+	}
+
+	private replayClockRetryTimer?: Phaser.Time.TimerEvent;
+	private startReplayClockTitleRetry(): void {
+		this.replayClockRetryTimer?.destroy();
+		this.replayClockRetryTimer = this.time.addEvent({
+			delay: 100,
+			loop: true,
+			callback: () => {
+				const id = this.gameAPI?.getReplayData?.()?.round_id;
+				if (id !== undefined && id !== null && String(id).trim().length > 0) {
+					try { (this.clockDisplay as any)?.setSuffixText?.(this.getReplayClockText()); } catch {}
+					try { this.replayClockRetryTimer?.destroy(); } catch {}
+					this.replayClockRetryTimer = undefined;
+				}
+			}
+		});
+		this.events.once('shutdown', () => {
+			try { this.replayClockRetryTimer?.destroy(); } catch {}
+			this.replayClockRetryTimer = undefined;
+		});
+	}
+
+	/**
+	 * Show the replay popup. First show uses the 'initial' layout; subsequent shows use 'summary'.
+	 * The Continue button triggers SlotController.triggerReplaySpin() which runs the normal spin pipeline.
+	 */
+	private showReplayPopup(): void {
+		if (!this.gameAPI?.getReplayState?.()) return;
+		const replayData = this.gameAPI.getReplayData?.();
+		const roundId = replayData?.round_id;
+		if (roundId === undefined || roundId === null || String(roundId).trim() === '') return;
+
+		const isSummaryDisplay = this.replayPopupShowCount >= 1;
+		forceShowReplayPopup(roundId, {
+			displayMode: isSummaryDisplay ? 'summary' : 'initial',
+			spinData: replayData?.spinData,
+			currencyCode: (replayData as any).currencyCode ?? replayData?.currency,
+			createdAt: replayData?.created_at.date,
+			buttonText: isSummaryDisplay ? 'Watch again' : 'Continue',
+			onContinueCallback: () => {
+				console.log('[Game] Replay popup continue pressed — triggering replay spin');
+				this.slotController.triggerReplaySpin();
+			},
+			onCompleteCallback: () => {
+				this.disableAllSlotControllerButtons('replay popup complete');
+			},
+		});
+		this.replayPopupShowCount++;
+	}
+
+	/**
+	 * Lock all HUD controls while the replay popup is visible. Uses an explicit disable
+	 * sequence (not disableControlsForFreeRounds, which would hide the Buy Feature row).
+	 */
+	private disableAllSlotControllerButtons(_reason: string = 'replay mode'): void {
+		if (!this.slotController) return;
+		try { this.slotController.disableSpinButton(); } catch {}
+		try { this.slotController.disableAutoplayButton(); } catch {}
+		try { this.slotController.disableTurboButton(); } catch {}
+		try { this.slotController.disableAmplifyButton(); } catch {}
+		try { this.slotController.disableBetBackgroundInteraction(_reason); } catch {}
+		try { this.slotController.disableFeatureButtonVisible(); } catch {}
+	}
+
+	/**
+	 * Apply the recorded `replayData.spinData.bet` as the SlotController base bet so the
+	 * HUD shows the same stake that was originally placed. Returns true when a finite
+	 * positive bet was applied.
+	 */
+	private applyReplayBetToSlotController(): boolean {
+		if (!this.gameAPI?.getReplayState?.() || !this.slotController) return false;
+		const spinData = this.gameAPI.getReplayData?.()?.spinData;
+		if (!spinData) return false;
+		const raw = (spinData as { bet?: unknown }).bet;
+		try {
+			const n = Number(raw);
+			if (!Number.isFinite(n) || n <= 0) return false;
+			const previousBet = this.slotController.getBaseBetAmount?.() ?? 0.20;
+			this.slotController.updateBetAmount(n);
+			if (this.betOptions) {
+				this.betOptions.setCurrentBet(n);
+			}
+			if (Math.abs(n - previousBet) > 0.0001) {
+				gameEventManager.emit(GameEventType.BET_UPDATE, { newBet: n, previousBet });
+			}
+			console.log(`[Game] Replay: applied spinData.bet to SlotController: ${n}`);
+			return true;
+		} catch (e) {
+			console.warn('[Game] applyReplayBetToSlotController failed:', e);
+			return false;
+		}
 	}
 
 	private createBonusLayers(): void {
@@ -429,9 +541,15 @@ export class Game extends Scene {
 			console.warn('[Game] Failed to create FreeRoundManager from initialization data:', e);
 		}
 
-		if (!appliedInitializationFreeSpinBet) {
+		// Replay mode: apply the recorded transaction bet to the SlotController. Skip
+		// the default first-ladder bet when either initialization free spins OR replay bet was applied.
+		const appliedReplayBet = this.applyReplayBetToSlotController();
+		if (!appliedInitializationFreeSpinBet && !appliedReplayBet) {
 			this.initializeBetAmount();
 		}
+
+		// Show the replay popup once after SlotController is fully initialized.
+		this.showReplayPopup();
 	}
 
 	private runStartupTransition(fadeOverlay: Phaser.GameObjects.Rectangle): void {
@@ -548,6 +666,17 @@ export class Game extends Scene {
 
 	/** GameEventManager: WIN_STOP, REELS_*, dialogAnimationsComplete, SPIN, AUTO_START */
 	private setupGameEventListeners(): void {
+		// Replay loop: re-show the replay popup once spin processing is fully complete.
+		gameEventManager.on(GameEventType.SYMBOLS_PROCESSING_COMPLETE, () => {
+			if (!this.gameAPI?.getReplayState?.()) return;
+			if (gameStateManager.isScatter || gameStateManager.isBonus) return;
+			this.showReplayPopup();
+		});
+		// For replay spins that enter bonus mode, re-show the popup after bonus exit transition completes.
+		this.events.on('bonusTransitionComplete', () => {
+			if (!this.gameAPI?.getReplayState?.()) return;
+			this.showReplayPopup();
+		});
 		gameEventManager.on(GameEventType.WIN_STOP, (data: any) => this.onWinStop(data));
 		gameEventManager.on(GameEventType.SPIN_DATA_RESPONSE, (data: any) => {
 			this.cacheUnresolvedSpinUuidFromSpinData((data as any)?.spinData);
@@ -883,12 +1012,14 @@ export class Game extends Scene {
 	private async initializeGameBalance(prefetchedBalance?: number): Promise<void> {
 		try {
 
-			// Call the GameAPI to get the current balance
+			// Call the GameAPI to get the current balance.
+			// `-1` is the replay-mode sentinel — accept it so BalanceController can render '-'
+			// instead of throwing and falling through to the 200000 default. Mirrors shuten_doji.
 			const rawBalance = Number.isFinite(prefetchedBalance as number)
 				? prefetchedBalance
 				: await this.gameAPI.initializeBalance();
 			const balance = Number(rawBalance);
-			if (!Number.isFinite(balance) || balance < 0) {
+			if (!Number.isFinite(balance) || (balance < 0 && balance !== -1)) {
 				throw new Error(`[Game] Invalid initial balance from API: ${rawBalance}`);
 			}
 

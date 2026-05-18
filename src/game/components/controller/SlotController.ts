@@ -607,6 +607,29 @@ export class SlotController {
 	}
 
 	/**
+	 * Programmatically trigger a spin exactly as if the spin button were pressed.
+	 * Intended for replay mode — calls the same pre-spin UI locks then handleSpin().
+	 */
+	public triggerReplaySpin(): void {
+		if (gameStateManager.isProcessingSpin || gameStateManager.isReelSpinning) {
+			console.warn('[SlotController] triggerReplaySpin blocked — spin already in progress');
+			return;
+		}
+		console.log('[SlotController] triggerReplaySpin: starting replay spin');
+		void this.handleSpin();
+	}
+
+	/**
+	 * Keep Buy Feature visible but disabled (greyed-out treatment same as enhanced bet ON).
+	 * Useful for replay mode where controls should be locked without hiding the feature UI
+	 * (unlike disableControlsForFreeRounds() which hides the buy feature row entirely).
+	 */
+	public disableFeatureButtonVisible(): void {
+		try { this.hudController.setBuyFeatureVisible(true); } catch {}
+		this.disableFeatureButton();
+	}
+
+	/**
 	 * Set the symbols component reference
 	 * This allows the SlotController to access free spin data from the Symbols component
 	 */
@@ -3576,8 +3599,11 @@ export class SlotController {
 			const inInitFreeRoundContext =
 				(gameStateManager as any)?.isInFreeSpinRound === true && !gameStateManager.isBonus;
 
+			// Replay mode is non-financial: no insufficient-balance blocking, no bet deduction, no reconciliation.
+			const isReplaySpin = !!this.gameAPI?.getReplayState?.();
+
 			// Guard: ensure sufficient balance before proceeding (base-game only).
-			if (!inInitFreeRoundContext) {
+			if (!inInitFreeRoundContext && !isReplaySpin) {
 				try {
 					const currentBalance = this.getBalanceAmount();
 					if (!this.balanceController?.hasInitializedBalance() || !Number.isFinite(currentBalance)) {
@@ -3629,10 +3655,10 @@ export class SlotController {
 		// Clear any stale pending balance update before starting a new spin
 		this.balanceController?.clearPendingBalanceUpdate();
 
-		const balanceBeforeSpin = (!this.isFreeRoundAutoplay && !inInitFreeRoundContext)
+		const balanceBeforeSpin = (!this.isFreeRoundAutoplay && !inInitFreeRoundContext && !isReplaySpin)
 			? this.getBalanceAmount()
 			: Number.NaN;
-		if (!this.isFreeRoundAutoplay && !inInitFreeRoundContext) {
+		if (!this.isFreeRoundAutoplay && !inInitFreeRoundContext && !isReplaySpin) {
 			this.decrementBalanceByBet();
 		}
 
@@ -3685,8 +3711,9 @@ export class SlotController {
 						spinData = this.createDummySpinDataWithInitialSymbols(currentBet);
 					}
 				}
-                // Queue a pending balance update for base-game spins (apply after reels stop)
-				if (!gameStateManager.isBonus) {
+                // Queue a pending balance update for base-game spins (apply after reels stop).
+				// Replay mode is non-financial — never credit wins to the displayed balance.
+				if (!gameStateManager.isBonus && !isReplaySpin) {
 					const winTotal = this.getBaseSpinWinForBalance(spinData);
 					if (winTotal > 0) {
 						const currentBalance = this.getBalanceAmount();

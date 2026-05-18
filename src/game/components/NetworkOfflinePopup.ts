@@ -16,7 +16,6 @@ export class NetworkOfflinePopup extends GameObjects.Container {
 	private backgroundColor: number = 0x000000;
 	private backgroundAlpha: number = 0.8;
 	private cornerRadius: number = 20;
-	/** OK button center Y; matches OutOfBalancePopup (inset from panel bottom). */
 	private buttonOffsetY: number = 130;
 	private buttonScale: number = 0.8;
 	private buttonWidth: number = 364;
@@ -36,7 +35,6 @@ export class NetworkOfflinePopup extends GameObjects.Container {
 			buttonScale?: number;
 			overlayColor?: number;
 			overlayAlpha?: number;
-			/** Called when the popup is hidden (e.g. user clicked OK). Use to clear PopupManager state. */
 			onHideCallback?: () => void;
 		} = {}
 	) {

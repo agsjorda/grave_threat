@@ -13,6 +13,7 @@
 import { gameEventManager, GameEventType } from '../event/EventManager';
 import { NetworkOfflinePopup } from '../game/components/NetworkOfflinePopup';
 import { BetFailedPopup } from '../game/components/BetFailedPopup';
+import { ReplayPopup } from '../game/components/ReplayPopup';
 
 export enum PopupType {
 	/** Session expired / token invalid; user must re-authenticate. */
@@ -23,6 +24,8 @@ export enum PopupType {
 	BET_FAILED = 'BET_FAILED',
 	/** Network offline / fetch failed before any HTTP response. */
 	NETWORK_OFFLINE = 'NETWORK_OFFLINE',
+	/** Replay prompt popup (force-shown, bypasses normal priority). */
+	REPLAY = 'REPLAY',
 }
 
 /** Hide function for a visible popup; optional callback when hide animation completes. */
@@ -39,6 +42,7 @@ const PRIORITY: Record<PopupType, number> = {
 	[PopupType.OUT_OF_BALANCE]: 50,
 	[PopupType.BET_FAILED]: 40,
 	[PopupType.NETWORK_OFFLINE]: 40,
+	[PopupType.REPLAY]: 60,
 };
 
 /**
@@ -144,13 +148,15 @@ type PopupFactory = (scene: any) => PopupInstance;
 
 const ERROR_CODE_TO_POPUP: Record<string, { popupType: PopupType }> = {
 	DJ401UA: { popupType: PopupType.TOKEN_EXPIRED },
+	DJ401TE: { popupType: PopupType.TOKEN_EXPIRED },
 	DJ400NEB: { popupType: PopupType.OUT_OF_BALANCE },
 	DJ400BF: { popupType: PopupType.BET_FAILED },
 };
 
 async function loadPopupFactory(errorCode: string): Promise<PopupFactory | null> {
 	switch (errorCode) {
-		case 'DJ401UA': {
+		case 'DJ401UA':
+		case 'DJ401TE': {
 			const module = await import('../game/components/TokenExpiredPopup');
 			const Popup = module.TokenExpiredPopup;
 			return (scene) => new Popup(scene as any) as any;
@@ -161,14 +167,12 @@ async function loadPopupFactory(errorCode: string): Promise<PopupFactory | null>
 			return (scene) => new Popup(scene as any) as any;
 		}
 		case 'DJ400BF': {
-			const module = await import('../game/components/BetFailedPopup');
-			const Popup = module.BetFailedPopup;
 			return (scene) => {
-				const popup = new Popup(scene as any, 0, 0, {
+				const popup = new BetFailedPopup(scene as any, 0, 0, {
 					onHideCallback: () => {
 						clearCurrentPopup();
 					},
-				}) as PopupInstance;
+				}) as unknown as PopupInstance;
 				const originalShow = popup.show.bind(popup);
 				popup.show = () => {
 					originalShow();
@@ -238,18 +242,17 @@ export function checkAndHandlePopup(response: BackendErrorResponse | null | unde
  *
  * Uses the same PopupType priority system and emits BET_FAILED_ERROR on show so autoplay
  * stops consistently for both cases.
+ *
+ * Static instantiation (not dynamic import): dynamic import() issues a network fetch even in
+ * production builds, which fails when the user is offline — the exact case this popup is meant
+ * to surface. Static imports bundle the popup with this module so it's always available.
  */
 export function showBetFailurePopupFromError(error: unknown): void {
 	const scene = getGameScene();
-	if (!scene) {
-		console.error('[PopupManager] showBetFailurePopupFromError: no Game scene available; popup will not show');
-		return;
-	}
+	if (!scene) return;
 
 	const type = isNetworkOfflineBetError(error) ? PopupType.NETWORK_OFFLINE : PopupType.BET_FAILED;
 	showPopup(type, (registerHide) => {
-		// Static instantiation: dynamic import() issues a network fetch even in production builds,
-		// which fails when the user is offline — the exact case this popup is meant to surface.
 		const popup = (type === PopupType.NETWORK_OFFLINE
 			? new NetworkOfflinePopup(scene as any, 0, 0, {
 					onHideCallback: () => {
@@ -278,5 +281,60 @@ export function showBetFailurePopupFromError(error: unknown): void {
 			})
 		);
 	});
+}
+
+/**
+ * Force show replay popup immediately, bypassing normal popup priority checks.
+ * Any currently shown popup is closed first.
+ */
+export function forceShowReplayPopup(
+	replayId: string | number,
+	options: {
+		displayMode?: 'initial' | 'summary';
+		spinData?: any;
+		currencyCode?: string;
+		createdAt?: string;
+		buttonText?: string;
+		onContinueCallback?: () => void;
+		onCompleteCallback?: () => void;
+	} = {}
+): void {
+	const scene = getGameScene();
+	if (!scene) return;
+
+	// Prevent stale pending popups from registering later.
+	pending = null;
+
+	const showReplay = (): void => {
+		const replayPopup = new ReplayPopup(scene as any, replayId, 0, 0, {
+			displayMode: options.displayMode,
+			spinData: options.spinData,
+			currencyCode: options.currencyCode,
+			createdAt: options.createdAt,
+			buttonText: options.buttonText,
+			onContinueCallback: options.onContinueCallback,
+			onHideCallback: () => {
+				clearCurrentPopup();
+				options.onCompleteCallback?.();
+			},
+		});
+		replayPopup.show();
+		current = {
+			type: PopupType.REPLAY,
+			priority: Number.MAX_SAFE_INTEGER,
+			hide: (cb?: () => void) => {
+				replayPopup.hide(cb);
+			},
+		};
+	};
+
+	if (current) {
+		const prevHide = current.hide;
+		current = null;
+		prevHide(showReplay);
+		return;
+	}
+
+	showReplay();
 }
 

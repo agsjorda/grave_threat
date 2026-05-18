@@ -83,8 +83,13 @@ export class BalanceController {
 
   public updateBalanceAmount(balanceAmount: number): void {
     if (this.balanceAmountText) {
-      if (!Number.isFinite(balanceAmount)) {
+      // Replay sentinel (-1) and any other non-finite/negative value render as the pending placeholder.
+      if (!Number.isFinite(balanceAmount) || balanceAmount < 0) {
         this.balanceAmountText.setText(BalanceController.BALANCE_PENDING_TEXT);
+        // Treat sentinel as initialized so spin gating in replay mode does not stall waiting for a numeric balance.
+        if (Number.isFinite(balanceAmount)) {
+          this.isBalanceInitialized = true;
+        }
         return;
       }
       this.balanceAmountText.setText(formatCurrencyNumber(balanceAmount));
@@ -295,6 +300,13 @@ export class BalanceController {
 
   public async updateBalanceFromServer(spinData?: any): Promise<void> {
     const gameAPI = this.callbacks.getGameAPI();
+
+    // Replay mode is non-financial — never reconcile balance from server payload or /balance API.
+    // Mirrors shuten_doji SlotController.updateBalanceFromServer replay short-circuit.
+    if (gameAPI?.getReplayState?.()) {
+      return;
+    }
+
     const isDemo = !!gameAPI?.getDemoState?.();
 
     const payloadBalance = Number(spinData?.balance ?? spinData?.data?.balance);

@@ -683,6 +683,9 @@ export class Dialogs {
 	/**
 	 * Set up auto-close timer for win dialogs during autoplay or when scatter is hit
 	 */
+	/** Replay mode: free-spin dialogs auto-dismiss after this many ms so the replay loop continues without manual click. */
+	private replayFreeSpinDialogAutoCloseMs: number = 3000;
+
 	private setupAutoCloseTimer(scene: Scene): void {
 		// Clear any existing timer
 		if (this.autoCloseTimer) {
@@ -690,10 +693,30 @@ export class Dialogs {
 			this.autoCloseTimer = null;
 		}
 
-		// MaxWin and TotalWin dialogs never auto-close (user must dismiss).
+		// MaxWin and TotalWin dialogs auto-close after 15s if the player never clicks them.
+		// Applies regardless of game mode (base, bonus, replay).
 		if (this.currentDialogType === 'MaxWin' || this.currentDialogType === 'TotalWin') {
+			const maxTotalWinAutoCloseMs = 15000;
+			this.autoCloseTimer = scene.time.delayedCall(maxTotalWinAutoCloseMs, () => {
+				this.handleDialogClick(scene, true);
+			});
 			return;
 		}
+
+		// Replay mode: auto-close FreeSpin / FreeSpinRetrigger dialogs after a fixed delay so
+		// the replay loop doesn't stall on a manual click between popup shows.
+		try {
+			const gameAPI = (scene as any)?.gameAPI;
+			if (
+				gameAPI?.getReplayState?.() &&
+				(this.currentDialogType === 'FreeSpin' || this.currentDialogType === 'FreeSpinRetrigger')
+			) {
+				this.autoCloseTimer = scene.time.delayedCall(this.replayFreeSpinDialogAutoCloseMs, () => {
+					this.handleDialogClick(scene, true);
+				});
+				return;
+			}
+		} catch {}
 
 		// If caller explicitly requested auto-close, apply it for any dialog type.
 		if (this.configAutoCloseEnabled && this.configAutoCloseMs !== null) {

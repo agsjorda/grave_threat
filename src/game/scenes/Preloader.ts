@@ -190,8 +190,20 @@ export class Preloader extends Scene
         try {
             const gameToken = await this.gameAPI.initializeGame();
 
+			// Replay mode: fetch the recorded transaction before any other backend calls so
+			// downstream consumers (Game scene, ClockDisplay, balance UI) can read it synchronously.
+			try {
+				await this.gameAPI.initReplayData();
+				if (this.gameAPI.getReplayState()) {
+					this.updateClockForReplay();
+				}
+			} catch (replayErr) {
+				console.warn('[Preloader] initReplayData failed:', replayErr);
+			}
+
+			const isReplay = this.gameAPI.getReplayState();
 			const isDemo = this.gameAPI.getDemoState();
-			if (!isDemo) {
+			if (!isDemo && !isReplay) {
 				const slotInitData = await this.gameAPI.initializeSlotSession();
 				unresolvedSpinManager.setFromInitializationData(slotInitData);
 				CurrencyManager.initializeFromInitData(slotInitData);
@@ -215,7 +227,9 @@ export class Preloader extends Scene
 
 			console.log('[Preloader] Fetching initial balance before enabling play...');
 			const initialBalance = Number(await this.gameAPI.initializeBalance());
-			if (Number.isFinite(initialBalance) && initialBalance >= 0) {
+			// `-1` is the replay-mode sentinel — propagate it so the Game scene does not
+			// re-call initializeBalance(). Any other negative value is treated as invalid.
+			if (Number.isFinite(initialBalance) && (initialBalance >= 0 || initialBalance === -1)) {
 				this.initialBalance = initialBalance;
 				console.log('[Preloader] Initial balance ready:', initialBalance);
 			} else {
@@ -423,12 +437,66 @@ export class Preloader extends Scene
 	}
 
 	private setupClock(): void {
+		const isReplay = !!this.gameAPI?.getReplayState?.();
 		this.clockDisplay = new ClockDisplay(this, {
 			...CLOCK_DISPLAY_CONFIG,
-			suffixText: ` | ${GAME_DISPLAY_NAME}${this.gameAPI.getDemoState() ? ' | DEMO' : ''}`,
+			suffixText: isReplay
+				? this.getReplayClockText()
+				: ` | ${GAME_DISPLAY_NAME}${this.gameAPI.getDemoState() ? ' | DEMO' : ''}`,
+			showClock: !isReplay,
 			additionalText: CLOCK_DISPLAY_NAME,
 		});
 		this.clockDisplay.create();
+		if (isReplay) {
+			this.startReplayClockTitleRetry();
+		}
+	}
+
+	/**
+	 * Build the two-line replay clock label: `<Game> | Replay\nID: ${round_id}`.
+	 * Falls back to `...` when replayData has not arrived yet.
+	 */
+	private getReplayClockText(): string {
+		const roundId = this.gameAPI?.getReplayData?.()?.round_id;
+		const idPart =
+			roundId === undefined || roundId === null || String(roundId).trim() === ''
+				? '...'
+				: String(roundId);
+		return `${GAME_DISPLAY_NAME} | Replay\nID: ${idPart}`;
+	}
+
+	/**
+	 * Update the clock label immediately (used after initReplayData() resolves).
+	 */
+	private updateClockForReplay(): void {
+		try {
+			this.clockDisplay?.setSuffixText?.(this.getReplayClockText());
+		} catch {}
+	}
+
+	private replayClockRetryTimer?: Phaser.Time.TimerEvent;
+	/**
+	 * Poll every 100ms until replayData.round_id is available so the static replay label
+	 * stops showing the `...` placeholder.
+	 */
+	private startReplayClockTitleRetry(): void {
+		this.replayClockRetryTimer?.destroy();
+		this.replayClockRetryTimer = this.time.addEvent({
+			delay: 100,
+			loop: true,
+			callback: () => {
+				const id = this.gameAPI?.getReplayData?.()?.round_id;
+				if (id !== undefined && id !== null && String(id).trim().length > 0) {
+					this.updateClockForReplay();
+					try { this.replayClockRetryTimer?.destroy(); } catch {}
+					this.replayClockRetryTimer = undefined;
+				}
+			}
+		});
+		this.events.once('shutdown', () => {
+			try { this.replayClockRetryTimer?.destroy(); } catch {}
+			this.replayClockRetryTimer = undefined;
+		});
 	}
 
 	private setupLoadingFrameAndText(): void {

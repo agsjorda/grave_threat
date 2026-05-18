@@ -178,6 +178,28 @@ export interface LocalizationPayload {
   locale: string;
 }
 
+/**
+ * Replay transaction payload returned by /api/v1/transactions/result/spin.
+ * Used by replay mode (?replay=true) to re-play a recorded spin without affecting balance.
+ */
+export interface ReplayData {
+  id: number;
+  uuid: string;
+  round_id: string;
+  type: string;
+  created_at: {
+    date: string;
+    time: string;
+  };
+  updated_at: {
+    date: string;
+    time: string;
+  };
+  currency: string;
+  currencySymbol: string;
+  spinData: SpinData;
+}
+
 export class GameAPI {
   private static readonly GAME_ID: string = "00090725"; //change to 00090725 for grave_threat
   private static DEMO_BALANCE: number = 10000;
@@ -198,6 +220,8 @@ export class GameAPI {
   private initializationUnresolvedConsumed: boolean = false;
   /** Stop retrying PATCH when backend confirms unresolved resource no longer exists */
   private unresolvedPatchTerminal: boolean = false;
+  /** Cached replay transaction payload (populated by initReplayData when ?replay=true). */
+  private replayData: ReplayData | null = null;
 
   // One-shot debug helper: force the first MANUAL spin to contain 3 scatters (symbol id 0)
   // in the first 3 columns. Enable via:
@@ -734,11 +758,13 @@ export class GameAPI {
    * Change Currency and Language as needed.
    */
   public async initializeSlotSession(): Promise<SlotInitializeData> {
+    // Replay mode: skip backend slot initialization; return a minimal safe payload.
+    const isReplay = this.getReplayState();
     // Demo mode: don't call backend; return a minimal safe payload and cache it.
     const isDemo =
       this.getDemoState() ||
       sessionStorage.getItem("demo") === "true";
-    if (this.isSampleDataEnabled() || isDemo) {
+    if (this.isSampleDataEnabled() || isDemo || isReplay) {
       const payload: SlotInitializeData = {
         gameId: GameAPI.GAME_ID,
         playerId: "",
@@ -1372,6 +1398,13 @@ export class GameAPI {
     isFs: boolean = false,
     buyFeat?: number,
   ): Promise<SpinData> {
+    // Replay mode: return the pre-fetched replay spin data instead of hitting the backend.
+    if (this.getReplayState() && this.replayData?.spinData) {
+      console.log("[GameAPI] Replay mode: returning replayData.spinData as spin result");
+      this.currentSpinData = this.replayData.spinData;
+      return this.replayData.spinData;
+    }
+
     // Optional debug helper: first manual spin returns mocked data with 3 scatters
     // Manual spin heuristic: not autoplaying and not an autoplay-requested spin.
     // Also exclude buy feature spins and initialization free rounds.
@@ -1856,6 +1889,11 @@ export class GameAPI {
    * This method calls getBalance and updates the GameData with the current balance
    */
   public async initializeBalance(): Promise<number> {
+    // Replay mode: use a sentinel (-1) so balance UI can render a non-numeric placeholder.
+    if (this.getReplayState()) {
+      return -1;
+    }
+
     const isDemo =
       this.getDemoState() ||
       sessionStorage.getItem("demo") === "true";
@@ -1960,6 +1998,98 @@ export class GameAPI {
   public getDemoState(): boolean | false {
     const demoValue = getUrlParameter("demo") === "true";
     return demoValue;
+  }
+
+  /**
+   * Returns true when the game was launched in replay mode (URL param `replay=true`).
+   * Replay mode disables all financial side effects and replays a single recorded spin in a loop.
+   */
+  public getReplayState(): boolean {
+    return getUrlParameter("replay") === "true";
+  }
+
+  /**
+   * Returns the cached replay transaction payload populated by `initReplayData()`.
+   */
+  public getReplayData(): ReplayData | null {
+    return this.replayData;
+  }
+
+  /**
+   * Fetch the replay transaction payload from the backend and cache it for the spin/popup flow.
+   * No-op when replay mode is off. Called from the Preloader before the Game scene starts.
+   */
+  public async initReplayData(): Promise<void> {
+    const getDateAndTime = (dateTime: string) => {
+      const safe = typeof dateTime === "string" ? dateTime : "";
+      const [date = "", time = ""] = safe.split("T");
+      return { date, time };
+    };
+
+    const isReplay = this.getReplayState();
+    if (!isReplay) {
+      return;
+    }
+
+    const token = getUrlParameter("token") || sessionStorage.getItem("token") || "";
+    if (token) {
+      sessionStorage.setItem("token", token);
+    } else {
+      console.warn("[GameAPI] Replay mode: no token available; cannot fetch replay data");
+      return;
+    }
+
+    const apiUrl = `${getApiBaseUrl()}/api/v1/transactions/result/spin`;
+    try {
+      const response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        // Route structured backend errors (DJ401UA, DJ401TE, …) through the popup manager.
+        let errPayload: any = null;
+        try {
+          errPayload = await response.json();
+        } catch {}
+        try {
+          const { checkAndHandlePopup } = await import("../managers/PopupManager");
+          if (errPayload) checkAndHandlePopup(errPayload);
+        } catch {}
+        console.warn(
+          `[GameAPI] Replay fetch failed: status=${response.status} errorCode=${errPayload?.errorCode ?? ""}`,
+        );
+        return;
+      }
+
+      const raw = await response.json();
+      const data = raw?.data ?? raw;
+      const spinData: SpinData = {
+        playerId: data?.playerId ?? "",
+        bet: String(data?.baseBet ?? data?.bet ?? ""),
+        slot: data?.result ?? data?.slot ?? ({} as any),
+      };
+
+      this.replayData = {
+        id: data?.id,
+        uuid: data?.uuid,
+        round_id: data?.round_id ?? data?.id ?? "",
+        type: data?.type ?? "",
+        created_at: getDateAndTime(data?.created_at ?? ""),
+        updated_at: getDateAndTime(data?.updated_at ?? ""),
+        currency: data?.currency ?? "",
+        currencySymbol: data?.currencySymbol ?? "",
+        spinData,
+      };
+      this.currentSpinData = spinData;
+
+      console.log("[GameAPI] Replay data ready:", this.replayData);
+    } catch (e) {
+      console.warn("[GameAPI] initReplayData failed:", e);
+    }
   }
 
   /**

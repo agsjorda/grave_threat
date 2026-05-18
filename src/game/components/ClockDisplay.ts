@@ -18,6 +18,7 @@ export interface ClockDisplayOptions {
     additionalTextColor?: string; // Color for additional text
     additionalTextFontSize?: number; // Font size for additional text
     additionalTextFontFamily?: string; // Font family for additional text
+    showClock?: boolean; // When false, render only suffixText (no HH:mm prefix, no update timer). Used by replay mode.
 }
 
 export class ClockDisplay {
@@ -27,6 +28,7 @@ export class ClockDisplay {
     private timeUpdateTimer?: Phaser.Time.TimerEvent;
     private options: ClockDisplayOptions;
     private suffixText: string;
+    private showClock: boolean = true;
     private appliedFontFamily: string = 'poppins-regular';
     private appliedAdditionalFontFamily: string = 'poppins-regular';
 
@@ -53,10 +55,13 @@ export class ClockDisplay {
         const depth = this.options.depth || 30000;
         const scale = this.options.scale !== undefined ? this.options.scale : 1.0;
         this.suffixText = this.options.suffixText || '';
+        this.showClock = this.options.showClock ?? true;
 
         // Create time text with specified styles
         const initialTime = getMilitaryTime();
-        const displayText = this.suffixText ? `${initialTime}${this.suffixText}` : initialTime;
+        const displayText = this.showClock
+            ? (this.suffixText ? `${initialTime}${this.suffixText}` : initialTime)
+            : this.suffixText;
         const timeText = this.scene.add.text(
             timeX,
             timeY,
@@ -142,6 +147,11 @@ export class ClockDisplay {
             this.appliedAdditionalFontFamily = additionalFontFamily;
         }
 
+        // In replay/no-clock mode we display a static label; do not create the timer.
+        if (!this.showClock) {
+            return;
+        }
+
         // Update time every second
         this.timeUpdateTimer = this.scene.time.addEvent({
             delay: 1000, // Update every second
@@ -154,6 +164,20 @@ export class ClockDisplay {
             },
             loop: true
         });
+    }
+
+    /**
+     * Replace the suffix label. When the clock is disabled (replay mode), this also re-renders the static text.
+     */
+    public setSuffixText(suffixText: string): void {
+        this.suffixText = suffixText || '';
+        if (!this.timeText) return;
+        if (!this.showClock) {
+            this.timeText.setText(this.suffixText);
+        } else {
+            const currentTime = getMilitaryTime();
+            this.timeText.setText(this.suffixText ? `${currentTime}${this.suffixText}` : currentTime);
+        }
     }
 
     public destroy(): void {
