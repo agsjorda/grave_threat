@@ -135,25 +135,33 @@ export class SpinButtonController {
   /**
    * Disable spin button
    */
+  /**
+   * Disable spin button — flag + icon-tween only.
+   *
+   * The spin button image's tint + interactivity are owned by
+   * HudController.disableSpinButton(keepActiveLook). The spin icon's alpha/tint
+   * + the autoplay-stop overlay's visibility are orchestrated by
+   * SlotController.updateSpinButtonVisualMode().
+   *
+   * Touching spinButton.setTint() / disableInteractive() here would silently
+   * override HudController's "keep active look" branch and hide the spine
+   * click-feedback animation (see SKIP_QUEUEING_AND_ANIMATION_PORTING_GUIDE.md §8).
+   * Touching spinIcon.setAlpha(0.5) here covers the spine animation regardless of
+   * HudController state.
+   */
   public disable(): void {
     this.isDisabled = true; // Set flag first
-    if (this.spinButton) {
-      this.spinButton.disableInteractive();
-      this.spinButton.setTint(0x666666); // Gray out the button
-      // Match grave_threat: keep spin button clickable while reels are spinning
-      // so the player can request skip on additional taps.
-      if (gameStateManager.isReelSpinning) {
-        this.spinButton.setInteractive();
-      }
-    }
+    // Mirror mars_triumph: keep spin icon fully visible (its visibility is then
+    // toggled by SlotController.updateSpinButtonVisualMode()). The actual spin
+    // button image visual is owned by HudController.disableSpinButton(keepActiveLook).
     if (this.spinIcon) {
-      this.spinIcon.setAlpha(0.5);
-      this.spinIcon.setTint(0x666666);
+      this.spinIcon.setAlpha(1.0);
+      this.spinIcon.clearTint();
     }
     if (this.spinIconTween) {
-      this.spinIconTween.pause(); // Pause icon animation
+      this.spinIconTween.pause(); // Pause icon rotation
     }
-    log.debug('Spin button disabled');
+    log.debug('Spin button disabled (flag + icon tween only; button visual owned by HudController)');
   }
 
   /**
@@ -188,22 +196,24 @@ export class SpinButtonController {
    * Play spin button animation
    */
   public playSpinAnimation(): void {
-    // Ensure icon alpha is set correctly based on disabled state
+    // Mirror mars_triumph: keep spin icon fully visible at the start of the click animation.
+    // The icon at alpha=0.5 visually obscures the spine click-feedback (red-bordered square)
+    // playing behind it. Visibility of the spin icon during active-spin is then toggled by
+    // SlotController.updateSpinButtonVisualMode() — this method only resets the visual state.
     if (this.spinIcon) {
-      if (this.isDisabled) {
-        this.spinIcon.setAlpha(this.DISABLED_ALPHA);
-        log.debug(`Spin icon alpha set to ${this.DISABLED_ALPHA} in playSpinAnimation (disabled)`);
-      } else {
-        this.spinIcon.setAlpha(1.0);
-      }
+      this.spinIcon.setAlpha(1.0);
+      this.spinIcon.clearTint();
     }
-    
+
     const isInFreeRoundSpins = this.callbacks.isInFreeRoundSpins?.() === true;
     const targetAnimation = isInFreeRoundSpins && this.freeRoundSpinButtonAnimation
       ? this.freeRoundSpinButtonAnimation
       : this.spinButtonAnimation;
 
-    if (!targetAnimation) return;
+    if (!targetAnimation) {
+      log.warn('[SpinButtonController] playSpinAnimation: targetAnimation is null — createSpinButtonAnimation likely bailed at cache.json.has guard');
+      return;
+    }
 
     try {
       // Keep only one spin effect visible at a time
@@ -219,20 +229,47 @@ export class SpinButtonController {
         : 'animation';
 
       targetAnimation.setVisible(true);
-      const startResult = startAnimationWithEntry(targetAnimation, {
-        animationName,
-        loop: false,
-        timeScale: 1,
-        fallbackToFirstAvailable: true,
-        logWhenMissing: false
-      });
 
-      const playedAnimationName = startResult?.animationName ?? animationName;
-      const trackEntry: any = startResult?.entry;
+      // Use mars_triumph's direct setAnimation call for the main spin button case.
+      // The startAnimationWithEntry helper validates against getAvailableAnimations() which
+      // can return empty on this spine plugin version (the skeleton's animations field is
+      // parsed as an object map, not an array), causing the helper to return null and the
+      // spine to be hidden — even though the 'animation' track exists. Direct call bypasses
+      // that validation; the plugin looks up the animation lazily.
+      let playedAnimationName = animationName;
+      let trackEntry: any = null;
 
-      if (!startResult) {
-        targetAnimation.setVisible(false);
-        return;
+      if (targetAnimation === this.spinButtonAnimation) {
+        try {
+          trackEntry = targetAnimation.animationState.setAnimation(0, animationName, false);
+          log.debug(`Spin button animation '${animationName}' started via direct setAnimation`);
+        } catch (directErr) {
+          log.warn(`Direct setAnimation('${animationName}') failed:`, directErr);
+          targetAnimation.setVisible(false);
+          return;
+        }
+      } else {
+        // Free-round path uses the helper (different spine asset, different track name).
+        const startResult = startAnimationWithEntry(targetAnimation, {
+          animationName,
+          loop: false,
+          timeScale: 1,
+          fallbackToFirstAvailable: true,
+          logWhenMissing: false
+        });
+        if (!startResult) {
+          try {
+            trackEntry = targetAnimation.animationState.setAnimation(0, animationName, false);
+            log.debug('Free-round spin animation started via direct fallback');
+          } catch (directErr) {
+            log.warn('Free-round spin animation could not start:', directErr);
+            targetAnimation.setVisible(false);
+            return;
+          }
+        } else {
+          playedAnimationName = startResult.animationName;
+          trackEntry = startResult.entry;
+        }
       }
 
       // Match grave_threat free-round clamp behavior
@@ -253,8 +290,9 @@ export class SpinButtonController {
         complete: (entry: any) => {
           if (entry.animation.name === playedAnimationName) {
             targetAnimation.setVisible(false);
+            // Mirror mars_triumph: keep spin icon visible after spin animation completes.
             if (this.spinIcon) {
-              this.spinIcon.setAlpha(this.isDisabled ? this.DISABLED_ALPHA : 1.0);
+              this.spinIcon.setAlpha(1.0);
             }
           }
         }
@@ -265,7 +303,8 @@ export class SpinButtonController {
       log.warn('Failed to play spin button animation:', error);
       targetAnimation.setVisible(false);
       if (this.spinIcon) {
-        this.spinIcon.setAlpha(this.isDisabled ? this.DISABLED_ALPHA : 1.0);
+        // Mirror mars_triumph: keep icon visible after spin animation completes (or fails).
+        this.spinIcon.setAlpha(1.0);
       }
     }
   }
@@ -320,16 +359,39 @@ export class SpinButtonController {
   // ============================================================================
 
   private async handleSpinButtonClick(): Promise<void> {
+    console.log('[SKIP-TRACE][SpinButtonController] click received', {
+      isDisabled: this.isDisabled,
+      isProcessingSpin: gameStateManager.isProcessingSpin,
+      isReelSpinning: gameStateManager.isReelSpinning,
+    });
     log.debug('Spin button clicked');
 
-    // Match grave_threat click flow: during reel spinning, clicking spin requests skip.
-    if (gameStateManager.isReelSpinning) {
-      this.callbacks.onSpinBlocked('Already spinning');
+    // Mars_triumph pattern (SKIP_QUEUEING_AND_ANIMATION_PORTING_GUIDE.md §4 Phase B):
+    // clicks during the processing window OR the active reel-spin window become skip
+    // requests routed through onSpinBlocked. Both reasons must be handled by the caller.
+    if (this.isDisabled) {
+      if (gameStateManager.isReelSpinning) {
+        console.log('[SKIP-TRACE][SpinButtonController] isDisabled+isReelSpinning → onSpinBlocked("Already spinning")');
+        this.callbacks.onSpinBlocked('Already spinning');
+      } else if (gameStateManager.isProcessingSpin) {
+        console.log('[SKIP-TRACE][SpinButtonController] isDisabled+isProcessingSpin → onSpinBlocked("Already processing spin")');
+        this.callbacks.onSpinBlocked('Already processing spin');
+      } else {
+        console.log('[SKIP-TRACE][SpinButtonController] isDisabled but no in-progress state → no skip dispatched');
+      }
+      log.debug('Spin button click ignored - disabled (routed as skip request if applicable)');
       return;
     }
 
-    if (this.isDisabled) {
-      log.debug('Spin button click ignored - disabled');
+    // Also catch the not-yet-disabled processing/spinning window (race-safe fallback).
+    if (gameStateManager.isProcessingSpin) {
+      console.log('[SKIP-TRACE][SpinButtonController] not-yet-disabled, isProcessingSpin → onSpinBlocked("Already processing spin")');
+      this.callbacks.onSpinBlocked('Already processing spin');
+      return;
+    }
+    if (gameStateManager.isReelSpinning) {
+      console.log('[SKIP-TRACE][SpinButtonController] not-yet-disabled, isReelSpinning → onSpinBlocked("Already spinning")');
+      this.callbacks.onSpinBlocked('Already spinning');
       return;
     }
     const now = Date.now();
@@ -388,9 +450,11 @@ export class SpinButtonController {
       duration: 300,
       ease: 'Power2',
       onComplete: () => {
-        // Ensure alpha is maintained after rotation tween
-        if (this.spinIcon && this.isDisabled) {
-          this.spinIcon.setAlpha(this.DISABLED_ALPHA);
+        // Mirror mars_triumph: keep icon fully visible after rotation. The previous
+        // alpha=0.5 reset visually grayed out the icon and obscured the spine
+        // click-feedback animation playing behind the button.
+        if (this.spinIcon) {
+          this.spinIcon.setAlpha(1.0);
         }
       }
     });

@@ -411,7 +411,12 @@ export class Symbols {
       }
       this.spinDataProcessingInProgress = true;
       try {
+        console.log('[SKIP-TRACE][Symbols] SPIN_DATA_RESPONSE handler: setting spinDataResponseReceivedForCurrentSpin=true');
         this.spinDataResponseReceivedForCurrentSpin = true;
+        // Promote any queued skip request from the pre-data click window so it executes
+        // alongside the incoming drop. Mirrors mars_triumph's resetForIncomingSpinSymbols
+        // hook. See SKIP_QUEUEING_AND_ANIMATION_PORTING_GUIDE.md §4 Phase C + §6.3.
+        this.promoteQueuedSkipIfAny();
         this.currentSpinData = data.spinData;
         await this.processSpinData(data.spinData);
       } catch (e) {
@@ -858,19 +863,81 @@ export class Symbols {
     }
   }
 
+  /**
+   * Request a skip for the current spin.
+   *
+   * Implements the queue-vs-execute split from
+   * SKIP_QUEUEING_AND_ANIMATION_PORTING_GUIDE.md §4 + §6.3 + §10 (pitfall #1):
+   * - Always latches `skipReelDropsRequestedForCurrentSpin` (queue intent).
+   * - If spin data hasn't arrived AND no drop is in progress, returns WITHOUT setting
+   *   pending/active and WITHOUT calling the accelerated-tween path.
+   * - When spin data later arrives, `promoteQueuedSkipIfAny()` (called from the
+   *   SPIN_DATA_RESPONSE handler) flips the queue intent into executable pending state.
+   * - If a drop is already running at click time, jumps straight to active.
+   */
   public requestSkipReelDrops(): boolean {
+    console.log('[SKIP-TRACE][Symbols] requestSkipReelDrops entry', {
+      skipReelDropsRequestedForCurrentSpin: this.skipReelDropsRequestedForCurrentSpin,
+      skipReelDropsActive: this.skipReelDropsActive,
+      skipReelDropsPending: this.skipReelDropsPending,
+      spinDataResponseReceivedForCurrentSpin: this.spinDataResponseReceivedForCurrentSpin,
+      reelDropInProgress: this.reelDropInProgress,
+      preSpinDropInProgress: this.preSpinDropInProgress,
+    });
     if (
       this.skipReelDropsRequestedForCurrentSpin ||
       this.skipReelDropsActive ||
       this.skipReelDropsPending
     ) {
+      console.log('[SKIP-TRACE][Symbols] requestSkipReelDrops blocked → one-skip-per-spin guard');
       return false;
     }
+    // Always latch the queue intent first.
     this.skipReelDropsRequestedForCurrentSpin = true;
+
+    // Queue-only path: click happened before SPIN_DATA_RESPONSE arrived AND no reel drop
+    // is currently running. Defer pending/active + tween acceleration until data arrives.
+    if (!this.spinDataResponseReceivedForCurrentSpin && !this.reelDropInProgress) {
+      console.log('[SKIP-TRACE][Symbols] requestSkipReelDrops → QUEUE-ONLY path (waiting for SPIN_DATA_RESPONSE)');
+      return true;
+    }
+
+    // Executable path: arm pending; if a drop is already running, promote to active.
     this.skipReelDropsPending = true;
-    this.skipReelDropsActive = true;
+    if (this.reelDropInProgress) {
+      this.skipReelDropsPending = false;
+      this.skipReelDropsActive = true;
+      console.log('[SKIP-TRACE][Symbols] requestSkipReelDrops → EXECUTABLE path, drop already running → ACTIVE now');
+    } else {
+      console.log('[SKIP-TRACE][Symbols] requestSkipReelDrops → EXECUTABLE path, PENDING (drop not yet started)');
+    }
     this.accelerateActiveSymbolTweens(2.5);
     return true;
+  }
+
+  /**
+   * Promote a queued skip request to an executable one when spin data finally arrives.
+   * Mirrors mars_triumph's `resetForIncomingSpinSymbols()` promotion branch. Called from
+   * the SPIN_DATA_RESPONSE handler immediately after spinDataResponseReceivedForCurrentSpin
+   * is set to true. See SKIP_QUEUEING_AND_ANIMATION_PORTING_GUIDE.md §4 Phase C + §6.3.
+   */
+  private promoteQueuedSkipIfAny(): void {
+    console.log('[SKIP-TRACE][Symbols] promoteQueuedSkipIfAny called', {
+      skipReelDropsRequestedForCurrentSpin: this.skipReelDropsRequestedForCurrentSpin,
+      skipReelDropsPending: this.skipReelDropsPending,
+      skipReelDropsActive: this.skipReelDropsActive,
+    });
+    if (
+      this.skipReelDropsRequestedForCurrentSpin &&
+      !this.skipReelDropsPending &&
+      !this.skipReelDropsActive
+    ) {
+      this.skipReelDropsPending = true;
+      this.accelerateActiveSymbolTweens(2.5);
+      console.log('[SKIP-TRACE][Symbols] promoteQueuedSkipIfAny → promoted queue → PENDING');
+    } else {
+      console.log('[SKIP-TRACE][Symbols] promoteQueuedSkipIfAny → no-op (no queued intent or already promoted)');
+    }
   }
 
   public requestSkipTumbles(): void {
@@ -905,17 +972,42 @@ export class Symbols {
   }
 
   public canRequestSkipReelDropsNow(): boolean {
-    if (this.skipReelDropsRequestedForCurrentSpin) return false;
-    if (this.skipReelDropsActive || this.skipReelDropsPending) return false;
-    if (this.tumbleInProgress) return false;
-    if (gameStateManager.isShowingWinDialog) return false;
-    if (!gameStateManager.isBonus && !this.spinDataResponseReceivedForCurrentSpin) return false;
-    if (!gameStateManager.isReelSpinning || !this.reelDropInProgress) return false;
+    if (this.skipReelDropsRequestedForCurrentSpin) {
+      console.log('[SKIP-TRACE][Symbols] canRequestSkipReelDropsNow → false (already requested for this spin)');
+      return false;
+    }
+    if (this.skipReelDropsActive || this.skipReelDropsPending) {
+      console.log('[SKIP-TRACE][Symbols] canRequestSkipReelDropsNow → false (active or pending)');
+      return false;
+    }
+    if (this.tumbleInProgress) {
+      console.log('[SKIP-TRACE][Symbols] canRequestSkipReelDropsNow → false (tumble in progress)');
+      return false;
+    }
+    if (gameStateManager.isShowingWinDialog) {
+      console.log('[SKIP-TRACE][Symbols] canRequestSkipReelDropsNow → false (win dialog showing)');
+      return false;
+    }
+    // Accept clicks while a spin is in flight, even before spin data arrives or reels
+    // start. requestSkipReelDrops() handles the queue-only vs executable split.
+    // See SKIP_QUEUEING_AND_ANIMATION_PORTING_GUIDE.md §6.3.
+    if (
+      !gameStateManager.isProcessingSpin &&
+      !gameStateManager.isReelSpinning &&
+      !this.reelDropInProgress &&
+      !this.preSpinDropInProgress
+    ) {
+      console.log('[SKIP-TRACE][Symbols] canRequestSkipReelDropsNow → false (no spin in flight)');
+      return false;
+    }
+    console.log('[SKIP-TRACE][Symbols] canRequestSkipReelDropsNow → true');
     return true;
   }
 
   public tryRequestSkipReelDrops(): boolean {
-    if (!this.canRequestSkipReelDropsNow()) return false;
+    const canSkip = this.canRequestSkipReelDropsNow();
+    console.log('[SKIP-TRACE][Symbols] tryRequestSkipReelDrops', { canSkip });
+    if (!canSkip) return false;
     return this.requestSkipReelDrops();
   }
 
@@ -1624,7 +1716,22 @@ export class Symbols {
   }
 
   private async processSpinDataSymbols(symbols: number[][], spinData: any): Promise<void> {
+    // BUG FIX: The unconditional reset here was wiping a fresh queue intent set during
+    // the current spin's processing window (between click and spin data arrival).
+    // Mars_triumph's equivalent `resetForIncomingSpinSymbols` PROMOTES queued intent
+    // rather than resetting it. We need both behaviors:
+    //   1. Reset stale flags from prior spin (needed for bonus spins where
+    //      startPreSpinDrop isn't called — otherwise queue intent leaks across rounds).
+    //   2. Preserve any queue intent the player set DURING this spin's processing window.
+    // Capture-reset-restore-promote handles both: the reset clears any stale state, then
+    // we re-apply the just-captured queue intent and promote it to executable PENDING.
+    const queuedSkipForCurrentSpin = this.skipReelDropsRequestedForCurrentSpin;
     this.resetSkipReelDropsForNewSpin();
+    if (queuedSkipForCurrentSpin) {
+      console.log('[SKIP-TRACE][Symbols] processSpinDataSymbols: preserving queued skip across reset');
+      this.skipReelDropsRequestedForCurrentSpin = true;
+      this.promoteQueuedSkipIfAny();
+    }
 
     const freeSpinItem = gameStateManager.isBonus ? this.getCurrentFreeSpinItem(spinData) : null;
     this.activeFreeSpinSpinsLeft = (
@@ -2692,11 +2799,22 @@ export class Symbols {
       dropDuration: Number(this.scene.gameData?.dropDuration ?? 0),
       dropReelsDelay: Number(this.scene.gameData?.dropReelsDelay ?? 0),
     };
+    console.log('[SKIP-TRACE][Symbols] dropReels ENTRY', {
+      skipReelDropsRequestedForCurrentSpin: this.skipReelDropsRequestedForCurrentSpin,
+      skipReelDropsPending: this.skipReelDropsPending,
+      skipReelDropsActive: this.skipReelDropsActive,
+      spinDataResponseReceivedForCurrentSpin: this.spinDataResponseReceivedForCurrentSpin,
+      reelDropInProgress: this.reelDropInProgress,
+      preSpinDropInProgress: this.preSpinDropInProgress,
+      isTurbo,
+    });
     if (this.skipReelDropsPending) {
       this.skipReelDropsPending = false;
       this.skipReelDropsActive = true;
+      console.log('[SKIP-TRACE][Symbols] dropReels promoted PENDING → ACTIVE');
     }
     const isSkip = this.skipReelDropsActive || this.skipReelDropsPending;
+    console.log('[SKIP-TRACE][Symbols] dropReels isSkip resolved →', isSkip);
     const pendingPreSpinDrop = this.preSpinDropPromise;
     const shouldSkipOldDropPhase = !!pendingPreSpinDrop;
     // Start according to whichever is longer:
@@ -2823,11 +2941,13 @@ export class Symbols {
       const winUpDuration = Number(timingOverride?.winUpDuration ?? this.scene.gameData.winUpDuration);
       const dropDuration = Number(timingOverride?.dropDuration ?? this.scene.gameData.dropDuration);
       const isSkip = this.skipReelDropsActive || this.skipReelDropsPending;
-      // For normal spins, skip should feel like turbo's per-column behavior but faster.
-      // Keep turbo timing unchanged; only compress when explicitly skipping.
-      const speed = isSkip
-        ? (isTurbo ? 0.7 : 0.4)
-        : 1;
+      // Mars_triumph pattern: treat skip exactly like turbo for drop timing/ease/stagger.
+      // The batched (all-columns-in-one-tween-chain) branch below is gated on this flag,
+      // so skip mode clears old symbols in one snap rather than staggered per-column. Without
+      // this, dropOldSymbols runs the slow per-column path and gates dropNewSymbols from
+      // starting — making the new drop visually appear to "still stagger" in skip mode.
+      const useTurboDropTiming = isTurbo || isSkip;
+      const speed = 1;
       const dropToken = ++this.oldSymbolDropTokenCounter;
 
       // During scatter transitions, immediately dispose symbols without animation
@@ -2862,7 +2982,12 @@ export class Symbols {
 
       const oldSymbolExitY = this.getOldSymbolExitY();
 
-      if (isTurbo) {
+      // Skip mode takes the same batched code path as turbo (gated by useTurboDropTiming).
+      // Without this, a queued skip on a non-turbo spin would fall through to the per-column
+      // loop below where each column issues its own staggered tween — and because dropReels
+      // awaits dropOldSymbols BEFORE dropNewSymbols per row, that stagger would gate the
+      // new-symbol drop from starting, making the whole skip feel "not skipped".
+      if (useTurboDropTiming) {
         const tweenTargets: any[] = [];
         const symbolsToDestroy: Array<{ baseObj: any; overlayObj: any; col: number }> = [];
 
@@ -3116,15 +3241,34 @@ export class Symbols {
       const winUpDuration = Number(timingOverride?.winUpDuration ?? this.scene.gameData.winUpDuration);
       const dropDuration = Number(timingOverride?.dropDuration ?? this.scene.gameData.dropDuration);
       const isSkip = this.skipReelDropsActive || this.skipReelDropsPending;
-      // In normal spins, when skipping we want a faster but still per-column drop.
-      // Preserve turbo timing; only shorten when skip is active in non-turbo.
-      const speed = isSkip
-        ? (isTurbo ? 0.7 : 0.35)
-        : 1;
+      // Mars_triumph pattern (see SKIP_QUEUEING_AND_ANIMATION_PORTING_GUIDE.md §6.3
+      // and mars_triumph Symbols.ts dropNewSymbolsColumn): treat skip exactly like
+      // turbo for drop *timing/ease/stagger/sound*. The skip speed-up comes from
+      // removing the per-row/per-column stagger and using a snappier ease — NOT
+      // from shortening the individual drop tweens. Keeping `speed = 1` here means
+      // each symbol still completes its full drop arc; they just all start together.
+      const useTurboDropTiming = isTurbo || isSkip;
+      const speed = 1;
       const targetY = this.getYPos(index);
 
+      console.log('[SKIP-TRACE][Symbols] dropNewSymbols row=' + index, {
+        isTurbo,
+        isSkip,
+        useTurboDropTiming,
+        skipReelDropsActive: this.skipReelDropsActive,
+        skipReelDropsPending: this.skipReelDropsPending,
+        willTakeBatchedBranch: useTurboDropTiming,
+      });
 
-      if (isTurbo) {
+      // Skip mode takes the SAME batched code path as turbo mode (gated by
+      // `useTurboDropTiming`) so all columns at this row animate together in one
+      // chained tween instead of per-column-with-stagger. Without this, a queued
+      // skip in a non-turbo spin would fall through to the per-column loop below
+      // where even with stagger=0 the tween chain is issued per-column and the
+      // skip can visually lag. Mars_triumph achieves the same effect via
+      // Promise.all over dropNewSymbolsColumn in dropReels.
+      if (useTurboDropTiming) {
+        console.log('[SKIP-TRACE][Symbols] dropNewSymbols row=' + index + ' → BATCHED (turbo-or-skip) branch');
         const tweenTargets: any[] = [];
 
         for (let col = 0; col < this.newSymbols.length; col++) {
@@ -3170,6 +3314,11 @@ export class Symbols {
         return;
       }
 
+      // PER-COLUMN BRANCH — runs only when useTurboDropTiming is false (normal-non-turbo spin).
+      // If you see this log fire while skip is supposed to be active, the skip flags didn't
+      // propagate — check the upstream [SKIP-TRACE] logs to find where the flag was lost.
+      console.log('[SKIP-TRACE][Symbols] dropNewSymbols row=' + index + ' → PER-COLUMN (normal) branch');
+
       for (let col = 0; col < this.newSymbols.length; col++) {
         let symbol = this.newSymbols[col]?.[index];
         if (!symbol || (symbol as any).destroyed) {
@@ -3187,10 +3336,11 @@ export class Symbols {
         const overlayObj: any = (baseObj as any)?.__overlayImage;
         const tweenTargets: any = overlayObj ? [baseObj, overlayObj] : baseObj;
 
-        const delayMs = isTurbo
+        // Mars_triumph pattern: skip = 0 stagger (all rows/cols launch in lockstep).
+        // Outside skip/turbo, keep the existing per-column wave + per-row stagger.
+        const delayMs = useTurboDropTiming
           ? 0
-          : ((isSkip ? STAGGER_MS * 0.3 * col : STAGGER_MS * col)
-            + (rowWaveIndex * this.symbolDropStaggerMs));
+          : ((STAGGER_MS * col) + (rowWaveIndex * this.symbolDropStaggerMs));
 
         const tweens: any[] = [
           {
@@ -3202,16 +3352,23 @@ export class Symbols {
           {
             y: targetY,
             duration: Math.max(1, ((dropDuration * 0.9) + extraMs) * speed),
-            ease: isTurbo ? Phaser.Math.Easing.Cubic.Out : Phaser.Math.Easing.Linear,
+            // Mars_triumph: snappy Cubic.Out ease whenever turbo OR skip is active,
+            // Linear in the normal path so the symbols visibly fall.
+            ease: useTurboDropTiming ? Phaser.Math.Easing.Cubic.Out : Phaser.Math.Easing.Linear,
             onComplete: () => {
-              if (!isTurbo && (window as any).audioManager) {
+              // Mars_triumph suppresses the per-column drop sound during turbo AND skip
+              // (the rapid-fire chord of N column sounds in skip mode is unpleasant).
+              if (!useTurboDropTiming && (window as any).audioManager) {
                 this.playSpinReelDropSoundForColumn(col, symbol);
               }
             }
           },
         ];
 
-        if (!isTurbo && !isSkip) {
+        // Mars_triumph: skip the overshoot/bounce when turbo OR skip is active so the
+        // drop ends cleanly without a tail bounce that would visually contradict the
+        // "drop completed instantly" feel.
+        if (!useTurboDropTiming) {
           tweens.push(
             {
               y: `+= ${10}`,

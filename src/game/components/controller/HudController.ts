@@ -37,14 +37,29 @@ export class HudController {
 
   constructor(private readonly callbacks: HudControllerCallbacks) {}
 
-  public disableSpinButton(): void {
+  /**
+   * Disable the spin button.
+   *
+   * @param keepActiveLook When true (set by SlotController during the active-spin window),
+   * the spin button stays alpha=1.0, untinted, AND interactive — so the spine click-feedback
+   * animation behind it remains visible AND the second-click skip queue can receive clicks.
+   * Mirrors mars_triumph's `keepActiveSpinLook` branch (see
+   * docs/SKIP_QUEUEING_AND_ANIMATION_PORTING_GUIDE.md §8.2). Defaults to false (legacy
+   * grayed treatment for non-spin-flow disables, e.g. buy feature lock, bonus mode).
+   */
+  public disableSpinButton(keepActiveLook: boolean = false): void {
     const spinButton = this.callbacks.getButtons().get('spin');
-    if (spinButton) {
-      // Match grave_threat: spin button stays fully opaque and is only tinted.
+    if (!spinButton) return;
+    if (keepActiveLook) {
       spinButton.setAlpha(1.0);
-      spinButton.setTint(this.disabledTint);
-      spinButton.disableInteractive();
+      spinButton.clearTint();
+      spinButton.setInteractive();
+      return;
     }
+    // Match grave_threat: spin button stays fully opaque and is only tinted.
+    spinButton.setAlpha(1.0);
+    spinButton.setTint(this.disabledTint);
+    spinButton.disableInteractive();
   }
 
   public enableSpinButton(): void {
