@@ -278,37 +278,6 @@ export class GameAPI {
     }
   }
 
-  private isNetworkConnectionLost(error: any): boolean {
-    try {
-      if (typeof navigator !== "undefined" && (navigator as any)?.onLine === false) {
-        return true;
-      }
-    } catch {
-      // ignore
-    }
-    const msg = String(error?.message ?? error ?? "").toLowerCase();
-    return (
-      msg.includes("failed to fetch") ||
-      msg.includes("networkerror") ||
-      msg.includes("network request failed") ||
-      msg.includes("load failed")
-    );
-  }
-
-  private getSpinDataFallbackForNetworkLoss(error: any): SpinData | null {
-    if (!this.isNetworkConnectionLost(error)) return null;
-    return this.getCachedSpinData();
-  }
-
-  private markSpinDataAsNetworkFallback(spinData: SpinData): SpinData {
-    try {
-      (spinData as any).__networkFallbackSpinData = true;
-    } catch {
-      // best-effort only
-    }
-    return spinData;
-  }
-
   private getRequestedLanguage(): string {
     const language = getUrlParameter("lang");
     if (language !== "") {
@@ -1502,13 +1471,6 @@ export class GameAPI {
         return this.currentSpinData as SpinData;
       } catch (error) {
         console.error("Error in doSpin (demo):", error);
-        const fallback = this.getSpinDataFallbackForNetworkLoss(error);
-        if (fallback) {
-          console.warn(
-            "[GameAPI] Network error during spin (demo); using cached SpinData fallback",
-          );
-          return this.markSpinDataAsNetworkFallback(fallback);
-        }
         throw error;
       }
     }
@@ -1717,14 +1679,6 @@ export class GameAPI {
       return this.currentSpinData as SpinData;
     } catch (error) {
       console.error("Error in doSpin:", error);
-
-      const fallback = this.getSpinDataFallbackForNetworkLoss(error);
-      if (fallback) {
-        console.warn(
-          "[GameAPI] Network error during spin; using cached SpinData fallback",
-        );
-        return this.markSpinDataAsNetworkFallback(fallback);
-      }
 
       // Handle network errors or other issues
       if (this.isTokenExpiredError(error)) {

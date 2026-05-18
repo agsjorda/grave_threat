@@ -23,6 +23,7 @@ import { CurrencyManager } from '../CurrencyManager';
 import { formatCurrencyNumber } from '../../../utils/NumberPrecisionFormatter';
 import { localizationManager } from "../../../managers/LocalizationManager";
 import * as LK from "../../../backend/LocalizationData";
+import { showBetFailurePopupFromError } from '../../../managers/PopupManager';
 import { 
 	BetController, 
 	AutoplayController, 
@@ -3628,13 +3629,10 @@ export class SlotController {
 		// Clear any stale pending balance update before starting a new spin
 		this.balanceController?.clearPendingBalanceUpdate();
 
-		const isOfflineAtSpinStart = (() => {
-			try { return typeof navigator !== 'undefined' && (navigator as any)?.onLine === false; } catch { return false; }
-		})();
 		const balanceBeforeSpin = (!this.isFreeRoundAutoplay && !inInitFreeRoundContext)
 			? this.getBalanceAmount()
 			: Number.NaN;
-		if (!this.isFreeRoundAutoplay && !inInitFreeRoundContext && !isOfflineAtSpinStart) {
+		if (!this.isFreeRoundAutoplay && !inInitFreeRoundContext) {
 			this.decrementBalanceByBet();
 		}
 
@@ -3670,17 +3668,6 @@ export class SlotController {
 					const isInitFreeRound = inInitFreeRoundContext;
 					spinData = await this.gameAPI.doSpin(currentBet, false, isEnhancedBet, isInitFreeRound);
 
-					const isNetworkFallbackSpinData = !!((spinData as any)?.__networkFallbackSpinData);
-					if (isNetworkFallbackSpinData) {
-						// When using cached SpinData due to network loss, keep the balance stable:
-						// - undo the optimistic decrement that already happened for this spin
-						// - skip any win-based pending balance update
-						this.balanceController?.clearPendingBalanceUpdate();
-						if (Number.isFinite(balanceBeforeSpin)) {
-							this.updateBalanceAmount(Number(balanceBeforeSpin));
-						}
-					}
-					
 					// Hide spinner: if simulating, keep it visible for at least LOADING_SPINNER_SIMULATE_MIN_DISPLAY_MS
 					const elapsed = Date.now() - spinStartTime;
 					const hideDelay = LOADING_SPINNER_SIMULATE_MIN_DISPLAY_MS > 0
@@ -3699,7 +3686,7 @@ export class SlotController {
 					}
 				}
                 // Queue a pending balance update for base-game spins (apply after reels stop)
-				if (!gameStateManager.isBonus && !((spinData as any)?.__networkFallbackSpinData)) {
+				if (!gameStateManager.isBonus) {
 					const winTotal = this.getBaseSpinWinForBalance(spinData);
 					if (winTotal > 0) {
 						const currentBalance = this.getBalanceAmount();
@@ -3724,6 +3711,21 @@ export class SlotController {
 				// Don't emit the spin event if the API call failed
 				try { this.symbols?.clearPreSpinDropState?.(); } catch {}
 				gameStateManager.isProcessingSpin = false;
+				try { this.hideSpinner(); } catch {}
+				// Refund optimistic bet decrement (network/bet-failed paths never reach the win-credit branch).
+				try {
+					if (Number.isFinite(balanceBeforeSpin)) {
+						this.balanceController?.clearPendingBalanceUpdate();
+						this.updateBalanceAmount(Number(balanceBeforeSpin));
+					}
+				} catch (refundErr) {
+					console.warn('[SlotController] Balance refund after spin failure threw:', refundErr);
+				}
+				try {
+					showBetFailurePopupFromError(error);
+				} catch (popupErr) {
+					console.error('[SlotController] showBetFailurePopupFromError threw:', popupErr);
+				}
 			}
 		} finally {
 			this.isSpinLocked = false;

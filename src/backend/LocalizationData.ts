@@ -46,6 +46,8 @@ export const WINBAR_TOTAL_WIN = 'winbar_total-win';
 // ----- Popups -----
 export const POPUP_SESSION_EXPIRED = 'popup_session-expired';
 export const POPUP_INSUFFICIENT_BALANCE = 'popup_insufficient-balance';
+export const POPUP_BET_FAILED = 'popup_bet-failed';
+export const POPUP_NETWORK_OFFLINE = 'popup_network-offline';
 export const POPUP_CONFIRM_OK = 'popup_confirm-ok';
 export const POPUP_CURRENCY_ERROR = 'popup_currency-error';
 export const POPUP_REFRESH = 'popup_refresh';
@@ -197,6 +199,8 @@ export const LOCALIZATION_DEFAULTS: Record<string, string> = {
 
   [POPUP_SESSION_EXPIRED]: 'Your play session has expired. Please log in again to keep playing. \n\nIf you were actively playing a game, your progress has been saved, and you can pick up right where you left off after relaunching the game.',
   [POPUP_INSUFFICIENT_BALANCE]: 'Insufficient balance.\nYour balance is too low to place this bet.\nPlease add funds or adjust your bet.',
+  [POPUP_BET_FAILED]: 'Bet failed. Your balance has been refunded. Please try again.',
+  [POPUP_NETWORK_OFFLINE]: 'You are currently offline. Please check your internet connection and try again.',
   [POPUP_CONFIRM_OK]: 'OK',
   [POPUP_CURRENCY_ERROR]: 'There was an error with the selected currency.\n\nPlease try refreshing the game or selecting another currency.',
   [POPUP_REFRESH]: 'REFRESH',

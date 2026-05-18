@@ -39,6 +39,8 @@ export enum GameEventType {
   BACKEND_BUSY = 'BACKEND_BUSY',
   // Free round manager events
   FREEROUND_COUNT_UPDATE = 'FREEROUND_COUNT_UPDATE', // payload: number (fsCount from backend)
+  // Bet failure / network offline (emitted by PopupManager when those popups show); used to stop autoplay
+  BET_FAILED_ERROR = 'BET_FAILED_ERROR',
   // Additional events used by the backend
   RESPONSE = 'RESPONSE',
 }

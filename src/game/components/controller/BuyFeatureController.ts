@@ -24,6 +24,7 @@ import { BuyFeature } from '../BuyFeature';
 import type { GameAPI } from '../../../backend/GameAPI';
 import type { SlotController } from './SlotController';
 import type { GameData } from '../GameData';
+import { showBetFailurePopupFromError } from '../../../managers/PopupManager';
 
 export interface BuyFeatureCallbacks {
   getGameData: () => GameData | null;
@@ -235,6 +236,11 @@ export class BuyFeatureController {
       gameStateManager.isBuyFeatureSpin = false;
       this.buyFeatureSpinLock = false;
       this.unlockControls('buy feature error');
+      try {
+        showBetFailurePopupFromError(error);
+      } catch (popupErr) {
+        console.error('[BuyFeatureController] showBetFailurePopupFromError threw:', popupErr);
+      }
     }
   }
 }

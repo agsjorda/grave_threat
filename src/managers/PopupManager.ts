@@ -6,14 +6,23 @@
  * Current priorities (higher number = higher priority):
  * - TOKEN_EXPIRED (100): session timeout / token invalid
  * - OUT_OF_BALANCE (50): insufficient balance
+ * - BET_FAILED (40): backend rejected bet (refund expected)
+ * - NETWORK_OFFLINE (40): no response from backend; client appears offline
  */
-// Note: this manager is UI-only; it does not emit game events.
+
+import { gameEventManager, GameEventType } from '../event/EventManager';
+import { NetworkOfflinePopup } from '../game/components/NetworkOfflinePopup';
+import { BetFailedPopup } from '../game/components/BetFailedPopup';
 
 export enum PopupType {
 	/** Session expired / token invalid; user must re-authenticate. */
 	TOKEN_EXPIRED = 'TOKEN_EXPIRED',
 	/** Insufficient balance for bet or action. */
 	OUT_OF_BALANCE = 'OUT_OF_BALANCE',
+	/** Bet failed (backend rejected bet; refund expected). */
+	BET_FAILED = 'BET_FAILED',
+	/** Network offline / fetch failed before any HTTP response. */
+	NETWORK_OFFLINE = 'NETWORK_OFFLINE',
 }
 
 /** Hide function for a visible popup; optional callback when hide animation completes. */
@@ -28,7 +37,36 @@ export type PopupShowAction = (registerHide: RegisterHideFn) => void;
 const PRIORITY: Record<PopupType, number> = {
 	[PopupType.TOKEN_EXPIRED]: 100,
 	[PopupType.OUT_OF_BALANCE]: 50,
+	[PopupType.BET_FAILED]: 40,
+	[PopupType.NETWORK_OFFLINE]: 40,
 };
+
+/**
+ * True when a bet/spin failed with no usable HTTP response (client offline or fetch failed before response).
+ * Heuristic: checks navigator.onLine first (when available) then matches common fetch/network error substrings.
+ */
+export function isNetworkOfflineBetError(error: unknown): boolean {
+	if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+		return true;
+	}
+
+	const message =
+		typeof error === 'string'
+			? error
+			: typeof (error as any)?.message === 'string'
+				? (error as any).message
+				: '';
+	const m = message.toLowerCase();
+	if (!m) return false;
+
+	return (
+		m.includes('failed to fetch') ||
+		m.includes('networkerror when attempting to fetch') ||
+		m.includes('networkerror') ||
+		m.includes('load failed') ||
+		m.includes('network request failed')
+	);
+}
 
 interface CurrentPopup {
 	type: PopupType;
@@ -107,6 +145,7 @@ type PopupFactory = (scene: any) => PopupInstance;
 const ERROR_CODE_TO_POPUP: Record<string, { popupType: PopupType }> = {
 	DJ401UA: { popupType: PopupType.TOKEN_EXPIRED },
 	DJ400NEB: { popupType: PopupType.OUT_OF_BALANCE },
+	DJ400BF: { popupType: PopupType.BET_FAILED },
 };
 
 async function loadPopupFactory(errorCode: string): Promise<PopupFactory | null> {
@@ -120,6 +159,23 @@ async function loadPopupFactory(errorCode: string): Promise<PopupFactory | null>
 			const module = await import('../game/components/OutOfBalancePopup');
 			const Popup = module.OutOfBalancePopup;
 			return (scene) => new Popup(scene as any) as any;
+		}
+		case 'DJ400BF': {
+			const module = await import('../game/components/BetFailedPopup');
+			const Popup = module.BetFailedPopup;
+			return (scene) => {
+				const popup = new Popup(scene as any, 0, 0, {
+					onHideCallback: () => {
+						clearCurrentPopup();
+					},
+				}) as PopupInstance;
+				const originalShow = popup.show.bind(popup);
+				popup.show = () => {
+					originalShow();
+					gameEventManager.emit(GameEventType.BET_FAILED_ERROR);
+				};
+				return popup;
+			};
 		}
 		default:
 			return null;
@@ -174,5 +230,53 @@ export function checkAndHandlePopup(response: BackendErrorResponse | null | unde
 			.catch(() => {});
 	});
 	return true;
+}
+
+/**
+ * Show either NetworkOfflinePopup (offline / pre-response fetch failure) or BetFailedPopup
+ * (generic throw) from a thrown error path (e.g. SlotController spin catch, BuyFeature catch).
+ *
+ * Uses the same PopupType priority system and emits BET_FAILED_ERROR on show so autoplay
+ * stops consistently for both cases.
+ */
+export function showBetFailurePopupFromError(error: unknown): void {
+	const scene = getGameScene();
+	if (!scene) {
+		console.error('[PopupManager] showBetFailurePopupFromError: no Game scene available; popup will not show');
+		return;
+	}
+
+	const type = isNetworkOfflineBetError(error) ? PopupType.NETWORK_OFFLINE : PopupType.BET_FAILED;
+	showPopup(type, (registerHide) => {
+		// Static instantiation: dynamic import() issues a network fetch even in production builds,
+		// which fails when the user is offline — the exact case this popup is meant to surface.
+		const popup = (type === PopupType.NETWORK_OFFLINE
+			? new NetworkOfflinePopup(scene as any, 0, 0, {
+					onHideCallback: () => {
+						clearCurrentPopup();
+					},
+				})
+			: new BetFailedPopup(scene as any, 0, 0, {
+					onHideCallback: () => {
+						clearCurrentPopup();
+					},
+				})) as unknown as PopupInstance;
+
+		const originalShow = popup.show?.bind(popup);
+		if (typeof originalShow === 'function') {
+			popup.show = () => {
+				originalShow();
+				gameEventManager.emit(GameEventType.BET_FAILED_ERROR);
+			};
+		}
+
+		popup.show();
+		registerHide((cb) =>
+			popup.hide(() => {
+				clearCurrentPopup();
+				if (cb) cb();
+			})
+		);
+	});
 }
 
