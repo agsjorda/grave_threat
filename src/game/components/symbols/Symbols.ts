@@ -2869,8 +2869,11 @@ export class Symbols {
       this.reelDropInProgress = false;
     }
 
-    // Turbo mode: play turbo drop sound effect
-    if (isTurbo && (window as any).audioManager) {
+    // Turbo OR skip mode: play turbo drop sound effect once when all reels land.
+    // Skip mode now uses the same batched drop path as turbo (see useTurboDropTiming
+    // in dropNewSymbols / dropOldSymbols) — so it also gets the matching single-shot
+    // turbo drop sound instead of the per-column chord of normal-mode drop sounds.
+    if ((isTurbo || isSkip) && (window as any).audioManager) {
       try {
         (window as any).audioManager.playSoundEffect(SoundEffectType.TURBO_DROP);
       } catch (e) {
