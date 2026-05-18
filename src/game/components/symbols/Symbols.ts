@@ -211,6 +211,11 @@ export class Symbols {
   private skipReelDropsActive: boolean = false;
   private skipReelDropsPending: boolean = false;
   private skipReelDropsRequestedForCurrentSpin: boolean = false;
+  // Latches when skip transitions to pending or active during a spin's reel-drop
+  // lifecycle. Survives `clearSkipReelDrops` so the post-drop sound block can detect
+  // mid-drop skip clicks whose state was captured AFTER `dropReels` cached `isSkip`.
+  // Reset only by `resetSkipReelDropsForNewSpin` on the next spin lifecycle.
+  private skipDropSoundTriggeredForCurrentReelDrop: boolean = false;
   private skipHitbox?: Phaser.GameObjects.Zone;
   private skipTumblesActive: boolean = false;
   private tumbleInProgress: boolean = false;
@@ -911,6 +916,7 @@ export class Symbols {
     } else {
       console.log('[SKIP-TRACE][Symbols] requestSkipReelDrops → EXECUTABLE path, PENDING (drop not yet started)');
     }
+    this.skipDropSoundTriggeredForCurrentReelDrop = true;
     this.accelerateActiveSymbolTweens(2.5);
     return true;
   }
@@ -933,6 +939,7 @@ export class Symbols {
       !this.skipReelDropsActive
     ) {
       this.skipReelDropsPending = true;
+      this.skipDropSoundTriggeredForCurrentReelDrop = true;
       this.accelerateActiveSymbolTweens(2.5);
       console.log('[SKIP-TRACE][Symbols] promoteQueuedSkipIfAny → promoted queue → PENDING');
     } else {
@@ -957,6 +964,7 @@ export class Symbols {
     this.skipReelDropsRequestedForCurrentSpin = false;
     this.skipReelDropsActive = false;
     this.skipReelDropsPending = false;
+    this.skipDropSoundTriggeredForCurrentReelDrop = false;
   }
 
   public clearSkipTumbles(): void {
@@ -2811,6 +2819,7 @@ export class Symbols {
     if (this.skipReelDropsPending) {
       this.skipReelDropsPending = false;
       this.skipReelDropsActive = true;
+      this.skipDropSoundTriggeredForCurrentReelDrop = true;
       console.log('[SKIP-TRACE][Symbols] dropReels promoted PENDING → ACTIVE');
     }
     const isSkip = this.skipReelDropsActive || this.skipReelDropsPending;
@@ -2873,7 +2882,11 @@ export class Symbols {
     // Skip mode now uses the same batched drop path as turbo (see useTurboDropTiming
     // in dropNewSymbols / dropOldSymbols) — so it also gets the matching single-shot
     // turbo drop sound instead of the per-column chord of normal-mode drop sounds.
-    if ((isTurbo || isSkip) && (window as any).audioManager) {
+    // `skipDropSoundTriggeredForCurrentReelDrop` covers the case where the player
+    // clicked skip MID-drop (after `isSkip` above was already captured as false)
+    // — e.g. during a buy-feature initial spin where pre-spin clear gives the
+    // player a longer window to click after `dropReels` has started.
+    if ((isTurbo || isSkip || this.skipDropSoundTriggeredForCurrentReelDrop) && (window as any).audioManager) {
       try {
         (window as any).audioManager.playSoundEffect(SoundEffectType.TURBO_DROP);
       } catch (e) {
