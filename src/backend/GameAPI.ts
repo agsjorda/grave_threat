@@ -1066,11 +1066,6 @@ export class GameAPI {
           this.unresolvedPatchTerminal = true;
           this.setUnresolvedSpinUuid(null);
           this.markInitializationUnresolvedSpinConsumed();
-          console.info(
-            "[GameAPI] patchUnresolvedSpin terminal response; clearing unresolved tracking:",
-            response.status,
-            text,
-          );
           return;
         }
         console.warn(
@@ -1400,7 +1395,6 @@ export class GameAPI {
   ): Promise<SpinData> {
     // Replay mode: return the pre-fetched replay spin data instead of hitting the backend.
     if (this.getReplayState() && this.replayData?.spinData) {
-      console.log("[GameAPI] Replay mode: returning replayData.spinData as spin result");
       this.currentSpinData = this.replayData.spinData;
       return this.replayData.spinData;
     }
@@ -2085,8 +2079,6 @@ export class GameAPI {
         spinData,
       };
       this.currentSpinData = spinData;
-
-      console.log("[GameAPI] Replay data ready:", this.replayData);
     } catch (e) {
       console.warn("[GameAPI] initReplayData failed:", e);
     }

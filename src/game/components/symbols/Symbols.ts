@@ -416,7 +416,6 @@ export class Symbols {
       }
       this.spinDataProcessingInProgress = true;
       try {
-        console.log('[SKIP-TRACE][Symbols] SPIN_DATA_RESPONSE handler: setting spinDataResponseReceivedForCurrentSpin=true');
         this.spinDataResponseReceivedForCurrentSpin = true;
         // Promote any queued skip request from the pre-data click window so it executes
         // alongside the incoming drop. Mirrors mars_triumph's resetForIncomingSpinSymbols
@@ -881,20 +880,11 @@ export class Symbols {
    * - If a drop is already running at click time, jumps straight to active.
    */
   public requestSkipReelDrops(): boolean {
-    console.log('[SKIP-TRACE][Symbols] requestSkipReelDrops entry', {
-      skipReelDropsRequestedForCurrentSpin: this.skipReelDropsRequestedForCurrentSpin,
-      skipReelDropsActive: this.skipReelDropsActive,
-      skipReelDropsPending: this.skipReelDropsPending,
-      spinDataResponseReceivedForCurrentSpin: this.spinDataResponseReceivedForCurrentSpin,
-      reelDropInProgress: this.reelDropInProgress,
-      preSpinDropInProgress: this.preSpinDropInProgress,
-    });
     if (
       this.skipReelDropsRequestedForCurrentSpin ||
       this.skipReelDropsActive ||
       this.skipReelDropsPending
     ) {
-      console.log('[SKIP-TRACE][Symbols] requestSkipReelDrops blocked → one-skip-per-spin guard');
       return false;
     }
     // Always latch the queue intent first.
@@ -903,7 +893,6 @@ export class Symbols {
     // Queue-only path: click happened before SPIN_DATA_RESPONSE arrived AND no reel drop
     // is currently running. Defer pending/active + tween acceleration until data arrives.
     if (!this.spinDataResponseReceivedForCurrentSpin && !this.reelDropInProgress) {
-      console.log('[SKIP-TRACE][Symbols] requestSkipReelDrops → QUEUE-ONLY path (waiting for SPIN_DATA_RESPONSE)');
       return true;
     }
 
@@ -912,9 +901,6 @@ export class Symbols {
     if (this.reelDropInProgress) {
       this.skipReelDropsPending = false;
       this.skipReelDropsActive = true;
-      console.log('[SKIP-TRACE][Symbols] requestSkipReelDrops → EXECUTABLE path, drop already running → ACTIVE now');
-    } else {
-      console.log('[SKIP-TRACE][Symbols] requestSkipReelDrops → EXECUTABLE path, PENDING (drop not yet started)');
     }
     this.skipDropSoundTriggeredForCurrentReelDrop = true;
     this.accelerateActiveSymbolTweens(2.5);
@@ -928,11 +914,6 @@ export class Symbols {
    * is set to true. See SKIP_QUEUEING_AND_ANIMATION_PORTING_GUIDE.md §4 Phase C + §6.3.
    */
   private promoteQueuedSkipIfAny(): void {
-    console.log('[SKIP-TRACE][Symbols] promoteQueuedSkipIfAny called', {
-      skipReelDropsRequestedForCurrentSpin: this.skipReelDropsRequestedForCurrentSpin,
-      skipReelDropsPending: this.skipReelDropsPending,
-      skipReelDropsActive: this.skipReelDropsActive,
-    });
     if (
       this.skipReelDropsRequestedForCurrentSpin &&
       !this.skipReelDropsPending &&
@@ -941,9 +922,6 @@ export class Symbols {
       this.skipReelDropsPending = true;
       this.skipDropSoundTriggeredForCurrentReelDrop = true;
       this.accelerateActiveSymbolTweens(2.5);
-      console.log('[SKIP-TRACE][Symbols] promoteQueuedSkipIfAny → promoted queue → PENDING');
-    } else {
-      console.log('[SKIP-TRACE][Symbols] promoteQueuedSkipIfAny → no-op (no queued intent or already promoted)');
     }
   }
 
@@ -981,19 +959,15 @@ export class Symbols {
 
   public canRequestSkipReelDropsNow(): boolean {
     if (this.skipReelDropsRequestedForCurrentSpin) {
-      console.log('[SKIP-TRACE][Symbols] canRequestSkipReelDropsNow → false (already requested for this spin)');
       return false;
     }
     if (this.skipReelDropsActive || this.skipReelDropsPending) {
-      console.log('[SKIP-TRACE][Symbols] canRequestSkipReelDropsNow → false (active or pending)');
       return false;
     }
     if (this.tumbleInProgress) {
-      console.log('[SKIP-TRACE][Symbols] canRequestSkipReelDropsNow → false (tumble in progress)');
       return false;
     }
     if (gameStateManager.isShowingWinDialog) {
-      console.log('[SKIP-TRACE][Symbols] canRequestSkipReelDropsNow → false (win dialog showing)');
       return false;
     }
     // Accept clicks while a spin is in flight, even before spin data arrives or reels
@@ -1005,16 +979,13 @@ export class Symbols {
       !this.reelDropInProgress &&
       !this.preSpinDropInProgress
     ) {
-      console.log('[SKIP-TRACE][Symbols] canRequestSkipReelDropsNow → false (no spin in flight)');
       return false;
     }
-    console.log('[SKIP-TRACE][Symbols] canRequestSkipReelDropsNow → true');
     return true;
   }
 
   public tryRequestSkipReelDrops(): boolean {
     const canSkip = this.canRequestSkipReelDropsNow();
-    console.log('[SKIP-TRACE][Symbols] tryRequestSkipReelDrops', { canSkip });
     if (!canSkip) return false;
     return this.requestSkipReelDrops();
   }
@@ -1736,7 +1707,6 @@ export class Symbols {
     const queuedSkipForCurrentSpin = this.skipReelDropsRequestedForCurrentSpin;
     this.resetSkipReelDropsForNewSpin();
     if (queuedSkipForCurrentSpin) {
-      console.log('[SKIP-TRACE][Symbols] processSpinDataSymbols: preserving queued skip across reset');
       this.skipReelDropsRequestedForCurrentSpin = true;
       this.promoteQueuedSkipIfAny();
     }
@@ -2807,23 +2777,12 @@ export class Symbols {
       dropDuration: Number(this.scene.gameData?.dropDuration ?? 0),
       dropReelsDelay: Number(this.scene.gameData?.dropReelsDelay ?? 0),
     };
-    console.log('[SKIP-TRACE][Symbols] dropReels ENTRY', {
-      skipReelDropsRequestedForCurrentSpin: this.skipReelDropsRequestedForCurrentSpin,
-      skipReelDropsPending: this.skipReelDropsPending,
-      skipReelDropsActive: this.skipReelDropsActive,
-      spinDataResponseReceivedForCurrentSpin: this.spinDataResponseReceivedForCurrentSpin,
-      reelDropInProgress: this.reelDropInProgress,
-      preSpinDropInProgress: this.preSpinDropInProgress,
-      isTurbo,
-    });
     if (this.skipReelDropsPending) {
       this.skipReelDropsPending = false;
       this.skipReelDropsActive = true;
       this.skipDropSoundTriggeredForCurrentReelDrop = true;
-      console.log('[SKIP-TRACE][Symbols] dropReels promoted PENDING → ACTIVE');
     }
     const isSkip = this.skipReelDropsActive || this.skipReelDropsPending;
-    console.log('[SKIP-TRACE][Symbols] dropReels isSkip resolved →', isSkip);
     const pendingPreSpinDrop = this.preSpinDropPromise;
     const shouldSkipOldDropPhase = !!pendingPreSpinDrop;
     // Start according to whichever is longer:
@@ -3267,15 +3226,6 @@ export class Symbols {
       const speed = 1;
       const targetY = this.getYPos(index);
 
-      console.log('[SKIP-TRACE][Symbols] dropNewSymbols row=' + index, {
-        isTurbo,
-        isSkip,
-        useTurboDropTiming,
-        skipReelDropsActive: this.skipReelDropsActive,
-        skipReelDropsPending: this.skipReelDropsPending,
-        willTakeBatchedBranch: useTurboDropTiming,
-      });
-
       // Skip mode takes the SAME batched code path as turbo mode (gated by
       // `useTurboDropTiming`) so all columns at this row animate together in one
       // chained tween instead of per-column-with-stagger. Without this, a queued
@@ -3284,7 +3234,6 @@ export class Symbols {
       // skip can visually lag. Mars_triumph achieves the same effect via
       // Promise.all over dropNewSymbolsColumn in dropReels.
       if (useTurboDropTiming) {
-        console.log('[SKIP-TRACE][Symbols] dropNewSymbols row=' + index + ' → BATCHED (turbo-or-skip) branch');
         const tweenTargets: any[] = [];
 
         for (let col = 0; col < this.newSymbols.length; col++) {
@@ -3331,10 +3280,6 @@ export class Symbols {
       }
 
       // PER-COLUMN BRANCH — runs only when useTurboDropTiming is false (normal-non-turbo spin).
-      // If you see this log fire while skip is supposed to be active, the skip flags didn't
-      // propagate — check the upstream [SKIP-TRACE] logs to find where the flag was lost.
-      console.log('[SKIP-TRACE][Symbols] dropNewSymbols row=' + index + ' → PER-COLUMN (normal) branch');
-
       for (let col = 0; col < this.newSymbols.length; col++) {
         let symbol = this.newSymbols[col]?.[index];
         if (!symbol || (symbol as any).destroyed) {

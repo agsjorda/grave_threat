@@ -225,13 +225,11 @@ export class Preloader extends Scene
 				localizationManager.setTranslations(JSON.stringify(LOCALIZATION_DEFAULTS));
 			}
 
-			console.log('[Preloader] Fetching initial balance before enabling play...');
 			const initialBalance = Number(await this.gameAPI.initializeBalance());
 			// `-1` is the replay-mode sentinel — propagate it so the Game scene does not
 			// re-call initializeBalance(). Any other negative value is treated as invalid.
 			if (Number.isFinite(initialBalance) && (initialBalance >= 0 || initialBalance === -1)) {
 				this.initialBalance = initialBalance;
-				console.log('[Preloader] Initial balance ready:', initialBalance);
 			} else {
 				console.warn('[Preloader] Initial balance was invalid, Game scene will fall back to its own initialization.', {
 					initialBalance

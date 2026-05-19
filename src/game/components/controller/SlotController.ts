@@ -621,7 +621,6 @@ export class SlotController {
 			console.warn('[SlotController] triggerReplaySpin blocked — spin already in progress');
 			return;
 		}
-		console.log('[SlotController] triggerReplaySpin: starting replay spin');
 		void this.handleSpin();
 	}
 
@@ -3980,16 +3979,8 @@ export class SlotController {
 					spinsRemaining > 0 ||
 					!!gameStateManager.isAutoPlaying ||
 					!!this.getGameData()?.isAutoPlaying;
-				console.log(
-					`[scatterBonusActivated] isRetrigger=${data.isRetrigger}, spinsRemaining=${spinsRemaining}, ` +
-						`isAutoPlaying=${gameStateManager.isAutoPlaying}, autoplayActive=${autoplayActive}, ` +
-						`pausedAutoplaySpinsRemaining=${this.pausedAutoplaySpinsRemaining}`
-				);
 				if (autoplayActive && spinsRemaining > 0) {
 					this.pauseAutoplay('scatterBonusActivated');
-					console.log(
-						`[scatterBonusActivated] called pauseAutoplay, pausedAutoplaySpinsRemaining=${this.pausedAutoplaySpinsRemaining}`
-					);
 				}
 			}
 
@@ -4516,18 +4507,10 @@ export class SlotController {
 	 * SlotController.requestSpinSkipWithOpacityFeedback.
 	 */
 	private requestSpinSkipWithOpacityFeedback(): void {
-		console.log('[SKIP-TRACE][SlotController] requestSpinSkipWithOpacityFeedback called', {
-			skipIndicatorDimmed: this.skipIndicatorDimmed,
-			manualSpinVisualPending: this.manualSpinVisualPending,
-			isProcessingSpin: gameStateManager.isProcessingSpin,
-			isReelSpinning: gameStateManager.isReelSpinning,
-		});
 		if (this.skipIndicatorDimmed) {
-			console.log('[SKIP-TRACE][SlotController] skipIndicatorDimmed already true → no-op');
 			return;
 		}
 		const didRequestSkip = this.tryRequestSpinButtonSkip();
-		console.log('[SKIP-TRACE][SlotController] tryRequestSpinButtonSkip returned', { didRequestSkip });
 		if (!didRequestSkip) {
 			return;
 		}

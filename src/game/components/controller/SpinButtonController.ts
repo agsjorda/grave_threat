@@ -359,11 +359,6 @@ export class SpinButtonController {
   // ============================================================================
 
   private async handleSpinButtonClick(): Promise<void> {
-    console.log('[SKIP-TRACE][SpinButtonController] click received', {
-      isDisabled: this.isDisabled,
-      isProcessingSpin: gameStateManager.isProcessingSpin,
-      isReelSpinning: gameStateManager.isReelSpinning,
-    });
     log.debug('Spin button clicked');
 
     // Mars_triumph pattern (SKIP_QUEUEING_AND_ANIMATION_PORTING_GUIDE.md §4 Phase B):
@@ -371,13 +366,9 @@ export class SpinButtonController {
     // requests routed through onSpinBlocked. Both reasons must be handled by the caller.
     if (this.isDisabled) {
       if (gameStateManager.isReelSpinning) {
-        console.log('[SKIP-TRACE][SpinButtonController] isDisabled+isReelSpinning → onSpinBlocked("Already spinning")');
         this.callbacks.onSpinBlocked('Already spinning');
       } else if (gameStateManager.isProcessingSpin) {
-        console.log('[SKIP-TRACE][SpinButtonController] isDisabled+isProcessingSpin → onSpinBlocked("Already processing spin")');
         this.callbacks.onSpinBlocked('Already processing spin');
-      } else {
-        console.log('[SKIP-TRACE][SpinButtonController] isDisabled but no in-progress state → no skip dispatched');
       }
       log.debug('Spin button click ignored - disabled (routed as skip request if applicable)');
       return;
@@ -385,12 +376,10 @@ export class SpinButtonController {
 
     // Also catch the not-yet-disabled processing/spinning window (race-safe fallback).
     if (gameStateManager.isProcessingSpin) {
-      console.log('[SKIP-TRACE][SpinButtonController] not-yet-disabled, isProcessingSpin → onSpinBlocked("Already processing spin")');
       this.callbacks.onSpinBlocked('Already processing spin');
       return;
     }
     if (gameStateManager.isReelSpinning) {
-      console.log('[SKIP-TRACE][SpinButtonController] not-yet-disabled, isReelSpinning → onSpinBlocked("Already spinning")');
       this.callbacks.onSpinBlocked('Already spinning');
       return;
     }

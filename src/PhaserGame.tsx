@@ -72,7 +72,6 @@ export const PhaserGame = forwardRef<IRefPhaserGame, IProps>(function PhaserGame
 	{
 		EventBus.on('current-scene-ready', (scene_instance: Phaser.Scene) =>
 		{
-			// console.log('scene_instance', scene_instance.scene);
 			if (currentActiveScene && typeof currentActiveScene === 'function')
 			{
 

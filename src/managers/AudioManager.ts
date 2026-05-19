@@ -263,7 +263,6 @@ export class AudioManager {
 				volume: this.ambientVolume,
 				loop: true
 			});
-			console.log('[AudioManager] Ambient audio instance created');
 
 
 			// Reel roll: play while reels/tumble are moving, stop when sequence is done

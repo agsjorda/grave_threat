@@ -81,9 +81,6 @@ export function ensureSpineFactory(scene: Scene, context: string): boolean {
 				// Re-check after attempting to install
 				addAny = scene.add as any;
 				hasFactory = typeof addAny?.spine === 'function' && hasAttachedPluginInstance();
-				if (hasFactory) {
-					console.info(`[SpineGuard] Installed SpinePlugin dynamically for ${context}`);
-				}
 			}
 		} catch (e) {
 			console.warn(`[SpineGuard] Failed dynamic SpinePlugin install in ${context}:`, e);
@@ -128,9 +125,6 @@ export function ensureSpineLoader(scene: Scene, context: string): boolean {
 				syncSpineSysKeys(scene);
 				// Re-evaluate after installation attempt
 				hasLoader = hasSpineLoaderApis(scene);
-				if (hasLoader) {
-					console.info(`[SpineGuard] Installed SpinePlugin to provide loader APIs for ${context}`);
-				}
 			}
 		} catch (e) {
 			console.warn(`[SpineGuard] Failed to install SpinePlugin for loader in ${context}:`, e);

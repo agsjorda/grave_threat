@@ -1576,6 +1576,22 @@ export class Menu {
   }
 
   public showMenu(scene: GameScene): void {
+    // Idempotent: rapid menu-button clicks during the 300ms fade-in can race
+    // past the new overlay's hit-test and stack a second menu. Stale instances
+    // leak in the display list and make the Close tab appear to be a no-op
+    // (hideMenu only acts on `this.menuContainer`, the latest reference).
+    if (this.isVisible && this.menuContainer && this.menuContainer.active) {
+      return;
+    }
+
+    // Defensive: tear down any leftover container before creating a fresh one
+    // (covers edge cases where isVisible is false but the previous container
+    // is still in the display list).
+    if (this.menuContainer) {
+      this.menuContainer.destroy();
+      this.menuContainer = undefined;
+    }
+
     this.settingsOnly = false;
 
     const container = this.createMenu(scene);
@@ -1626,6 +1642,9 @@ export class Menu {
   }
 
   public toggleMenu(scene: GameScene): void {
+    if (this.isVisible) {
+      return; // close tab is the canonical exit; do not double-open
+    }
     this.showMenu(scene);
   }
 }

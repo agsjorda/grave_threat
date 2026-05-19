@@ -15,7 +15,6 @@ export const Loading = ({ currentScene, mode }: Props) => {
 	useEffect(() => {
 		EventBus.on('progress', (p: number) => {
 			setProgress(p);
-			// console.log(`Loading progress: ${p}: ${scene?.scene.key}`);
 		});
 	}, []);
 

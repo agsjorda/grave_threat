@@ -392,7 +392,6 @@ export class Game extends Scene {
 			createdAt: replayData?.created_at.date,
 			buttonText: isSummaryDisplay ? 'Watch again' : 'Continue',
 			onContinueCallback: () => {
-				console.log('[Game] Replay popup continue pressed — triggering replay spin');
 				this.slotController.triggerReplaySpin();
 			},
 			onCompleteCallback: () => {
@@ -437,7 +436,6 @@ export class Game extends Scene {
 			if (Math.abs(n - previousBet) > 0.0001) {
 				gameEventManager.emit(GameEventType.BET_UPDATE, { newBet: n, previousBet });
 			}
-			console.log(`[Game] Replay: applied spinData.bet to SlotController: ${n}`);
 			return true;
 		} catch (e) {
 			console.warn('[Game] applyReplayBetToSlotController failed:', e);
