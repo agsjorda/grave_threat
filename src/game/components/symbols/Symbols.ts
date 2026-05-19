@@ -889,6 +889,7 @@ export class Symbols {
     }
     // Always latch the queue intent first.
     this.skipReelDropsRequestedForCurrentSpin = true;
+    this.notifyReelDropSkipActivated();
 
     // Queue-only path: click happened before SPIN_DATA_RESPONSE arrived AND no reel drop
     // is currently running. Defer pending/active + tween acceleration until data arrives.
@@ -988,6 +989,19 @@ export class Symbols {
     const canSkip = this.canRequestSkipReelDropsNow();
     if (!canSkip) return false;
     return this.requestSkipReelDrops();
+  }
+
+  public isSkipReelDropsRequested(): boolean {
+    return this.skipReelDropsRequestedForCurrentSpin;
+  }
+
+  private notifyReelDropSkipActivated(): void {
+    try {
+      const slotController = (this.scene as any)?.slotController;
+      if (slotController && typeof slotController.onReelDropSkipActivated === 'function') {
+        slotController.onReelDropSkipActivated();
+      }
+    } catch {}
   }
 
   public async forceScatterResetImmediate(): Promise<void> {

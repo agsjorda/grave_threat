@@ -17,22 +17,22 @@ const LOG_LEVELS: Record<LogLevel, number> = {
   error: 3,
 };
 
-// Module-specific debug flags - set to false in production
+// Module-specific debug flags — all enabled so Logger output is not suppressed
 const DEBUG_FLAGS: Record<string, boolean> = {
-  Symbols: false,
-  SlotController: false,
-  Dialogs: false,
-  GameAPI: false,
-  AudioManager: false,
-  WinTracker: false,
-  GameStateManager: false,
-  ScatterAnimation: false,
-  Tumble: false,
-  FreeSpinAutoplay: false,
+  Symbols: true,
+  SlotController: true,
+  Dialogs: true,
+  GameAPI: true,
+  AudioManager: true,
+  WinTracker: true,
+  GameStateManager: true,
+  ScatterAnimation: true,
+  Tumble: true,
+  FreeSpinAutoplay: true,
 };
 
-// Global minimum log level (errors always show)
-const GLOBAL_MIN_LEVEL: LogLevel = 'warn';
+// Global minimum log level
+const GLOBAL_MIN_LEVEL: LogLevel = 'debug';
 
 class ModuleLogger {
   private module: string;
@@ -58,11 +58,13 @@ class ModuleLogger {
 
   debug(...args: any[]): void {
     if (this.shouldLog('debug')) {
+      console.debug(this.prefix, ...args);
     }
   }
 
   info(...args: any[]): void {
     if (this.shouldLog('info')) {
+      console.info(this.prefix, ...args);
     }
   }
 

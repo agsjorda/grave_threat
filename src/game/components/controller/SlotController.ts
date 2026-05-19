@@ -279,6 +279,13 @@ export class SlotController {
 	private externalControlLock: boolean = false;
 	private didLifecycleCleanup: boolean = false;
 
+	// Manual spin-button skip affordance (see SPIN_BUTTON_SKIP.md)
+	private spinSkipVisualActive: boolean = false;
+	private manualSpinClickInFlight: boolean = false;
+	private currentSpinAllowsManualButtonSkip: boolean = false;
+	private manualSpinSkipConsumedForCurrentSpin: boolean = false;
+	private static readonly SPIN_SKIP_VISUAL_MS = 200;
+
 	constructor(networkManager: NetworkManager, screenModeManager: ScreenModeManager) {
 		this.networkManager = networkManager;
 		this.screenModeManager = screenModeManager;
@@ -499,20 +506,12 @@ export class SlotController {
 	 * Re-enabled by: reenableHudAfterSpinLikeShuten() on REELS_STOP.
 	 */
 	private lockControlsForSpinAction(): void {
-		// Set this BEFORE disableSpinButton so the keepActiveLook branch sees it. Without
-		// this, isProcessingSpin is still false at this point (handleSpin hasn't run yet),
-		// so disableSpinButton would gray out the button and hide the spine click-feedback
-		// animation. See SKIP_QUEUEING_AND_ANIMATION_PORTING_GUIDE.md §4 Phase A + §10 (pitfall #3).
-		this.manualSpinVisualPending = true;
-		// Use the wrapper so spinButtonController.isDisabled flag is also set;
-		// this allows playSpinButtonAnimation() guard to work correctly.
-		this.disableSpinButton();
+		this.armManualSpinSkipButtonVisual();
 		this.hudController.disableBetButtons();
 		this.hudController.disableFeatureButton();
 		this.hudController.disableAutoplayButton();
 		this.hudController.disableTurboButton();
 		this.hudController.disableAmplifyButton();
-		this.updateSpinButtonVisualMode();
 	}
 
 	/**
@@ -732,14 +731,21 @@ export class SlotController {
 		
 		this.spinButtonController = new SpinButtonController(scene, this.controllerContainer, {
 			onSpinRequested: () => this.handleSpin(),
-			onSpinBlocked: (reason: string) => {
-				// Accept blocked clicks from BOTH the processing window and the active reel phase
-				// so the skip request can be queued before spin data arrives (skip queueing
-				// guide §4 Phase B + §6.2). Goes through requestSpinSkipWithOpacityFeedback
-				// to dim the autoplay-stop overlay when skip is accepted.
-				if (reason !== 'Already spinning' && reason !== 'Already processing spin') return;
-				this.requestSpinSkipWithOpacityFeedback();
+			onSpinBlocked: (_reason: string) => {
+				// Beelze_bop: always play click visuals first, then try skip (no-op if already consumed).
+				this.playSpinButtonClickFeedback();
+				if (this.manualSpinSkipConsumedForCurrentSpin) {
+					return;
+				}
+				this.handleManualSpinSkipRequest();
 			},
+			onSpinClickFeedback: () => this.playSpinButtonClickFeedback(),
+			isAutoplaySpinControlActive: () => this.isAutoplaySpinControlActive(),
+			isManualSpinSkipConsumed: () => this.manualSpinSkipConsumedForCurrentSpin,
+			onManualSpinSkip: () => this.handleManualSpinSkipRequest(),
+			onPrepareManualSpin: () => this.prepareManualSpinForSkip(),
+			onAbortManualSpin: () => this.abortManualSpinStart(),
+			isManualSpinClickInFlight: () => this.manualSpinClickInFlight,
 			isAutoplayActive: () => this.autoplayController?.isActive() || false,
 			stopAutoplay: () => this.stopAutoplay(),
 			onSpinClickStarted: () => this.lockControlsForSpinAction(),
@@ -1956,20 +1962,14 @@ export class SlotController {
 			try {
 				if (gameStateManager.isScatter || gameStateManager.isBonus) {
 					gameStateManager.isProcessingSpin = false;
-					this.finalizeSpinSkipVisualState();
 					return;
 				}
 			} catch { }
 			gameStateManager.isProcessingSpin = false;
-			this.finalizeSpinSkipVisualState();
 		});
 
-		// Reset pending win lock + clear any stale skip-dim feedback on spin start.
-		// Mars_triumph wires finalizeSpinSkipVisualState here so the autoplay-stop overlay
-		// alpha is restored before the next spin's keep-active-look cycle begins.
 		gameEventManager.on(GameEventType.SPIN, () => {
 			this.pendingWinLock = false;
-			this.finalizeSpinSkipVisualState();
 		});
 
 		// Track whether the current spin has wins so we can defer UI re-enable until WIN_STOP
@@ -1977,7 +1977,7 @@ export class SlotController {
 			try {
 				const spinData: any = data?.spinData;
 				this.pendingWinLock = this.spinDataHasWins(spinData);
-				if (this.pendingWinLock) {
+				if (this.pendingWinLock && !this.isManualSpinSkipUiActive()) {
 					this.disableSpinButton();
 				}
 			} catch { }
@@ -2008,13 +2008,21 @@ export class SlotController {
 				return;
 			}
 			
-			// For manual spins, disable spin. Keep enabled during autoplay to allow stopping autoplay
-			if (!gameStateManager.isAutoPlaying) {
+			if (!this.isAutoplaySpinControlActive() && this.currentSpinAllowsManualButtonSkip) {
+				this.armManualSpinSkipButtonVisual();
+			} else if (this.isAutoplaySpinControlActive()) {
+				this.currentSpinAllowsManualButtonSkip = false;
+				this.manualSpinSkipConsumedForCurrentSpin = false;
+				this.syncAutoplaySpinButtonVisual();
+			} else if (!gameStateManager.isAutoPlaying) {
 				this.disableSpinButton();
+				this.disableAutoplayButton();
 			}
-			
-			// Play the spin button spine animation for all spins (manual and autoplay)
-			this.spinButtonController?.playSpinAnimation();
+
+			// Manual spins already play spine feedback on pointerdown; avoid double-fire here.
+			if (this.isAutoplaySpinControlActive()) {
+				this.spinButtonController?.playSpinAnimation();
+			}
 			
 			// Removed pulsing of autoplay spins remaining text during spin
 			
@@ -2024,10 +2032,26 @@ export class SlotController {
 			this.forceApplyTurboToSceneGameData();
 		});
 
+		gameEventManager.on(GameEventType.SPIN_DROP_START, () => {
+			try {
+				if (this.isAutoplaySpinControlActive()) {
+					this.syncAutoplaySpinButtonVisual();
+				} else if (this.currentSpinAllowsManualButtonSkip) {
+					this.refreshManualSpinSkipButtonVisual();
+				}
+			} catch {}
+		});
+
 		// Listen for reels start to disable amplify button
 		gameEventManager.on(GameEventType.REELS_START, () => {
 			this.balanceApiCalledThisSpin = false; // Reset guard for new spin
-			this.disableSpinButton();
+			if (this.isAutoplaySpinControlActive()) {
+				this.syncAutoplaySpinButtonVisual();
+			} else if (this.currentSpinAllowsManualButtonSkip) {
+				this.refreshManualSpinSkipButtonVisual();
+			} else {
+				this.disableSpinButton();
+			}
 			this.disableAmplifyButton();
 			const isFake = !!this.gameAPI?.isFakeDataEnabled?.();
 			// Autoplay counter is managed by AutoplayController
@@ -2078,10 +2102,6 @@ export class SlotController {
 		});
 
 		gameEventManager.on(GameEventType.REELS_STOP, () => {
-			// Clear the manual-spin visual state at the end of every spin so the autoplay-stop
-			// overlay alpha is restored and the next idle frame shows the spin icon again.
-			this.finalizeSpinSkipVisualState();
-
 			// Update balance from server once per spin (REELS_STOP can fire multiple times: Symbols + WinLineDrawer)
 			if (!gameStateManager.isScatter && !gameStateManager.isBonus) {
 				if (this.shouldDeferBalanceSyncToTotalWinDialog()) {
@@ -2177,8 +2197,12 @@ export class SlotController {
 				return;
 			}
 
-			// If win animations are pending, defer UI re-enable until WIN_STOP
+			// If win animations are pending, defer full HUD re-enable until WIN_STOP
 			if (this.pendingWinLock || gameStateManager.isShowingWinDialog) {
+				this.releaseManualSpinClickLock();
+				if (!this.isManualSpinPresentationActive()) {
+					this.resetManualSpinSkipButtonState();
+				}
 				return;
 			}
 			
@@ -2186,15 +2210,18 @@ export class SlotController {
 			// Note: AUTO_STOP is emitted by AutoplayController when autoplay finishes
 			// Note: SYMBOLS_PROCESSING_COMPLETE (before this event) clears isProcessingSpin per shuten_doji
 
-			// shuten_doji-style re-enable after a resolved base spin (see shuten SlotController REELS_STOP)
 			const spinsRemaining = this.getAutoplaySpinsRemaining();
 			if (spinsRemaining === 0 && !gameStateManager.isShowingWinDialog) {
+				this.releaseManualSpinClickLock();
+				if (!this.isManualSpinPresentationActive()) {
+					this.resetManualSpinSkipButtonState();
+				}
 				if (
 					gameStateManager.isProcessingSpin ||
 					gameStateManager.isReelSpinning ||
 					gameStateManager.isShowingWinDialog
 				) {
-					// Skip — state changed mid-flight (same guard as shuten_doji)
+					// Skip — state changed mid-flight
 				} else {
 					this.reenableHudAfterSpinLikeShuten('shuten parity REELS_STOP manual-spin');
 				}
@@ -2208,6 +2235,8 @@ export class SlotController {
 				!gameStateManager.isReelSpinning &&
 				!gameStateManager.isShowingWinDialog
 			) {
+				this.releaseManualSpinClickLock();
+				this.resetManualSpinSkipButtonState();
 				if (
 					gameStateManager.isProcessingSpin ||
 					gameStateManager.isReelSpinning ||
@@ -2218,6 +2247,12 @@ export class SlotController {
 					this.reenableHudAfterSpinLikeShuten('shuten parity REELS_STOP not-autoplaying');
 				}
 				return;
+			}
+
+			if (gameStateManager.isReelSpinning && this.currentSpinAllowsManualButtonSkip) {
+				this.refreshManualSpinSkipButtonVisual();
+			} else if (this.isAutoplaySpinControlActive()) {
+				this.syncAutoplaySpinButtonVisual();
 			}
 		});
 
@@ -2296,27 +2331,25 @@ export class SlotController {
 
 		// Listen for autoplay start
 		gameEventManager.on(GameEventType.AUTO_START, () => {
-			
-			// Update GameData autoplay state
 			if (this.gameData) {
 				this.gameData.isAutoPlaying = true;
 			}
-			
+
 			this.setAutoplayButtonState(true);
-			// Keep spin button enabled during autoplay (allow stopping autoplay)
-			// Hide and pause spin icon completely during autoplay, show stop icon
-			this.spinButtonController?.hideIcon();
-			const stopIcon1 = this.spinButtonController?.getAutoplayStopIcon();
-			if (stopIcon1) {
-				stopIcon1.setVisible(true);
-				this.primaryControllers.bringToTop(stopIcon1);
-			}
-			// Keep spins text above all
+			this.currentSpinAllowsManualButtonSkip = false;
+			this.manualSpinSkipConsumedForCurrentSpin = false;
+			this.syncAutoplaySpinButtonVisual();
+			try {
+				const spinButton = this.buttons.get('spin');
+				if (spinButton) {
+					spinButton.clearTint();
+					spinButton.setInteractive();
+				}
+			} catch {}
 			if (this.autoplaySpinsRemainingText && this.primaryControllers) {
 				this.primaryControllers.bringToTop(this.autoplaySpinsRemainingText);
 			}
 			this.updateTurboButtonStateWithLock();
-			// No need to update spin button state here - will be handled when reels finish
 		});
 
 		// Listen for autoplay stop
@@ -2392,10 +2425,11 @@ export class SlotController {
 
 		// Listen for when reels stop spinning to enable spin button for manual spins
 		gameEventManager.on(GameEventType.WIN_STOP, () => {
-			// Mars_triumph also wires finalizeSpinSkipVisualState here so end-of-spin always
-			// restores the autoplay-stop overlay alpha and reverts to idle visuals.
-			this.finalizeSpinSkipVisualState();
 			this.pendingWinLock = false;
+			this.releaseManualSpinClickLock();
+			if (!this.isManualSpinPresentationActive()) {
+				this.resetManualSpinSkipButtonState();
+			}
 
 			// Stale retry timer: if we're back in base game with no paused autoplay spins,
 			// cancel any in-flight retry so it doesn't keep blocking feature button re-enable.
@@ -3588,6 +3622,7 @@ export class SlotController {
 			this.tumbleSequenceInProgress ||
 			gameStateManager.isShowingWinDialog
 		) {
+			this.abortManualSpinStart();
 			return;
 		}
 		this.balanceController?.finalizeBalanceTweenBeforeSpin();
@@ -3600,6 +3635,7 @@ export class SlotController {
 				console.warn('[SlotController] GameAPI not available, falling back to EventBus');
 				EventBus.emit('spin');
 				gameStateManager.isProcessingSpin = false;
+				this.abortManualSpinStart();
 				return;
 			}
 
@@ -3629,6 +3665,7 @@ export class SlotController {
 					if (!this.balanceController?.hasInitializedBalance() || !Number.isFinite(currentBalance)) {
 						this.pendingSpinUntilBalanceReady = true;
 						gameStateManager.isProcessingSpin = false;
+						this.abortManualSpinStart();
 						return;
 					}
 					const currentBet = this.getBaseBetAmount() || 0;
@@ -3649,6 +3686,7 @@ export class SlotController {
 						}
 						this.enableFeatureButton();
 						gameStateManager.isProcessingSpin = false;
+						this.abortManualSpinStart();
 						return;
 					}
 				} catch {}
@@ -3669,7 +3707,10 @@ export class SlotController {
 
 		const audioManager = getGlobalAudioManager();
 		if (audioManager && typeof audioManager.playSoundEffect === 'function') {
-			audioManager.playSoundEffect(SoundEffectType.SPIN);
+			// Manual spins already play spin_GT on pointerdown; autoplay still plays here.
+			if (!this.isManualSpinSkipUiActive()) {
+				audioManager.playSoundEffect(SoundEffectType.SPIN);
+			}
 		}
 		
 		// Clear any stale pending balance update before starting a new spin
@@ -3773,6 +3814,7 @@ export class SlotController {
 				} catch (popupErr) {
 					console.error('[SlotController] showBetFailurePopupFromError threw:', popupErr);
 				}
+				this.abortManualSpinStart();
 			}
 		} finally {
 			this.isSpinLocked = false;
@@ -4437,148 +4479,451 @@ export class SlotController {
 	/**
 	 * Disable the spin button.
 	 *
-	 * Mirrors mars_triumph's `keepActiveSpinLook` branch (see
-	 * docs/SKIP_QUEUEING_AND_ANIMATION_PORTING_GUIDE.md §6.2): during the manual-spin
-	 * processing/reel-spinning window the button keeps its clear, fully-opaque look AND
-	 * stays interactive so (a) the spine click-feedback animation behind it remains
-	 * visible and (b) a fast second click can reach the skip queue path.
-	 *
-	 * Outside that window (e.g. bonus mode, buy feature lock) the legacy grayed
-	 * treatment applies.
+	 * @param keepInteractive When true during manual spin start, the button stays interactive
+	 * so skip taps register and spine click-feedback remains visible (SPIN_BUTTON_SKIP.md).
 	 */
-	public disableSpinButton(): void {
-		const keepActiveLook =
-			!gameStateManager.isAutoPlaying &&
-			!(gameStateManager as any).isAutoPlaySpinRequested &&
-			(this.manualSpinVisualPending || gameStateManager.isProcessingSpin || gameStateManager.isReelSpinning);
+	public disableSpinButton(keepInteractive: boolean = false): void {
+		if (
+			this.manualSpinSkipConsumedForCurrentSpin &&
+			this.currentSpinAllowsManualButtonSkip &&
+			!this.isAutoplaySpinControlActive()
+		) {
+			return;
+		}
+
+		// Manual skip spins stay full-color while interactive (beelze_bop: no grey during skip window).
+		if (
+			keepInteractive &&
+			this.isManualSpinSkipUiActive()
+		) {
+			this.armManualSpinSkipButtonVisual();
+			return;
+		}
+
+		if (this.isManualSpinSkipUiActive() && this.isManualSpinPresentationActive()) {
+			if (this.manualSpinSkipConsumedForCurrentSpin) {
+				this.applySpinSkipConsumedVisual();
+			} else {
+				this.armManualSpinSkipButtonVisual();
+			}
+			return;
+		}
+
+		this.spinSkipVisualActive = false;
+
 		if (this.spinButtonController) {
 			this.spinButtonController.disable();
 		}
-		this.hudController.disableSpinButton(keepActiveLook);
-		this.updateSpinButtonVisualMode();
+		this.hudController.disableSpinButton(keepInteractive);
+
+		const spinIcon = this.spinButtonController?.getIcon();
+		if (spinIcon && !this.isAutoplaySpinControlActive()) {
+			spinIcon.setVisible(true);
+			spinIcon.setAlpha(0.5);
+			this.spinButtonController?.pauseSpinIconTween();
+		}
+		const stopIcon = this.spinButtonController?.getAutoplayStopIcon();
+		if (stopIcon && !this.isAutoplaySpinControlActive()) {
+			stopIcon.setVisible(false);
+			stopIcon.setAlpha(1);
+		}
 	}
 
 	/**
 	 * Enable the spin button
 	 */
 	public enableSpinButton(): void {
-		// Clear the manual-spin visual flag at re-enable so the next click sequence starts clean.
-		this.manualSpinVisualPending = false;
-		if (this.isSpinLocked || gameStateManager.isReelSpinning || this.isBuyFeatureControlsLocked()) {
+		const spinButton = this.buttons.get('spin');
+		if (!spinButton) {
+			return;
+		}
+
+		const isInitFreeRound = (gameStateManager as any)?.isInFreeSpinRound === true;
+		if (this.externalControlLock || this.isBuyFeatureControlsLocked() || (!isInitFreeRound && this.isSpinLocked)) {
 			this.disableSpinButton();
 			return;
 		}
+
+		if (this.isAutoplaySpinControlActive()) {
+			this.syncAutoplaySpinButtonVisual();
+			try { spinButton.setInteractive(); } catch {}
+			return;
+		}
+
+		if (this.spinButtonController) {
+			this.spinButtonController.enable();
+		}
+
+		if (this.canOfferManualSpinSkipOnButton()) {
+			this.showSpinSkipButtonMode();
+			return;
+		}
+
+		if (this.manualSpinSkipConsumedForCurrentSpin && this.isManualSpinPresentationActive()) {
+			this.applySpinSkipConsumedVisual();
+			return;
+		}
+
+		this.hideSpinSkipButtonMode();
+		this.resetManualSpinSkipButtonState();
+
 		if (this.spinButtonController) {
 			this.spinButtonController.enable();
 		}
 		this.hudController.enableSpinButton();
-		this.updateSpinButtonVisualMode();
+
+		const spinIcon = this.spinButtonController?.getIcon();
+		if (spinIcon) {
+			spinIcon.setVisible(true);
+			spinIcon.setAlpha(1);
+		}
+		this.spinButtonController?.resumeSpinIconTween();
+
+		const stopIcon = this.spinButtonController?.getAutoplayStopIcon();
+		if (stopIcon && !this.isAutoplaySpinControlActive()) {
+			stopIcon.setVisible(false);
+			stopIcon.setAlpha(1);
+		}
 	}
 
 	// ============================================================================
-	// Skip queueing + spin button click UI
-	// (see docs/SKIP_QUEUEING_AND_ANIMATION_PORTING_GUIDE.md §6.2 + §8.2)
+	// Manual spin-button skip (see SPIN_BUTTON_SKIP.md)
 	// ============================================================================
 
-	/** Alpha applied to the autoplay-stop overlay when a skip click is accepted. */
-	private static readonly SKIP_CLICK_DIM_ALPHA: number = 0.7;
-	/**
-	 * Synchronous flag set in lockControlsForSpinAction() BEFORE disableSpinButton().
-	 * Mars_triumph's `manualSpinVisualPending`. Without it, `keepActiveSpinLook` evaluates
-	 * false on the first call (because handleSpin() hasn't yet set isProcessingSpin) and
-	 * the button is grayed before the spin even starts. Cleared by finalizeSpinSkipVisualState().
-	 */
-	private manualSpinVisualPending: boolean = false;
-	/** True between accepting a skip click and the next REELS_STOP / WIN_STOP reset. */
-	private skipIndicatorDimmed: boolean = false;
+	private isAutoplaySpinControlActive(): boolean {
+		return !!(
+			gameStateManager.isAutoPlaying ||
+			(gameStateManager as any).isAutoPlaySpinRequested ||
+			this.gameData?.isAutoPlaying ||
+			this.getAutoplaySpinsRemaining() > 0
+		);
+	}
 
-	private tryRequestSpinButtonSkip(): boolean {
+	private isManualSpinSkipUiActive(): boolean {
+		return this.currentSpinAllowsManualButtonSkip && !this.isAutoplaySpinControlActive();
+	}
+
+	/** Manual spin: keep base full-color + interactive; transition to skip affordance (no grey-out). */
+	private armManualSpinSkipButtonVisual(): void {
+		const spinButton = this.buttons.get('spin');
+		if (!spinButton) {
+			return;
+		}
+		if (this.spinButtonController) {
+			this.spinButtonController.disable();
+		}
+		spinButton.clearTint();
+		spinButton.setAlpha(1);
+		spinButton.setInteractive();
+		this.hudController.disableSpinButton(true);
 		try {
-			const symbols: any = (this.scene as any)?.symbols;
-			return !!symbols?.tryRequestSkipReelDrops?.();
+			this.scene?.time.delayedCall(0, () => this.refreshManualSpinSkipButtonVisual());
+		} catch {
+			this.refreshManualSpinSkipButtonVisual();
+		}
+	}
+
+	private prepareManualSpinForSkip(): void {
+		this.manualSpinClickInFlight = true;
+		this.currentSpinAllowsManualButtonSkip = true;
+		this.manualSpinSkipConsumedForCurrentSpin = false;
+	}
+
+	private releaseManualSpinClickLock(): void {
+		this.manualSpinClickInFlight = false;
+	}
+
+	private abortManualSpinStart(): void {
+		this.releaseManualSpinClickLock();
+		this.resetManualSpinSkipButtonState();
+		try { this.updateSpinButtonState(); } catch {}
+	}
+
+	/** Visual/audio feedback for any spin button tap (including no-op taps during an active spin). */
+	private playSpinButtonClickFeedback(): void {
+		this.spinButtonController?.playSpinButtonClickFeedback();
+		try {
+			// spin_GT.ogg is loaded as `spinb` → SoundEffectType.SPIN (not BUTTON_FX / click_2).
+			playSoundEffectSafe(this.scene, SoundEffectType.SPIN);
+		} catch {}
+	}
+
+	private isManualSpinPresentationActive(): boolean {
+		try {
+			const symbolsAny: any = this.symbols;
+			if (symbolsAny?.reelDropInProgress || symbolsAny?.preSpinDropInProgress) {
+				return true;
+			}
+		} catch {}
+		return !!(gameStateManager.isReelSpinning || gameStateManager.isProcessingSpin);
+	}
+
+	private canOfferManualSpinSkipOnButton(): boolean {
+		if (!this.currentSpinAllowsManualButtonSkip) {
+			return false;
+		}
+		if (this.manualSpinSkipConsumedForCurrentSpin) {
+			return false;
+		}
+		if (this.isAutoplaySpinControlActive()) {
+			return false;
+		}
+		try {
+			if (this.symbols?.isSkipReelDropsRequested?.()) {
+				return false;
+			}
+		} catch {}
+		try {
+			const symbolsAny: any = this.symbols;
+			if (symbolsAny?.isFreeSpinAutoplayActive?.()) {
+				return false;
+			}
+		} catch {}
+		return this.isManualSpinPresentationActive();
+	}
+
+	private resetManualSpinSkipButtonState(): void {
+		this.manualSpinSkipConsumedForCurrentSpin = false;
+		this.currentSpinAllowsManualButtonSkip = false;
+		this.spinSkipVisualActive = false;
+		try { this.scene?.tweens.killTweensOf(this.spinButtonController?.getAutoplayStopIcon()); } catch {}
+		try { this.scene?.tweens.killTweensOf(this.spinButtonController?.getIcon()); } catch {}
+	}
+
+	private handleManualSpinSkipRequest(): boolean {
+		if (!this.canOfferManualSpinSkipOnButton()) {
+			return false;
+		}
+		try {
+			return !!this.symbols?.requestSkipReelDrops?.();
 		} catch {
 			return false;
 		}
 	}
 
-	/**
-	 * Forward a blocked spin-button click as a skip request and provide visual feedback
-	 * (dim the autoplay-stop overlay). Mirrors mars_triumph's
-	 * SlotController.requestSpinSkipWithOpacityFeedback.
-	 */
-	private requestSpinSkipWithOpacityFeedback(): void {
-		if (this.skipIndicatorDimmed) {
+	public onReelDropSkipActivated(): void {
+		if (!this.currentSpinAllowsManualButtonSkip || this.isAutoplaySpinControlActive()) {
 			return;
 		}
-		const didRequestSkip = this.tryRequestSpinButtonSkip();
-		if (!didRequestSkip) {
-			return;
-		}
-		this.skipIndicatorDimmed = true;
-		const stopIcon = this.spinButtonController?.getAutoplayStopIcon?.();
-		if (stopIcon) {
-			stopIcon.setAlpha(SlotController.SKIP_CLICK_DIM_ALPHA);
-		}
+		this.applySpinSkipConsumedVisual();
 	}
 
-	/**
-	 * Reset the manual-spin / skip-dim visual state. Wired into REELS_STOP, WIN_STOP, SPIN,
-	 * and SYMBOLS_PROCESSING_COMPLETE event handlers so the active-spin look is cleared as
-	 * soon as the spin lifecycle ends.
-	 */
-	private finalizeSpinSkipVisualState(): void {
-		const wasDimmed = this.skipIndicatorDimmed;
-		this.skipIndicatorDimmed = false;
-		this.manualSpinVisualPending = false;
-		if (wasDimmed) {
-			const stopIcon = this.spinButtonController?.getAutoplayStopIcon?.();
-			if (stopIcon) {
-				stopIcon.setAlpha(1.0);
+	private refreshManualSpinSkipButtonVisual(): void {
+		if (this.isAutoplaySpinControlActive() || !this.currentSpinAllowsManualButtonSkip) {
+			return;
+		}
+		if (!this.isManualSpinPresentationActive()) {
+			return;
+		}
+		try {
+			if (this.symbols?.isSkipReelDropsRequested?.() || this.manualSpinSkipConsumedForCurrentSpin) {
+				this.applySpinSkipConsumedVisual();
+				return;
 			}
+		} catch {}
+		if (this.canOfferManualSpinSkipOnButton()) {
+			this.showSpinSkipButtonMode();
+			return;
 		}
-		this.updateSpinButtonVisualMode();
+		if (this.spinSkipVisualActive && !this.manualSpinSkipConsumedForCurrentSpin) {
+			this.hideSpinSkipButtonMode();
+		}
 	}
 
-	/**
-	 * Toggle which sprite is shown on top of the spin button based on the current spin
-	 * lifecycle phase. Mirrors mars_triumph's `updateSpinButtonVisualMode`.
-	 *
-	 * - Idle: spin icon visible + rotating; autoplay-stop overlay hidden.
-	 * - Autoplay active OR active manual spin: spin icon HIDDEN; autoplay-stop overlay shown
-	 *   (and dimmed to SKIP_CLICK_DIM_ALPHA when a skip click was accepted).
-	 *
-	 * Called from disableSpinButton, lockControlsForSpinAction, enableSpinButton, and
-	 * finalizeSpinSkipVisualState so the visual stays consistent across lifecycle changes.
-	 */
-	private updateSpinButtonVisualMode(): void {
-		const autoplayVisualActive =
-			gameStateManager.isAutoPlaying || (gameStateManager as any).isAutoPlaySpinRequested;
-		const inProgressSpinVisualActive = !autoplayVisualActive && (
-			this.manualSpinVisualPending ||
-			gameStateManager.isReelSpinning ||
-			gameStateManager.isProcessingSpin
-		);
-
-		if (!inProgressSpinVisualActive) {
-			this.skipIndicatorDimmed = false;
+	private applySpinSkipConsumedVisual(_animate: boolean = true): void {
+		if (!this.currentSpinAllowsManualButtonSkip || this.isAutoplaySpinControlActive()) {
+			return;
 		}
+		this.manualSpinSkipConsumedForCurrentSpin = true;
+		this.spinSkipVisualActive = true;
 
-		const spinIcon = this.spinButtonController?.getIcon?.();
+		const spinButton = this.buttons.get('spin');
+		if (!spinButton) {
+			return;
+		}
+		spinButton.clearTint();
+		spinButton.setInteractive();
+
+		this.spinButtonController?.pauseSpinIconTween();
+		const spinIcon = this.spinButtonController?.getIcon();
 		if (spinIcon) {
-			spinIcon.setVisible(!autoplayVisualActive && !inProgressSpinVisualActive);
+			spinIcon.setVisible(false);
+			spinIcon.setAlpha(1);
+		}
+		const stopIcon = this.spinButtonController?.getAutoplayStopIcon();
+		if (stopIcon) {
+			try { this.scene?.tweens.killTweensOf(stopIcon); } catch {}
+			stopIcon.setVisible(true);
+			stopIcon.setAlpha(1);
+			this.bringSpinStopIconToTop();
+		}
+	}
+
+	public showSpinSkipButtonMode(animate: boolean = true): void {
+		if (this.isAutoplaySpinControlActive()) {
+			return;
+		}
+		try {
+			if (this.symbols?.isSkipReelDropsRequested?.()) {
+				return;
+			}
+		} catch {}
+
+		const spinButton = this.buttons.get('spin');
+		if (!spinButton) {
+			return;
 		}
 
-		const stopIcon = this.spinButtonController?.getAutoplayStopIcon?.();
-		if (stopIcon) {
-			stopIcon.setVisible(autoplayVisualActive || inProgressSpinVisualActive);
-			if (inProgressSpinVisualActive && this.skipIndicatorDimmed) {
-				stopIcon.setAlpha(SlotController.SKIP_CLICK_DIM_ALPHA);
+		this.spinSkipVisualActive = true;
+		spinButton.clearTint();
+		spinButton.setInteractive();
+
+		const duration = animate ? SlotController.SPIN_SKIP_VISUAL_MS : 0;
+
+		this.spinButtonController?.pauseSpinIconTween();
+		const spinIcon = this.spinButtonController?.getIcon();
+		if (spinIcon) {
+			if (duration > 0) {
+				this.scene?.tweens.add({
+					targets: spinIcon,
+					alpha: 0,
+					duration,
+					onComplete: () => {
+						try {
+							spinIcon.setVisible(false);
+							spinIcon.setAlpha(1);
+						} catch {}
+					},
+				});
 			} else {
-				stopIcon.setAlpha(1.0);
+				spinIcon.setVisible(false);
+				spinIcon.setAlpha(1);
 			}
-			if (autoplayVisualActive || inProgressSpinVisualActive) {
-				this.primaryControllers?.bringToTop(stopIcon);
+		}
+
+		const stopIcon = this.spinButtonController?.getAutoplayStopIcon();
+		if (stopIcon) {
+			stopIcon.setVisible(true);
+			if (duration > 0) {
+				stopIcon.setAlpha(0);
+				this.scene?.tweens.add({
+					targets: stopIcon,
+					alpha: 1,
+					duration,
+				});
+			} else {
+				stopIcon.setAlpha(1);
 			}
+			this.bringSpinStopIconToTop();
+		}
+	}
+
+	private hideSpinSkipButtonMode(animate: boolean = true): void {
+		if (this.isAutoplaySpinControlActive() || !this.currentSpinAllowsManualButtonSkip) {
+			this.spinSkipVisualActive = false;
+			return;
+		}
+		if (this.manualSpinSkipConsumedForCurrentSpin) {
+			return;
+		}
+		if (!this.spinSkipVisualActive) {
+			return;
+		}
+		this.spinSkipVisualActive = false;
+
+		const duration = animate ? SlotController.SPIN_SKIP_VISUAL_MS : 0;
+		const stopIcon = this.spinButtonController?.getAutoplayStopIcon();
+		if (stopIcon) {
+			if (duration > 0) {
+				this.scene?.tweens.add({
+					targets: stopIcon,
+					alpha: 0,
+					duration,
+					onComplete: () => {
+						try {
+							stopIcon.setVisible(false);
+							stopIcon.setAlpha(1);
+						} catch {}
+					},
+				});
+			} else {
+				stopIcon.setVisible(false);
+				stopIcon.setAlpha(1);
+			}
+		}
+
+		const spinIcon = this.spinButtonController?.getIcon();
+		if (spinIcon) {
+			spinIcon.setVisible(true);
+			if (duration > 0) {
+				spinIcon.setAlpha(0);
+				this.scene?.tweens.add({
+					targets: spinIcon,
+					alpha: 1,
+					duration,
+					onComplete: () => {
+						try { this.spinButtonController?.resumeSpinIconTween(); } catch {}
+					},
+				});
+			} else {
+				spinIcon.setAlpha(1);
+				this.spinButtonController?.resumeSpinIconTween();
+			}
+		} else {
+			this.spinButtonController?.resumeSpinIconTween();
+		}
+	}
+
+	private syncAutoplaySpinButtonVisual(): void {
+		if (!this.isAutoplaySpinControlActive()) {
+			return;
+		}
+
+		this.spinSkipVisualActive = false;
+
+		const gsmAny: any = gameStateManager as any;
+		if (gsmAny.isInFreeSpinRound === true) {
+			const stopIcon = this.spinButtonController?.getAutoplayStopIcon();
+			if (stopIcon) {
+				stopIcon.setVisible(false);
+				stopIcon.setAlpha(1);
+			}
+			const spinIcon = this.spinButtonController?.getIcon();
+			if (spinIcon) {
+				spinIcon.setVisible(true);
+				spinIcon.setAlpha(1);
+			}
+			this.spinButtonController?.resumeSpinIconTween();
+			return;
+		}
+
+		const spinIcon = this.spinButtonController?.getIcon();
+		if (spinIcon) {
+			spinIcon.setVisible(false);
+			spinIcon.setAlpha(1);
+		}
+		this.spinButtonController?.pauseSpinIconTween();
+
+		const stopIcon = this.spinButtonController?.getAutoplayStopIcon();
+		if (stopIcon) {
+			stopIcon.setVisible(true);
+			stopIcon.setAlpha(1);
+			this.bringSpinStopIconToTop();
+		}
+
+		const spinButton = this.buttons.get('spin');
+		if (spinButton) {
+			spinButton.clearTint();
+		}
+	}
+
+	private bringSpinStopIconToTop(): void {
+		const stopIcon = this.spinButtonController?.getAutoplayStopIcon();
+		if (stopIcon && this.primaryControllers) {
+			this.primaryControllers.bringToTop(stopIcon);
+		}
+		if (this.autoplaySpinsRemainingText && this.primaryControllers) {
+			this.primaryControllers.bringToTop(this.autoplaySpinsRemainingText);
 		}
 	}
 
@@ -4709,7 +5054,11 @@ export class SlotController {
 		}
 
 		if (this.isSpinLocked) {
-			this.disableSpinButton();
+			if (this.isManualSpinSkipUiActive()) {
+				this.armManualSpinSkipButtonVisual();
+			} else {
+				this.disableSpinButton();
+			}
 			this.updateFeatureButtonState();
 			return;
 		}
@@ -4775,14 +5124,35 @@ export class SlotController {
 			return;
 		}
 
-		// Align with shuten_doji: gate spin on processing flag + reels (SYMBOLS_PROCESSING_COMPLETE clears processing before REELS_STOP)
+		if (this.isAutoplaySpinControlActive()) {
+			this.syncAutoplaySpinButtonVisual();
+			try { spinButton.setInteractive(); } catch {}
+			this.updateFeatureButtonState();
+			this.updateAmplifyButtonStateWithLock();
+			return;
+		}
+
 		if (
 			(gameData.isAutoPlaying && !autoplayEnded) ||
 			gameStateManager.isReelSpinning ||
 			gameStateManager.isProcessingSpin
 		) {
-			this.disableSpinButton();
+			if (this.isManualSpinSkipUiActive()) {
+				if (
+					this.manualSpinSkipConsumedForCurrentSpin &&
+					this.isManualSpinPresentationActive()
+				) {
+					this.applySpinSkipConsumedVisual();
+				} else {
+					this.armManualSpinSkipButtonVisual();
+				}
+			} else {
+				this.disableSpinButton();
+			}
 		} else {
+			if (this.manualSpinSkipConsumedForCurrentSpin || this.currentSpinAllowsManualButtonSkip) {
+				this.resetManualSpinSkipButtonState();
+			}
 			this.enableSpinButton();
 		}
 		// Also update feature button state whenever spin button state changes

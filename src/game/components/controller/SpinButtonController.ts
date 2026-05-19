@@ -19,6 +19,13 @@ export interface SpinButtonCallbacks {
   isAutoplayActive: () => boolean;
   stopAutoplay: () => void;
   onSpinClickStarted?: () => void;
+  onSpinClickFeedback?: () => void;
+  onAbortManualSpin?: () => void;
+  isAutoplaySpinControlActive?: () => boolean;
+  isManualSpinSkipConsumed?: () => boolean;
+  onManualSpinSkip?: () => boolean;
+  onPrepareManualSpin?: () => void;
+  isManualSpinClickInFlight?: () => boolean;
   isInFreeRoundSpins?: () => boolean;
   canAffordCurrentSpin?: () => boolean;
   isSpinLocked?: () => boolean;
@@ -354,27 +361,62 @@ export class SpinButtonController {
     }
   }
 
+  public pauseSpinIconTween(): void {
+    try { this.spinIconTween?.pause(); } catch {}
+  }
+
+  public resumeSpinIconTween(): void {
+    try { this.spinIconTween?.resume(); } catch {}
+  }
+
+  public playSpinButtonClickFeedback(): void {
+    this.playSpinAnimation();
+    this.rotateSpinButton();
+  }
+
   // ============================================================================
   // PRIVATE METHODS
   // ============================================================================
 
+  /**
+   * Beelze_bop parity: every tap plays full click visuals; skip may no-op without
+   * suppressing spine pulse / icon rotation / SFX.
+   */
   private async handleSpinButtonClick(): Promise<void> {
     log.debug('Spin button clicked');
 
-    // Mars_triumph pattern (SKIP_QUEUEING_AND_ANIMATION_PORTING_GUIDE.md §4 Phase B):
-    // clicks during the processing window OR the active reel-spin window become skip
-    // requests routed through onSpinBlocked. Both reasons must be handled by the caller.
     if (this.isDisabled) {
-      if (gameStateManager.isReelSpinning) {
+      if (gameStateManager.isReelSpinning || gameStateManager.isProcessingSpin) {
         this.callbacks.onSpinBlocked('Already spinning');
-      } else if (gameStateManager.isProcessingSpin) {
-        this.callbacks.onSpinBlocked('Already processing spin');
       }
-      log.debug('Spin button click ignored - disabled (routed as skip request if applicable)');
       return;
     }
 
-    // Also catch the not-yet-disabled processing/spinning window (race-safe fallback).
+    try { this.callbacks.onSpinClickFeedback?.(); } catch {}
+
+    if (this.callbacks.isAutoplaySpinControlActive?.()) {
+      log.debug('Stopping autoplay via spin button');
+      this.callbacks.stopAutoplay();
+      return;
+    }
+
+    if (this.callbacks.isManualSpinSkipConsumed?.()) {
+      return;
+    }
+
+    if (this.callbacks.onManualSpinSkip?.()) {
+      return;
+    }
+
+    if (
+      this.callbacks.isManualSpinClickInFlight?.() ||
+      gameStateManager.isProcessingSpin ||
+      this.callbacks.isSpinLocked?.()
+    ) {
+      log.debug('Spin button click ignored - spin already starting');
+      return;
+    }
+
     if (gameStateManager.isProcessingSpin) {
       this.callbacks.onSpinBlocked('Already processing spin');
       return;
@@ -383,21 +425,21 @@ export class SpinButtonController {
       this.callbacks.onSpinBlocked('Already spinning');
       return;
     }
+
     const now = Date.now();
-    if (now - this.lastClickAt < this.clickDebounceMs) {
+    const isReelSpinning = gameStateManager.isReelSpinning;
+    if (!isReelSpinning && now - this.lastClickAt < this.clickDebounceMs) {
       log.debug('Spin button click ignored - debounce');
       return;
     }
     this.lastClickAt = now;
 
-    // If autoplay is active, clicking spin stops it
     if (this.callbacks.isAutoplayActive()) {
       log.debug('Stopping autoplay via spin button');
       this.callbacks.stopAutoplay();
       return;
     }
     
-    // Respect external locks from SlotController when available
     if (
       this.callbacks.isSpinLocked?.() ||
       this.callbacks.isPendingWinLock?.() ||
@@ -413,24 +455,25 @@ export class SpinButtonController {
       return;
     }
     
-    // Lock all controls for this spin action when parent provides a lock callback
+    try { this.callbacks.onPrepareManualSpin?.(); } catch {}
+
     this.callbacks.onSpinClickStarted?.();
 
-    // Disable button and play animation
     this.disable();
-    this.playSpinAnimation();
     
-    // Request spin
     try {
       await this.callbacks.onSpinRequested();
     } catch (error) {
       log.warn('Spin request failed:', error);
+      try { this.callbacks.onAbortManualSpin?.(); } catch {}
       this.enable();
     }
   }
 
   private rotateSpinButton(): void {
     if (!this.spinIcon) return;
+
+    try { this.scene.tweens.killTweensOf(this.spinIcon); } catch {}
     
     // Quick rotation effect
     this.scene.tweens.add({

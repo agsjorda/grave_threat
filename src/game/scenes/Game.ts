@@ -516,6 +516,14 @@ export class Game extends Scene {
 		this.slotController.setBuyFeatureReference();
 		this.slotController.setLoadingSpinner(loadingSpinner);
 		this.slotController.create(this);
+
+		try {
+			(window as any).skipSpin = () => {
+				try {
+					(this.symbols as any)?.requestSkipReelDrops?.();
+				} catch {}
+			};
+		} catch {}
 	}
 
 	private createFreeRoundAndScatterAnticipation(): void {
