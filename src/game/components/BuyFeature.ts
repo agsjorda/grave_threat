@@ -61,6 +61,9 @@ export class BuyFeature {
   private onCloseCallback?: () => void;
   private onConfirmCallback?: () => void;
   private lastExternalBaseBet: number | null = null;
+  // Tracks whether the user confirmed the purchase in the current popup session.
+  // Used by close() to revert the bet ladder when the user dismisses without confirming.
+  private confirmedThisSession: boolean = false;
   private scatterSpine?: any;
   private scatterFallbackSprite?: Phaser.GameObjects.Image;
   private scatterRetryCount: number = 0;
@@ -1213,6 +1216,7 @@ export class BuyFeature {
   }
 
   private confirmPurchase(): void {
+    this.confirmedThisSession = true;
 
     if (this.onConfirmCallback) {
       this.onConfirmCallback();
@@ -1586,6 +1590,8 @@ export class BuyFeature {
       this.selectBuyFeatureCard(this.buyFeatureSelectedCardIndex);
     }
 
+    this.confirmedThisSession = false;
+
     this.updatePriceDisplay();
     this.updateBetDisplay();
     this.updateBetLimitButtons();
@@ -1614,6 +1620,16 @@ export class BuyFeature {
   }
 
   public close(): void {
+    // Dismiss without confirming: revert the bet ladder to the bet that was active
+    // when the popup opened. Without this, the in-popup bet edits leak out via
+    // getCurrentBetAmount() and the next show() (whose initializeBetIndex bails when
+    // currentBetIndex >= 0).
+    if (!this.confirmedThisSession && this.lastExternalBaseBet !== null && Number.isFinite(this.lastExternalBaseBet)) {
+      const restoreIndex = getClosestNumberIndex(this.betOptions, this.lastExternalBaseBet);
+      this.currentBetIndex = restoreIndex;
+      this.currentBet = this.betOptions[restoreIndex];
+    }
+
     this.hide();
 
     if (this.onCloseCallback) {

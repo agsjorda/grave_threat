@@ -36,6 +36,7 @@ export class BonusHeader {
 	private tumbleTotalDisplayTimer: Phaser.Time.TimerEvent | null = null;
 	private lastTumbleCumulative: number = 0;
 	private scene: Scene | null = null;
+	private updateListener?: (time: number, delta: number) => void;
 	private headerLogoImage?: Phaser.GameObjects.Image;
 	private headerBorderImage?: Phaser.GameObjects.Image;
 	private headerWinBarImage?: Phaser.GameObjects.Image;
@@ -71,8 +72,15 @@ export class BonusHeader {
 
 		// Add bonus header elements
 		this.createBonusHeaderElements(scene, assetScale);
-		scene.events.on('update', (_time: number, _delta: number) => {
+		this.updateListener = (_time: number, _delta: number) => {
 			this.updateHeaderDebugBorder();
+		};
+		scene.events.on('update', this.updateListener);
+		scene.events.once('shutdown', () => {
+			if (this.updateListener) {
+				scene.events.off('update', this.updateListener);
+				this.updateListener = undefined;
+			}
 		});
 		this.updateHeaderDebugBorder();
 		
@@ -1371,6 +1379,10 @@ export class BonusHeader {
 	}
 
 	destroy(): void {
+		if (this.updateListener && this.scene) {
+			try { this.scene.events.off('update', this.updateListener); } catch {}
+			this.updateListener = undefined;
+		}
 		if (this.debugHeaderFrameBorder) {
 			this.debugHeaderFrameBorder.destroy();
 			this.debugHeaderFrameBorder = undefined;

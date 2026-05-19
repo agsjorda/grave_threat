@@ -1673,13 +1673,9 @@ export class Dialogs {
 							// state recovery happen after the screen is back to normal.
 							if (dialogTypeBeforeCleanup === 'Congrats' || dialogTypeBeforeCleanup === 'TotalWin' || dialogTypeBeforeCleanup === 'MaxWin') {
 								gameEventManager.emit(GameEventType.WIN_DIALOG_CLOSED);
-								// Explicitly resume paused base-game autoplay after the full bonus-exit
-								// transition completes (mirrors shuten_doji's finishBonusExitTransition).
+								// Single canonical signal for paused base-game autoplay resume (SlotController owns resume).
 								try {
-									const sc = (scene as any)?.slotController;
-									if (sc && typeof sc.resumeAutoplayFromPause === 'function') {
-										sc.resumeAutoplayFromPause();
-									}
+									scene.events.emit('baseGameReadyAfterBonus');
 								} catch { }
 							}
 						}

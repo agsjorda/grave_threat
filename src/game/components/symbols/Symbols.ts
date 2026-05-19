@@ -219,6 +219,15 @@ export class Symbols {
   private skipHitbox?: Phaser.GameObjects.Zone;
   private skipTumblesActive: boolean = false;
   private tumbleInProgress: boolean = false;
+  private symbol0ScalePinListener?: () => void;
+  /** gameEventManager off-handlers; flushed on scene shutdown to prevent listener leaks
+   *  across scene destruction (gameEventManager is a process-lifetime singleton). */
+  private eventBusOffs: Array<() => void> = [];
+  /** Scratch buffers reused across tumble steps to avoid GC churn in long autoplay.
+   *  Sized lazily on first use to (numCols, numRows). Cleared at the top of each tumble. */
+  private scratchRemoveMask: boolean[][] = [];
+  private scratchColMajorGrid: number[][] = [];
+  private scratchPreMarkedByCol: number[] = [];
   private reelDropInProgress: boolean = false;
   private tumbleDropInProgress: boolean = false;
   private spinDataProcessingInProgress: boolean = false;
@@ -341,6 +350,16 @@ export class Symbols {
     this.scatterAnimationManager = ScatterAnimationManager.getInstance();
   }
 
+  /**
+   * Register a gameEventManager listener and track its off-handler for cleanup.
+   * Pair every call with the shutdown teardown registered in create() so handlers
+   * from a destroyed Symbols instance don't keep firing.
+   */
+  private trackOn(type: GameEventType, handler: (...args: any[]) => any): void {
+    gameEventManager.on(type, handler);
+    this.eventBusOffs.push(() => gameEventManager.off(type, handler));
+  }
+
   // ============================================================================
   // INITIALIZATION
   // ============================================================================
@@ -399,13 +418,30 @@ export class Symbols {
     this.setupDialogEventListeners();
     this.freeSpinController.setupEventListeners();
 
+    // Single scene-shutdown teardown that flushes all the gameEventManager listeners
+    // registered via this.trackOn(...). Prevents handlers from a destroyed Symbols
+    // instance firing forever (gameEventManager is a process-lifetime singleton).
+    // Also kills any orphaned tweens that bypassed per-symbol cleanup, so scene
+    // restarts don't carry pending tween callbacks into the new scene.
+    scene.events.once('shutdown', () => {
+      for (const off of this.eventBusOffs) {
+        try { off(); } catch { /* ignore */ }
+      }
+      this.eventBusOffs.length = 0;
+      try { scene.tweens.killAll(); } catch { /* ignore */ }
+      if (this.symbol0ScalePinListener) {
+        try { scene.events.off('postupdate', this.symbol0ScalePinListener); } catch { /* ignore */ }
+        this.symbol0ScalePinListener = undefined;
+      }
+    });
+
     // Listen for START event
-    gameEventManager.on(GameEventType.START, () => {
+    this.trackOn(GameEventType.START, () => {
       this.createInitialSymbols();
     });
 
     // Listen for SPIN_DATA_RESPONSE
-    gameEventManager.on(GameEventType.SPIN_DATA_RESPONSE, async (data: any) => {
+    this.trackOn(GameEventType.SPIN_DATA_RESPONSE, async (data: any) => {
       if (!data?.spinData?.slot?.area) {
         console.error('[Symbols] Invalid SpinData received - missing slot.area');
         return;
@@ -434,7 +470,7 @@ export class Symbols {
     });
 
     // Listen for REELS_STOP
-    gameEventManager.on(GameEventType.REELS_STOP, () => {
+    this.trackOn(GameEventType.REELS_STOP, () => {
       this.spinDataResponseReceivedForCurrentSpin = false;
       if (this.scatterAnimationManager?.isAnimationInProgress()) {
         return;
@@ -493,7 +529,7 @@ export class Symbols {
   private registerBonusJimboyDebugHelpers(): void {}
 
   private setupSpinEventListener(): void {
-    gameEventManager.on(GameEventType.SPIN, () => {
+    this.trackOn(GameEventType.SPIN, () => {
 
       if (gameStateManager.isShowingWinDialog && gameStateManager.isAutoPlaying) {
         return;
@@ -526,14 +562,14 @@ export class Symbols {
     // WIN_STOP - scatter retrigger (Symbol0 === scatter in this game)
     // Defer by 150ms so win dialogs and BONUS_TOTAL_WIN_SHOWN run first.
     // Flow during bonus: win → win dialogs → scatter retrigger flow → continue
-    gameEventManager.on(GameEventType.WIN_STOP, () => {
+    this.trackOn(GameEventType.WIN_STOP, () => {
       if (this.hasPendingScatterRetrigger()) {
         this.scene.time.delayedCall(150, () => void this.handleWinStopScatterRetrigger());
       }
     });
 
     // WIN_DIALOG_CLOSED
-    gameEventManager.on(GameEventType.WIN_DIALOG_CLOSED, () => this.handleWinDialogClosed());
+    this.trackOn(GameEventType.WIN_DIALOG_CLOSED, () => this.handleWinDialogClosed());
 
   }
 
@@ -744,19 +780,38 @@ export class Symbols {
 
   /** Re-apply Symbol0 scales every frame for durationMs to override Spine/tweens that change scale after dialog close. */
   private startSymbol0ScalePin(durationMs: number): void {
+    // Re-entry guard: if a prior pin is still active, kill it before starting a new one.
+    // Without this, repeated win dialog closes stack postupdate listeners that each iterate
+    // the full grid every frame.
+    if (this.symbol0ScalePinListener) {
+      this.scene.events.off('postupdate', this.symbol0ScalePinListener);
+      this.symbol0ScalePinListener = undefined;
+    }
+
+    // Snapshot Symbol0 instances ONCE instead of filtering them out of forEachSymbol every frame.
+    const pinned: Array<{ symbol: any; scaleX: number; scaleY: number }> = [];
+    this.grid.forEachSymbol((symbol) => {
+      if (!this.isSymbol0(symbol)) return;
+      const stored = (symbol as any).__symbol0ScaleBeforeWin as { scaleX: number; scaleY: number } | undefined;
+      if (!stored) return;
+      pinned.push({ symbol, scaleX: stored.scaleX, scaleY: stored.scaleY });
+    });
+    if (pinned.length === 0) return;
+
     const endTime = this.scene.time.now + durationMs;
     const listener = () => {
       if (this.scene.time.now >= endTime) {
         this.scene.events.off('postupdate', listener);
+        if (this.symbol0ScalePinListener === listener) {
+          this.symbol0ScalePinListener = undefined;
+        }
         return;
       }
-      this.grid.forEachSymbol((symbol) => {
-        if (!this.isSymbol0(symbol)) return;
-        const stored = (symbol as any).__symbol0ScaleBeforeWin as { scaleX: number; scaleY: number } | undefined;
-        if (!stored) return;
-        this.applySymbol0Scale(symbol, stored.scaleX, stored.scaleY);
-      });
+      for (const p of pinned) {
+        this.applySymbol0Scale(p.symbol, p.scaleX, p.scaleY);
+      }
     };
+    this.symbol0ScalePinListener = listener;
     this.scene.events.on('postupdate', listener);
   }
 
@@ -1995,6 +2050,8 @@ export class Symbols {
           return;
         }
 
+        // Defensive: ensure no stale tween from a prior round is fighting this one.
+        this.scene.tweens.killTweensOf(scatterSymbol);
         this.scene.tweens.add({
           targets: scatterSymbol,
           scaleX: scaleX * fullConfig.scaleFactor,
@@ -2013,6 +2070,8 @@ export class Symbols {
     const centerY = this.slotY;
     const gatherPromises = scatterSymbols.map((symbol: any) => {
       return new Promise<void>((resolve) => {
+        // Defensive: prior scale-in tween may still be running on this symbol.
+        this.scene.tweens.killTweensOf(symbol);
         this.scene.tweens.add({
           targets: symbol,
           x: centerX,
@@ -2319,6 +2378,8 @@ export class Symbols {
           resolve();
           return;
         }
+        // Defensive: prior gather/scatter tween may still be running on this symbol.
+        this.scene.tweens.killTweensOf(mergedSymbol);
         this.scene.tweens.add({
           targets: mergedSymbol,
           alpha: 1,
@@ -3667,20 +3728,43 @@ export class Symbols {
       const totalInProvided = (Array.isArray(ins) ? ins.flat().length : 0);
     } catch { }
 
-    // Build a removal mask per cell
-    // removeMask[col][row]
-    const removeMask: boolean[][] = Array.from({ length: numCols }, () => Array<boolean>(numRows).fill(false));
+    // Build a removal mask per cell.
+    // removeMask[col][row] — reuse class-scope scratch buffer to avoid per-tumble allocation.
+    if (
+      this.scratchRemoveMask.length !== numCols ||
+      this.scratchRemoveMask[0]?.length !== numRows
+    ) {
+      this.scratchRemoveMask = Array.from({ length: numCols }, () =>
+        new Array<boolean>(numRows).fill(false)
+      );
+      this.scratchColMajorGrid = Array.from({ length: numCols }, () =>
+        new Array<number>(numRows).fill(-1)
+      );
+      this.scratchPreMarkedByCol = new Array<number>(numCols).fill(0);
+    } else {
+      for (let c = 0; c < numCols; c++) {
+        const rmCol = this.scratchRemoveMask[c];
+        const gridCol = this.scratchColMajorGrid[c];
+        for (let r = 0; r < numRows; r++) {
+          rmCol[r] = false;
+          gridCol[r] = -1;
+        }
+        this.scratchPreMarkedByCol[c] = 0;
+      }
+    }
+    const removeMask = this.scratchRemoveMask;
 
     const highCountSymbols = getHighCountSymbolsFromOuts(outs);
-    const clusterCellKey = (col: number, row: number): string => `${col},${row}`;
+    // Pack (col, row) into a single number for cheap Set<number> lookups.
+    const clusterCellKey = (col: number, row: number): number => (col << 8) | row;
 
     // Validate removals against the live grid: only symbols that belong to an
     // actual qualifying cluster (5+ connected) can be removed for this tumble.
     // Note: render/grid space is row 0 = top, but findClusters currently expects
     // column-major data in row 0 = bottom, so we convert before evaluating.
-    const validClusterCellsBySymbol: { [key: number]: Set<string> } = {};
+    const validClusterCellsBySymbol: { [key: number]: Set<number> } = {};
     try {
-      const colMajorGrid: number[][] = Array.from({ length: numCols }, () => Array<number>(numRows).fill(-1));
+      const colMajorGrid = this.scratchColMajorGrid;
       for (let col = 0; col < numCols; col++) {
         for (let rowTop = 0; rowTop < numRows; rowTop++) {
           const value = self.currentSymbolData?.[rowTop]?.[col];
@@ -3694,7 +3778,7 @@ export class Symbols {
       const clusters = findClusters(colMajorGrid);
       for (const cluster of clusters) {
         if (!validClusterCellsBySymbol[cluster.symbol]) {
-          validClusterCellsBySymbol[cluster.symbol] = new Set<string>();
+          validClusterCellsBySymbol[cluster.symbol] = new Set<number>();
         }
         const bucket = validClusterCellsBySymbol[cluster.symbol];
         for (const pos of cluster.positions) {
@@ -3706,9 +3790,10 @@ export class Symbols {
       console.warn('[Symbols] Failed deriving valid cluster cells for tumble:', e);
     }
 
-    // Apply explicit removal positions from tumble outs (if provided)
-    const preMarkedByCol: number[] = Array.from({ length: numCols }, () => 0);
-    const preMarkedByOut: number[] = Array.from({ length: outs.length }, () => 0);
+    // Apply explicit removal positions from tumble outs (if provided).
+    // `outs.length` varies per tumble so `preMarkedByOut` is still allocated fresh — small.
+    const preMarkedByCol = this.scratchPreMarkedByCol;
+    const preMarkedByOut: number[] = new Array<number>(outs.length).fill(0);
     const parseOutPositions = (raw: any): Array<{ col: number; row: number }> => {
       if (!Array.isArray(raw)) return [];
       const list: Array<{ col: number; row: number }> = [];
@@ -3786,10 +3871,9 @@ export class Symbols {
       if (!set || set.size === 0) continue;
       positionsBySymbol[symbol] = [];
       for (const key of set) {
-        const [colRaw, rowRaw] = key.split(',');
-        const col = Number(colRaw);
-        const row = Number(rowRaw);
-        if (!Number.isFinite(col) || !Number.isFinite(row)) continue;
+        // Unpack the (col, row) encoding from clusterCellKey() above.
+        const col = (key >> 8) & 0xff;
+        const row = key & 0xff;
         if (col < 0 || col >= numCols || row < 0 || row >= numRows) continue;
         positionsBySymbol[symbol].push({ col, row });
       }

@@ -14,7 +14,7 @@
  * - SlotController.startAutoplay(spins)  → calls autoplayController.startAutoplay(spins).
  * - SlotController.stopAutoplay()        → calls autoplayController.stopAutoplay().
  * - SlotController.pauseAutoplay()       → stops autoplayController and caches remaining count.
- * - SlotController.resumeAutoplayFromPause() → calls autoplayController.startAutoplay(cached spins).
+ * - SlotController.requestResumePausedAutoplay() → calls autoplayController.startAutoplay(cached spins).
  * - FreeSpinController                   → uses SlotController.startFreeRoundAutoplay(), NOT this class.
  *
  * Lifecycle:

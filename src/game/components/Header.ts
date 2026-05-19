@@ -29,6 +29,7 @@ export class Header {
 	private currentWinnings: number = 0;
 	private pendingWinnings: number = 0;
 	private scene: Scene | null = null;
+	private updateListener?: (time: number, delta: number) => void;
 
 	constructor(networkManager: NetworkManager, screenModeManager: ScreenModeManager) {
 		this.networkManager = networkManager;
@@ -54,8 +55,15 @@ export class Header {
 
 		// Add header elements
 		this.createHeaderElements(scene, assetScale);
-		scene.events.on('update', (_time: number, _delta: number) => {
+		this.updateListener = (_time: number, _delta: number) => {
 			this.updateHeaderDebugBorder();
+		};
+		scene.events.on('update', this.updateListener);
+		scene.events.once('shutdown', () => {
+			if (this.updateListener) {
+				scene.events.off('update', this.updateListener);
+				this.updateListener = undefined;
+			}
 		});
 		
 		// Set up event listeners for winnings updates
@@ -718,5 +726,9 @@ export class Header {
 	}
 
 	public destroy(): void {
+		if (this.updateListener && this.scene) {
+			try { this.scene.events.off('update', this.updateListener); } catch {}
+			this.updateListener = undefined;
+		}
 	}
 }
