@@ -260,9 +260,10 @@ export class AssetConfig {
 				'help_paylines': `${prefix}/help_screen/game_settings_content/paylineMobileWin.webp`,
 
 				// Scatter / Tumble / Multiplier visuals
-				'scatterGame': `${prefix}/help_screen/bonus_game_content/scatterGame.png`,
-				'tumbleWin': `${prefix}/help_screen/bonus_game_content/tumbleWin.png`,
-				'multiplierGame': `${prefix}/help_screen/bonus_game_content/multiplierGame.png`,
+				'scatterGame': `${prefix}/help_screen/bonus_game_content/scatterGame.webp`,
+				'tumbleWin': `${prefix}/help_screen/bonus_game_content/tumbleWin.webp`,
+				'freeSpinRounds': `${prefix}/help_screen/bonus_game_content/freeSpinRounds.webp`,
+				'multiplierGame': `${prefix}/help_screen/bonus_game_content/multiplierGame.webp`,
 
 				// How To Play || Bet controls
 				'betControlsMinus': `${prefix}/help_screen/how_to_play_content/betControls_minus.png`,

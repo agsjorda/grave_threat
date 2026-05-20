@@ -129,9 +129,10 @@ export class HelpScreen {
             'All wins are credited to your balance after all tumbles from a base spin are completed.',
         'help_freespin-round-title': 'Free Spins Round',
         'help_freespin-round-desc':
-            'During Free Spins, wins are calculated using the same cluster rules as the base game.\n\n' +
-            'Winning tumbles can build multipliers on the winning positions, and those multipliers carry through the feature.\n\n' +
-            'Free Spins can be retriggered by landing 3 or more SCATTER symbols.',
+            'The Free Spins Feature activates with 3, 4, 5, 6, 7 Scatters, starting with 10, 12, 15, 20, 30 spins.',
+        'help_multiplier-feature-title': 'Multiplier Feature',
+        'help_multiplier-feature-desc':
+            'Winning symbols mark their grid spot, and repeated hits on the same spot add multipliers starting at x2, doubling up to x128. Multipliers apply to all wins on that spot and combine when multiple are involved. They remain active until the tumble sequence ends.',
         
         // Game Settings
         'help_game-settings-title': 'Game Settings',

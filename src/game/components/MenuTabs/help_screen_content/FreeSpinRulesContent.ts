@@ -104,7 +104,7 @@ const freeSpinRoundContent: ContentSection = {
 					anchor: { x: 0.5, y: 0 },
 					size: 'fitToWidth'
 				},
-				key: 'multiplierGame'
+				key: 'freeSpinRounds'
 			}
 		},
 		{
@@ -113,14 +113,53 @@ const freeSpinRoundContent: ContentSection = {
 					padding: { top: 40, bottom: 20 }
 				},
 				key: 'help_freespin-round-title',
-				value: 'Free Spin Round'
+				value: 'Free Spins Round'
 			}
 		},
 		{
 			Text: {
 				key: 'help_freespin-round-desc',
 				value:
-					'The Free Spins Feature activates with 4+ Scatters, starting with 15 spins. Multiplier symbols add to a total multiplier applied to all wins, and 3+ Scatters during the round award 5 extra spin, with special reels in play.'
+					'The Free Spins Feature activates with 3, 4, 5, 6, 7 Scatters, starting with 10, 12, 15, 20, 30 spins.'
+			}
+		},
+		{
+			LineBreak: {
+				opts: {
+					margin: { top: 30, bottom: 30 }
+				}
+			}
+		}
+	]
+};
+
+const multiplierFeatureContent: ContentSection = {
+	Content: [
+		{
+			Image: {
+				opts: {
+					padding: { top: 6, right: 20, left: 20 },
+					align: 0.5,
+					anchor: { x: 0.5, y: 0 },
+					size: 'fitToWidth'
+				},
+				key: 'multiplierGame'
+			}
+		},
+		{
+			Header: {
+				opts: {
+					padding: { top: 40, bottom: 20 }
+				},
+				key: 'help_multiplier-feature-title',
+				value: 'Multiplier Feature'
+			}
+		},
+		{
+			Text: {
+				key: 'help_multiplier-feature-desc',
+				value:
+					'Winning symbols mark their grid spot, and repeated hits on the same spot add multipliers starting at x2, doubling up to x128. Multipliers apply to all wins on that spot and combine when multiple are involved. They remain active until the tumble sequence ends.'
 			}
 		}
 	]
@@ -159,6 +198,7 @@ export const freeSpinContent: ContentSection = {
 				}
 			}
 		},
-		{ ChildSection: freeSpinRoundContent }
+		{ ChildSection: freeSpinRoundContent },
+		{ ChildSection: multiplierFeatureContent }
 	]
 };
