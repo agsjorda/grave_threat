@@ -1977,8 +1977,11 @@ export class SlotController {
 			try {
 				const spinData: any = data?.spinData;
 				this.pendingWinLock = this.spinDataHasWins(spinData);
-				if (this.pendingWinLock && !this.isManualSpinSkipUiActive()) {
+				// mars_triumph: do not apply manual disabled styling during autoplay wins/tumbles.
+				if (this.pendingWinLock && !this.isAutoplaySpinControlActive() && !this.isManualSpinSkipUiActive()) {
 					this.disableSpinButton();
+				} else if (this.pendingWinLock && this.isAutoplaySpinControlActive()) {
+					this.syncAutoplaySpinButtonVisual();
 				}
 			} catch { }
 		});
@@ -2259,7 +2262,9 @@ export class SlotController {
 		// Disable spin during tumble sequence; re-enable when tumbles finish
 		gameEventManager.on(GameEventType.TUMBLE_WIN_PROGRESS, () => {
 			this.tumbleSequenceInProgress = true;
-			if (!gameStateManager.isAutoPlaying) {
+			if (this.isAutoplaySpinControlActive()) {
+				this.syncAutoplaySpinButtonVisual();
+			} else {
 				this.disableSpinButton();
 				this.disableAutoplayButton();
 				this.disableTurboButton();
@@ -2270,7 +2275,9 @@ export class SlotController {
 		});
 		gameEventManager.on(GameEventType.TUMBLE_SEQUENCE_DONE, () => {
 			this.tumbleSequenceInProgress = false;
-			if (!gameStateManager.isAutoPlaying) {
+			if (this.isAutoplaySpinControlActive()) {
+				this.syncAutoplaySpinButtonVisual();
+			} else if (!gameStateManager.isAutoPlaying) {
 				// Scatter/bonus: disable spin and return (don't re-enable any controls)
 				if (gameStateManager.isScatter || gameStateManager.isBonus) {
 					this.disableSpinButton();
@@ -2604,12 +2611,16 @@ export class SlotController {
 		// For free-round autoplay, keep the base spin icon visible.
 		if (showBaseUi) {
 			this.spinButtonController?.hideIcon();
-			// Disable spin button interaction for normal mode autoplay until first spin is triggered
+			this.spinButtonController?.pauseSpinIconTween();
+			// Disable spin button interaction until first autoplay spin is triggered (mars_triumph parity).
 			const spinButton = this.buttons.get('spin');
 			if (spinButton) {
+				spinButton.setAlpha(1.0);
+				spinButton.clearTint();
 				spinButton.disableInteractive();
 				this.shouldReenableSpinButtonAfterFirstAutoplay = true;
 			}
+			this.syncAutoplaySpinButtonVisual();
 		} else {
 			this.spinButtonController?.showIcon();
 		}
@@ -4499,6 +4510,18 @@ export class SlotController {
 			return;
 		}
 
+		// Autoplay uses stop-icon presentation (mars_triumph parity); never grey or show spin icon.
+		if (this.isAutoplaySpinControlActive()) {
+			this.syncAutoplaySpinButtonVisual();
+			try {
+				const spinButton = this.buttons.get('spin');
+				if (spinButton) {
+					spinButton.setInteractive();
+				}
+			} catch {}
+			return;
+		}
+
 		this.spinSkipVisualActive = false;
 
 		if (this.spinButtonController) {
@@ -4904,6 +4927,10 @@ export class SlotController {
 		const spinButton = this.buttons.get('spin');
 		if (spinButton) {
 			spinButton.clearTint();
+			spinButton.setAlpha(1.0);
+			try {
+				spinButton.setInteractive();
+			} catch {}
 		}
 	}
 
