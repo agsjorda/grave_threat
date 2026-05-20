@@ -55,6 +55,7 @@ import {
 } from '../components/Spin';
 import { IdleManager } from '../components/IdleManager';
 import { unresolvedSpinManager } from '../../managers/UnresolvedSpinManager';
+import { SpaceHotkeyManager } from '../components/SpaceHotkeyManager';
 
 export class Game extends Scene {
 	private networkManager!: NetworkManager;
@@ -516,6 +517,21 @@ export class Game extends Scene {
 		this.slotController.setBuyFeatureReference();
 		this.slotController.setLoadingSpinner(loadingSpinner);
 		this.slotController.create(this);
+
+		try {
+			new SpaceHotkeyManager(
+				this,
+				this.dialogs,
+				this.slotController,
+				() =>
+					this.betOptions.isVisible() ||
+					this.autoplayOptions.isVisible() ||
+					this.menu.isMenuVisible() ||
+					this.slotController.isBuyFeatureOpen(),
+			).register();
+		} catch (e) {
+			console.warn('[Game] Failed to register SpaceHotkeyManager:', e);
+		}
 
 		try {
 			(window as any).skipSpin = () => {

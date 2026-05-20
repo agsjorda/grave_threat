@@ -1647,4 +1647,9 @@ export class Menu {
     }
     this.showMenu(scene);
   }
+
+  /** True while the in-game menu overlay is open (for SPACE hotkey panel blocking). */
+  public isMenuVisible(): boolean {
+    return this.isVisible;
+  }
 }

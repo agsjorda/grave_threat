@@ -14,12 +14,14 @@ import { startAnimation, startAnimationWithEntry } from '../../../utils/SpineAni
 const log = Logger.slot;
 
 export interface SpinButtonCallbacks {
+  onSpinActivated?: (source: 'pointer' | 'keyboard') => Promise<void>;
   onSpinRequested: () => Promise<void>;
   onSpinBlocked: (reason: string) => void;
   isAutoplayActive: () => boolean;
   stopAutoplay: () => void;
   onSpinClickStarted?: () => void;
   onSpinClickFeedback?: () => void;
+  shouldSuppressSpinIconClickFeedback?: () => boolean;
   onAbortManualSpin?: () => void;
   isAutoplaySpinControlActive?: () => boolean;
   isManualSpinSkipConsumed?: () => boolean;
@@ -371,96 +373,37 @@ export class SpinButtonController {
 
   public playSpinButtonClickFeedback(): void {
     this.playSpinAnimation();
-    this.rotateSpinButton();
+    if (!this.callbacks.shouldSuppressSpinIconClickFeedback?.()) {
+      this.rotateSpinButton();
+    }
+  }
+
+  /**
+   * Instantly clear spin_icon tweens/visibility when entering manual skip mode.
+   * Prevents stacked rotation fades when the spin button is clicked rapidly.
+   */
+  public clearSpinIconForSkipTransition(): void {
+    if (!this.spinIcon) {
+      return;
+    }
+    try { this.scene.tweens.killTweensOf(this.spinIcon); } catch {}
+    this.pauseSpinIconTween();
+    this.spinIcon.setVisible(false);
+    this.spinIcon.setAlpha(1);
   }
 
   // ============================================================================
   // PRIVATE METHODS
   // ============================================================================
 
-  /**
-   * Beelze_bop parity: every tap plays full click visuals; skip may no-op without
-   * suppressing spine pulse / icon rotation / SFX.
-   */
+  /** Delegates to SlotController.onSpinButtonActivated (shared with SPACE hotkey). */
   private async handleSpinButtonClick(): Promise<void> {
     log.debug('Spin button clicked');
-
-    if (this.isDisabled) {
-      if (gameStateManager.isReelSpinning || gameStateManager.isProcessingSpin) {
-        this.callbacks.onSpinBlocked('Already spinning');
-      }
+    if (this.callbacks.onSpinActivated) {
+      await this.callbacks.onSpinActivated('pointer');
       return;
     }
-
-    try { this.callbacks.onSpinClickFeedback?.(); } catch {}
-
-    if (this.callbacks.isAutoplaySpinControlActive?.()) {
-      log.debug('Stopping autoplay via spin button');
-      this.callbacks.stopAutoplay();
-      return;
-    }
-
-    if (this.callbacks.isManualSpinSkipConsumed?.()) {
-      return;
-    }
-
-    if (this.callbacks.onManualSpinSkip?.()) {
-      return;
-    }
-
-    if (
-      this.callbacks.isManualSpinClickInFlight?.() ||
-      gameStateManager.isProcessingSpin ||
-      this.callbacks.isSpinLocked?.()
-    ) {
-      log.debug('Spin button click ignored - spin already starting');
-      return;
-    }
-
-    if (gameStateManager.isProcessingSpin) {
-      this.callbacks.onSpinBlocked('Already processing spin');
-      return;
-    }
-    if (gameStateManager.isReelSpinning) {
-      this.callbacks.onSpinBlocked('Already spinning');
-      return;
-    }
-
-    const now = Date.now();
-    const isReelSpinning = gameStateManager.isReelSpinning;
-    if (!isReelSpinning && now - this.lastClickAt < this.clickDebounceMs) {
-      log.debug('Spin button click ignored - debounce');
-      return;
-    }
-    this.lastClickAt = now;
-
-    if (this.callbacks.isAutoplayActive()) {
-      log.debug('Stopping autoplay via spin button');
-      this.callbacks.stopAutoplay();
-      return;
-    }
-    
-    if (
-      this.callbacks.isSpinLocked?.() ||
-      this.callbacks.isPendingWinLock?.() ||
-      this.callbacks.isTumbleSequenceInProgress?.() ||
-      gameStateManager.isShowingWinDialog
-    ) {
-      log.debug('Spin button click ignored - locked');
-      return;
-    }
-
-    if (this.callbacks.canAffordCurrentSpin && !this.callbacks.canAffordCurrentSpin()) {
-      log.debug('Spin button click ignored - cannot afford');
-      return;
-    }
-    
-    try { this.callbacks.onPrepareManualSpin?.(); } catch {}
-
-    this.callbacks.onSpinClickStarted?.();
-
-    this.disable();
-    
+    // Legacy fallback if onSpinActivated is not wired.
     try {
       await this.callbacks.onSpinRequested();
     } catch (error) {

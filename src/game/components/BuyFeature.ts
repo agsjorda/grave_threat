@@ -1637,6 +1637,10 @@ export class BuyFeature {
     }
   }
 
+  public isDrawerVisible(): boolean {
+    return !!(this.container && this.container.visible);
+  }
+
   public destroy(): void {
     // Stop any continuous button presses
     this.stopContinuousDecrement();

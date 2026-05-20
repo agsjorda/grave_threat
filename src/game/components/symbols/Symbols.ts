@@ -994,7 +994,7 @@ export class Symbols {
     this.skipReelDropsPending = false;
   }
 
-  private resetSkipReelDropsForNewSpin(): void {
+  public resetSkipReelDropsForNewSpin(): void {
     this.skipReelDropsRequestedForCurrentSpin = false;
     this.skipReelDropsActive = false;
     this.skipReelDropsPending = false;

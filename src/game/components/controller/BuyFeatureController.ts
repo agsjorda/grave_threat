@@ -78,6 +78,10 @@ export class BuyFeatureController {
     return this.buyFeatureSpinLock;
   }
 
+  public isDrawerVisible(): boolean {
+    return !!this.buyFeature?.isDrawerVisible();
+  }
+
   public setSpinLock(locked: boolean): void {
     this.buyFeatureSpinLock = locked;
   }

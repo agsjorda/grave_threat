@@ -286,6 +286,8 @@ export class SlotController {
 	private manualSpinClickInFlight: boolean = false;
 	private currentSpinAllowsManualButtonSkip: boolean = false;
 	private manualSpinSkipConsumedForCurrentSpin: boolean = false;
+	private lastSpinButtonActivationAt: number = 0;
+	private readonly spinButtonActivationDebounceMs: number = 500;
 	private static readonly SPIN_SKIP_VISUAL_MS = 200;
 
 	constructor(networkManager: NetworkManager, screenModeManager: ScreenModeManager) {
@@ -728,6 +730,7 @@ export class SlotController {
 		});
 		
 		this.spinButtonController = new SpinButtonController(scene, this.controllerContainer, {
+			onSpinActivated: (source) => this.onSpinButtonActivated(source),
 			onSpinRequested: () => this.handleSpin(),
 			onSpinBlocked: (_reason: string) => {
 				// Beelze_bop: always play click visuals first, then try skip (no-op if already consumed).
@@ -738,6 +741,8 @@ export class SlotController {
 				this.handleManualSpinSkipRequest();
 			},
 			onSpinClickFeedback: () => this.playSpinButtonClickFeedback(),
+			shouldSuppressSpinIconClickFeedback: () =>
+				this.spinSkipVisualActive || this.currentSpinAllowsManualButtonSkip,
 			isAutoplaySpinControlActive: () => this.isAutoplaySpinControlActive(),
 			isManualSpinSkipConsumed: () => this.manualSpinSkipConsumedForCurrentSpin,
 			onManualSpinSkip: () => this.handleManualSpinSkipRequest(),
@@ -4568,7 +4573,7 @@ export class SlotController {
 		}
 
 		if (this.canOfferManualSpinSkipOnButton()) {
-			this.showSpinSkipButtonMode();
+			this.showSpinSkipButtonMode(false);
 			return;
 		}
 
@@ -4629,6 +4634,11 @@ export class SlotController {
 		spinButton.setAlpha(1);
 		spinButton.setInteractive();
 		this.hudController.disableSpinButton(true);
+		this.spinButtonController?.clearSpinIconForSkipTransition();
+		if (this.currentSpinAllowsManualButtonSkip && !this.isAutoplaySpinControlActive()) {
+			this.showSpinSkipButtonMode(false);
+			return;
+		}
 		try {
 			this.scene?.time.delayedCall(0, () => this.refreshManualSpinSkipButtonVisual());
 		} catch {
@@ -4640,6 +4650,8 @@ export class SlotController {
 		this.manualSpinClickInFlight = true;
 		this.currentSpinAllowsManualButtonSkip = true;
 		this.manualSpinSkipConsumedForCurrentSpin = false;
+		try { this.symbols?.resetSkipReelDropsForNewSpin?.(); } catch {}
+		this.spinButtonController?.clearSpinIconForSkipTransition();
 	}
 
 	private releaseManualSpinClickLock(): void {
@@ -4654,7 +4666,11 @@ export class SlotController {
 
 	/** Visual/audio feedback for any spin button tap (including no-op taps during an active spin). */
 	private playSpinButtonClickFeedback(): void {
-		this.spinButtonController?.playSpinButtonClickFeedback();
+		if (!this.spinSkipVisualActive && !this.currentSpinAllowsManualButtonSkip) {
+			this.spinButtonController?.playSpinButtonClickFeedback();
+		} else {
+			this.spinButtonController?.playSpinAnimation();
+		}
 		try {
 			// spin_GT.ogg is loaded as `spinb` → SoundEffectType.SPIN (not BUTTON_FX / click_2).
 			playSoundEffectSafe(this.scene, SoundEffectType.SPIN);
@@ -4735,7 +4751,7 @@ export class SlotController {
 			}
 		} catch {}
 		if (this.canOfferManualSpinSkipOnButton()) {
-			this.showSpinSkipButtonMode();
+			this.showSpinSkipButtonMode(false);
 			return;
 		}
 		if (this.spinSkipVisualActive && !this.manualSpinSkipConsumedForCurrentSpin) {
@@ -4787,14 +4803,27 @@ export class SlotController {
 			return;
 		}
 
+		const stopIcon = this.spinButtonController?.getAutoplayStopIcon();
+		const spinIcon = this.spinButtonController?.getIcon();
+		// Already showing skip/stop HUD — avoid re-fading autoplay_stop_icon (visible blink on press).
+		if (
+			this.spinSkipVisualActive &&
+			stopIcon?.visible &&
+			(stopIcon.alpha ?? 0) >= 0.99
+		) {
+			try { this.scene?.tweens.killTweensOf(stopIcon); } catch {}
+			try { if (spinIcon) this.scene?.tweens.killTweensOf(spinIcon); } catch {}
+			this.bringSpinStopIconToTop();
+			return;
+		}
+
 		this.spinSkipVisualActive = true;
 		spinButton.clearTint();
 		spinButton.setInteractive();
 
 		const duration = animate ? SlotController.SPIN_SKIP_VISUAL_MS : 0;
 
-		this.spinButtonController?.pauseSpinIconTween();
-		const spinIcon = this.spinButtonController?.getIcon();
+		this.spinButtonController?.clearSpinIconForSkipTransition();
 		if (spinIcon) {
 			if (duration > 0) {
 				this.scene?.tweens.add({
@@ -4814,7 +4843,6 @@ export class SlotController {
 			}
 		}
 
-		const stopIcon = this.spinButtonController?.getAutoplayStopIcon();
 		if (stopIcon) {
 			stopIcon.setVisible(true);
 			if (duration > 0) {
@@ -5290,6 +5318,117 @@ export class SlotController {
 		this.updateTurboButtonStateWithLock();
 		this.updateBetButtonsStateWithLock();
 		this.updateAmplifyButtonStateWithLock();
+	}
+
+	/**
+	 * External request to activate the spin button (e.g. SPACE hotkey).
+	 * Mirrors pointerdown on the spin button, including autoplay stop and reel-drop skip.
+	 */
+	public async requestSpin(source: 'pointer' | 'keyboard' = 'keyboard'): Promise<void> {
+		console.log('[SlotController] requestSpin:', source);
+		await this.onSpinButtonActivated(source);
+	}
+
+	/** True while the buy-feature drawer/panel is open (for input / hotkey guards). */
+	public isBuyFeatureOpen(): boolean {
+		return this.buyFeatureController?.isDrawerVisible() ?? false;
+	}
+
+	/** Shared spin-button activation path for pointer and keyboard. */
+	private async onSpinButtonActivated(source: 'pointer' | 'keyboard'): Promise<void> {
+		if (this.isAutoplaySpinControlActive()) {
+			this.playSpinButtonClickFeedback();
+			this.stopAutoplay();
+			return;
+		}
+
+		// Pointer path: SpinButtonController.disable() during an active spin (skip / feedback).
+		if (source === 'pointer' && this.spinButtonController?.isSpinButtonDisabled()) {
+			if (gameStateManager.isReelSpinning || gameStateManager.isProcessingSpin) {
+				this.onSpinBlockedDuringActiveSpin();
+			}
+			return;
+		}
+
+		// Keyboard bypass guard — SPACE must not spin when Phaser disabled the button.
+		if (!this.isSpinButtonEnabled()) {
+			return;
+		}
+
+		if (this.manualSpinSkipConsumedForCurrentSpin) {
+			this.playSpinButtonClickFeedback();
+			return;
+		}
+
+		if (this.handleManualSpinSkipRequest()) {
+			this.playSpinButtonClickFeedback();
+			return;
+		}
+
+		if (
+			this.manualSpinClickInFlight ||
+			gameStateManager.isProcessingSpin ||
+			this.isSpinLocked
+		) {
+			return;
+		}
+
+		if (gameStateManager.isProcessingSpin) {
+			this.onSpinBlockedDuringActiveSpin();
+			return;
+		}
+		if (gameStateManager.isReelSpinning) {
+			this.onSpinBlockedDuringActiveSpin();
+			return;
+		}
+
+		const now = Date.now();
+		if (
+			!gameStateManager.isReelSpinning &&
+			now - this.lastSpinButtonActivationAt < this.spinButtonActivationDebounceMs
+		) {
+			return;
+		}
+		this.lastSpinButtonActivationAt = now;
+
+		if (this.autoplayController?.isActive()) {
+			this.stopAutoplay();
+			return;
+		}
+
+		if (
+			this.isSpinLocked ||
+			this.pendingWinLock ||
+			this.tumbleSequenceInProgress ||
+			gameStateManager.isShowingWinDialog
+		) {
+			return;
+		}
+
+		if (!this.canAffordCurrentSpin()) {
+			return;
+		}
+
+		this.prepareManualSpinForSkip();
+		this.lockControlsForSpinAction();
+		this.playSpinButtonClickFeedback();
+		this.spinButtonController?.disable();
+
+		try {
+			await this.handleSpin();
+		} catch (error) {
+			console.warn('[SlotController] Spin request failed:', error);
+			this.abortManualSpinStart();
+			this.spinButtonController?.enable();
+		}
+	}
+
+	private onSpinBlockedDuringActiveSpin(): void {
+		this.playSpinButtonClickFeedback();
+		if (this.manualSpinSkipConsumedForCurrentSpin) {
+			return;
+		}
+		this.handleManualSpinSkipRequest();
 	}
 
 	/**
