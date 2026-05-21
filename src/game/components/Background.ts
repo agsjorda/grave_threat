@@ -3,7 +3,7 @@ import { NetworkManager } from "../../managers/NetworkManager";
 import { ScreenModeManager } from "../../managers/ScreenModeManager";
 import { gameStateManager } from "../../managers/GameStateManager";
 import { gameEventManager, GameEventType } from "../../event/EventManager";
-import { BG_BORDER_OFFSET_Y, BG_BORDER_DEPTH, BACKGROUND_COVER_CONFIG } from "../../config/GameConfig";
+import { BACKGROUND_COVER_CONFIG } from "../../config/GameConfig";
 import { scaleBottomCoverImage } from "./BackgroundCoverLayout";
 
 export class Background {
@@ -13,7 +13,6 @@ export class Background {
 	private screenModeManager: ScreenModeManager;
 	private normalBgCover: Phaser.GameObjects.Image | null = null;
 	private bgDefault: Phaser.GameObjects.Image | null = null;
-	private bgBorder: Phaser.GameObjects.Image | null = null;
 	// ADJUST HERE (Spine background): manual scale multipliers.
 	// These affect the optional Spine background only.
 	// The Spine now scales to fit WIDTH (no left/right cropping, same as BG-Default).
@@ -88,13 +87,6 @@ export class Background {
 		).setOrigin(0.5, 0.5);
 		this.bgContainer.add(this.bgDefault);
 
-		// bg_border: above symbol grid (SYMBOL_GRID_BASE_DEPTH); not inside bgContainer so depth applies vs grid
-		this.bgBorder = scene.add.image(
-			scene.scale.width * 0.5,
-			scene.scale.height * 0.5,
-			'bg_border'
-		).setOrigin(0.5, 0.5).setDepth(BG_BORDER_DEPTH);
-
 		// normal-bg-cover: foreground overlay (controller area). Keep it out of the container
 		// so its depth can reliably sit above symbols/win animations if needed.
 		this.normalBgCover = scene.add.image(
@@ -137,16 +129,6 @@ export class Background {
 				const multiplier = Phaser.Math.Clamp(this.bgDefaultScaleMultiplier, 0.1, 5);
 				const targetScale = (width / sourceWidth) * multiplier;
 				this.bgDefault.setScale(targetScale);
-			}
-		}
-
-		if (this.bgBorder) {
-			this.bgBorder.setPosition(width * 0.5, height * 0.5 + BG_BORDER_OFFSET_Y);
-			const sourceWidth = this.bgBorder.width;
-			if (sourceWidth > 0) {
-				const multiplier = Phaser.Math.Clamp(this.bgDefaultScaleMultiplier, 0.1, 5);
-				const targetScale = (width / sourceWidth) * multiplier;
-				this.bgBorder.setScale(targetScale);
 			}
 		}
 

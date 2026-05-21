@@ -172,8 +172,6 @@ export class BonusBackground {
 			}
 		}
 
-		// bg_border is a single scene object in Background.ts at BG_BORDER_DEPTH (above grid); not duplicated here.
-
 		// Cover overlay - same layout as normal (ControllerNormal_PC / normal_bg_cover)
 		this.bonusBgCover = scene
 			.add.image(

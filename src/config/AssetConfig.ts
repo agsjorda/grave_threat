@@ -31,7 +31,6 @@ export class AssetConfig {
 			images: {
 				'bg_default': `${prefix}/background/NormalGame.webp`,
 				'normal_bg_cover': `${prefix}/background/ControllerNormal.webp`,
-				'bg_border': `${prefix}/background/bg_border.webp`,
 				'shine': `assets/portrait/high/background/shine.png`,
 				'dijoker_loading': `${prefix}/dijoker_loading/DI JOKER.png`
 			},

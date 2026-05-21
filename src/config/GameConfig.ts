@@ -76,17 +76,11 @@ export const HEADER_CONFIG = {
 /** Additional Y offset (px) applied only to BonusHeader win bar text (on top of WIN_BAR_TEXT_OFFSET_Y). Positive = lower, negative = higher. */
 export const BONUS_HEADER_WIN_BAR_TEXT_OFFSET_Y = 2;
 
-/** Y offset (px) for bg_border in Background.ts. Positive = down, negative = up from screen center. */
-export const BG_BORDER_OFFSET_Y = 180;
-
 /**
- * Base display depth for reel/symbol grid content. bg_border must render above this (see BG_BORDER_DEPTH).
+ * Base display depth for reel/symbol grid content.
  * Keep in sync with Symbols.ts idle symbol depth.
  */
 export const SYMBOL_GRID_BASE_DEPTH = 600;
-/** bg_border sits just above the symbol grid so the frame is not covered by symbols. */
-export const BG_BORDER_DEPTH = SYMBOL_GRID_BASE_DEPTH + 1;
-
 
 /** Normal and bonus bottom cover (controller overlay) scale multipliers. */
 export const BACKGROUND_COVER_CONFIG = {
