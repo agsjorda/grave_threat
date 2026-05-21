@@ -240,6 +240,7 @@ export class HelpScreen {
     private readonly tabHeight: number = 61;
     private readonly isMenuVisible: () => boolean;
     private readonly getBetAmount: () => number;
+    private readonly getTabBlockerDepth: () => number;
     private tabInteractionBlocker?: Phaser.GameObjects.Zone;
     private tabInteractionHitArea?: Phaser.Geom.Rectangle;
     private isTabInteractionBlocked: boolean = false;
@@ -260,12 +261,14 @@ export class HelpScreen {
         rulesContent: GameObjects.Container,
         _styles: HelpScreenStyles,
         isMenuVisible: () => boolean,
-        getBetAmount?: () => number
+        getBetAmount?: () => number,
+        getTabBlockerDepth?: () => number
     ) {
         this.contentArea = contentArea;
         this.rulesContent = rulesContent;
         this.isMenuVisible = isMenuVisible;
         this.getBetAmount = getBetAmount ?? (() => 1);
+        this.getTabBlockerDepth = getTabBlockerDepth ?? (() => 3000);
     }
 
     public build(): void {
@@ -2460,7 +2463,7 @@ export class HelpScreen {
         const blockerHeight = this.tabHeight;
         const blocker = scene.add.zone(0, this.menuTopPadding, blockerWidth, blockerHeight);
         blocker.setOrigin(0, 0);
-        blocker.setDepth(3000);
+        blocker.setDepth(this.getTabBlockerDepth());
         blocker.setScrollFactor(0);
 
         this.tabInteractionHitArea = new Phaser.Geom.Rectangle(0, 0, blockerWidth, blockerHeight);
@@ -2484,6 +2487,7 @@ export class HelpScreen {
         const blocker = this.tabInteractionBlocker;
         blocker.setPosition(0, this.menuTopPadding);
         blocker.setSize(scene.scale.width, this.tabHeight);
+        blocker.setDepth(this.getTabBlockerDepth());
 
         if (this.tabInteractionHitArea) {
             this.tabInteractionHitArea.width = blocker.width;

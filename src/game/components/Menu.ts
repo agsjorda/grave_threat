@@ -438,15 +438,13 @@ export class Menu {
 
     // Store content area reference
     this.contentArea = contentArea;
+    this.menuContainer = menuContainer;
 
     // Initialize tab content containers
     this.initializeTabContentContainers(scene);
 
     // Show initial content based on first tab
     this.showTabContent(scene, tabConfigs[0].icon);
-
-    // Store menu container reference
-    this.menuContainer = menuContainer;
 
     return menuContainer;
   }
@@ -482,6 +480,7 @@ export class Menu {
       },
       () => this.isVisible,
       resolveBetAmount,
+      () => (this.menuContainer?.depth ?? 3000) + 1,
     );
     this.helpScreen.build();
     this.historyCurrentPage = 1;
