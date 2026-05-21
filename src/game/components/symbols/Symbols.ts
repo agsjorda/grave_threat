@@ -2206,14 +2206,27 @@ export class Symbols {
     if (typeof state.addListener === 'function') {
       await new Promise<void>((resolve) => {
         let resolved = false;
+        let listener: any = null;
+        let safetyTimer: Phaser.Time.TimerEvent | null = null;
+        let safetyTimeout: ReturnType<typeof setTimeout> | null = null;
         const finish = () => {
           if (resolved) return;
           resolved = true;
+          try {
+            if (listener && typeof state.removeListener === 'function') {
+              state.removeListener(listener);
+            }
+          } catch { }
+          try { safetyTimer?.destroy(); } catch { }
+          if (safetyTimeout) {
+            try { clearTimeout(safetyTimeout); } catch { }
+            safetyTimeout = null;
+          }
           resolve();
         };
 
         try {
-          const listener = {
+          listener = {
             complete: (entry: any) => {
               try {
                 const name = entry?.animation?.name;
@@ -2230,9 +2243,9 @@ export class Symbols {
           // Safety timeout in case complete never fires for some reason.
           const safetyMs = fallbackMs > 0 ? Math.max(600, fallbackMs) : 2000;
           if (this.scene && this.scene.time) {
-            this.scene.time.delayedCall(safetyMs, () => finish());
+            safetyTimer = this.scene.time.delayedCall(safetyMs, () => finish());
           } else {
-            setTimeout(() => finish(), safetyMs);
+            safetyTimeout = setTimeout(() => finish(), safetyMs);
           }
         } catch {
           finish();
