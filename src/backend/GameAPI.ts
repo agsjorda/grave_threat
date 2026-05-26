@@ -138,6 +138,8 @@ export interface SlotInitializeData {
    * Kept flexible for compatibility with variant backend shapes.
    */
   unresolvedSpin?: UnresolvedSpin | Record<string, unknown> | null;
+  maxWin?: number | null;
+  rtpRange?: string | null;
 }
 
 export interface SlotInitializeResponse {
@@ -176,6 +178,8 @@ export interface LocalizationPayload {
   gameId: string;
   lang: string;
   locale: string;
+  maxWin: number;
+  rtp: string;
 }
 
 /**
@@ -915,6 +919,20 @@ export class GameAPI {
     return this.initializationData;
   }
 
+  public getMaxWin(): number | null {
+    const v = this.getDemoState()
+      ? this.localizationData?.maxWin
+      : this.initializationData?.maxWin;
+    return v != null ? v : null;
+  }
+
+  public getRtpRange(): string | null {
+    const v = this.getDemoState()
+      ? this.localizationData?.rtp
+      : this.initializationData?.rtpRange;
+    return v != null ? v : null;
+  }
+
   public getLocalizationData(): LocalizationPayload | null {
     return this.localizationData;
   }
@@ -952,6 +970,8 @@ export class GameAPI {
       gameId: data?.gameId ?? requestBody.gameId,
       lang: data?.lang ?? requestBody.lang,
       locale,
+      maxWin: data?.maxWin ?? null,
+      rtp: data?.rtp ?? null,
     };
   }
 

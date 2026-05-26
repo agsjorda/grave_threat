@@ -2,8 +2,8 @@ import { Scene, GameObjects } from 'phaser';
 import type { ContentSection, ContentItem, HeaderOpts, ImageOpts, TextOpts, LineBreakOpts, GridOpts, GridCell, RowOpts, BorderOpts, RichTextPart, RichTextPlaceholderImage } from './ContentSection';
 import { gameRulesContent } from './help_screen_content/GameRulesContent';
 import { getPayoutContent } from './help_screen_content/PayoutContent';
-import { rtpContent } from './help_screen_content/RTPContent';
-import { maxWinContent } from './help_screen_content/MaxWinContent';
+import { getRtpContent } from './help_screen_content/RTPContent';
+import { getMaxWinContent } from './help_screen_content/MaxWinContent';
 import { freeSpinContent } from './help_screen_content/FreeSpinRulesContent';
 import { gameSettingsContent } from './help_screen_content/GameSettingsContent';
 import { howToPlayContent } from './help_screen_content/HowToPlayContent';
@@ -416,9 +416,9 @@ export class HelpScreen {
 
         currentY = this.createContentSection(gameRulesContent, currentY);
         currentY += HelpScreen.spacingBetweenSections / 2;
-        currentY = this.createContentSection(rtpContent, currentY);
+        currentY = this.createContentSection(getRtpContent((this.scene as any).gameAPI), currentY);
         currentY += HelpScreen.spacingBetweenSections / 2;
-        currentY = this.createContentSection(maxWinContent, currentY);
+        currentY = this.createContentSection(getMaxWinContent((this.scene as any).gameAPI), currentY);
         currentY += HelpScreen.spacingBetweenSections / 2;
 
         // Track payout sections Y positions for efficient rebuilding

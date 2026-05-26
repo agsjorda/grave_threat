@@ -10,9 +10,9 @@ import { FullScreenManager } from '../../managers/FullScreenManager';
 import { ensureSpineFactory, ensureSpineLoader } from '../../utils/SpineGuard';
 import { StudioLoadingScreen } from '../components/StudioLoadingScreen';
 import { ClockDisplay } from '../components/ClockDisplay';
-import { CLOCK_DISPLAY_NAME, GAME_DISPLAY_NAME, CLOCK_DISPLAY_CONFIG, PRELOADER_CONFIG } from '../../config/GameConfig';
+import { CLOCK_DISPLAY_NAME, GAME_DISPLAY_NAME, CLOCK_DISPLAY_CONFIG, PRELOADER_CONFIG, MAX_WIN_MULTIPLIER } from '../../config/GameConfig';
 import { CurrencyManager } from '../components/CurrencyManager';
-import { LOCALIZATION_DEFAULTS } from '../../backend/LocalizationData';
+import { LOCALIZATION_DEFAULTS, PRELOADER_MAX_WIN } from '../../backend/LocalizationData';
 import { localizationManager } from '../../managers/LocalizationManager';
 import { unresolvedSpinManager } from '../../managers/UnresolvedSpinManager';
 
@@ -207,6 +207,7 @@ export class Preloader extends Scene
 				const slotInitData = await this.gameAPI.initializeSlotSession();
 				unresolvedSpinManager.setFromInitializationData(slotInitData);
 				CurrencyManager.initializeFromInitData(slotInitData);
+				this.revealPreloaderMaxWinText();
 			} else {
 				unresolvedSpinManager.setFromInitializationData(null);
 			}
@@ -224,6 +225,7 @@ export class Preloader extends Scene
 				console.warn('[Preloader] Localization fetch failed, using defaults:', localizationError);
 				localizationManager.setTranslations(JSON.stringify(LOCALIZATION_DEFAULTS));
 			}
+			this.refreshLocalizedPreloaderText();
 
 			const initialBalance = Number(await this.gameAPI.initializeBalance());
 			// `-1` is the replay-mode sentinel — propagate it so the Game scene does not
@@ -477,6 +479,37 @@ export class Preloader extends Scene
 	 * Poll every 100ms until replayData.round_id is available so the static replay label
 	 * stops showing the `...` placeholder.
 	 */
+	private getPreloaderMaxWinMultiplierDisplay(): string {
+		const mult = this.gameAPI.getMaxWin() ?? MAX_WIN_MULTIPLIER;
+		return mult.toLocaleString() + 'x';
+	}
+
+	private updatePreloaderMaxWinLine(): void {
+		if (!this.maxWinText) {
+			return;
+		}
+		const winUpToLabel =
+			localizationManager.getTextByKey(PRELOADER_MAX_WIN) ??
+			LOCALIZATION_DEFAULTS[PRELOADER_MAX_WIN] ??
+			'Win up to';
+		const multiplierStr = this.getPreloaderMaxWinMultiplierDisplay();
+		this.maxWinText.setText(`${winUpToLabel} ${multiplierStr}`);
+	}
+
+	private revealPreloaderMaxWinText(): void {
+		this.updatePreloaderMaxWinLine();
+		this.maxWinText?.setAlpha(1);
+	}
+
+	private refreshLocalizedPreloaderText(): void {
+		if (this.gameAPI.getReplayState()) {
+			this.updateClockForReplay();
+			this.updatePreloaderMaxWinLine();
+			return;
+		}
+		this.updatePreloaderMaxWinLine();
+	}
+
 	private startReplayClockTitleRetry(): void {
 		this.replayClockRetryTimer?.destroy();
 		this.replayClockRetryTimer = this.time.addEvent({
@@ -526,7 +559,7 @@ export class Preloader extends Scene
 			fontSize: `${MAX_WIN.FONT_SIZE_PX}px`,
 			color: '#FFFFFF',
 			align: 'center',
-		}).setOrigin(0.5, 0.5).setScrollFactor(0).setAlpha(1).setDepth(10);
+		}).setOrigin(0.5, 0.5).setScrollFactor(0).setAlpha(0).setDepth(10);
 		this.tweens.add({
 			targets: this.maxWinText,
 			scale: { from: MAX_WIN.BREATHING_SCALE_FROM, to: MAX_WIN.BREATHING_SCALE_TO },
