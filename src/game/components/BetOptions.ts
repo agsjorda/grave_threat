@@ -258,8 +258,8 @@ export class BetOptions {
 		// Bet display
 		// Check if demo mode is active - if so, use blank currency symbol
 		const isDemoInitial = (scene as any).gameAPI?.getDemoState();
-		const prefixInitial = isDemoInitial ? '' : CurrencyManager.getInlinePrefix();
-		this.betDisplay = scene.add.text(x, y, `${prefixInitial}${formatCurrencyNumber(this.currentBet)}`, {
+		const initialDisplayBet = isDemoInitial ? formatCurrencyNumber(this.currentBet) : CurrencyManager.formatAmount(this.currentBet);
+		this.betDisplay = scene.add.text(x, y, initialDisplayBet, {
 			fontSize: '24px',
 			color: '#ffffff',
 			fontFamily: 'Poppins-Regular'
@@ -417,8 +417,7 @@ export class BetOptions {
 			const multiplier = Number.isFinite(this.betDisplayMultiplier) && this.betDisplayMultiplier > 0 ? this.betDisplayMultiplier : 1;
 			const displayBet = this.currentBet * multiplier;
 			const isDemo = (this.container?.scene as any)?.gameAPI?.getDemoState?.();
-			const prefix = isDemo ? '' : CurrencyManager.getInlinePrefix();
-			this.betDisplay.setText(`${prefix}${formatCurrencyNumber(displayBet)}`);
+			this.betDisplay.setText(isDemo ? formatCurrencyNumber(displayBet) : CurrencyManager.formatAmount(displayBet));
 		}
 	}
 

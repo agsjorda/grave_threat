@@ -1613,7 +1613,7 @@ export class SlotController {
 		this.featureDollarText = scene.add.text(
 			featureX,
 			featureY + 8,
-			CurrencyManager.getCurrencyGlyph(),
+			'',
 			{
 				fontSize: '14px',
 				color: '#ffffff',
@@ -2339,6 +2339,16 @@ export class SlotController {
 					this.updateAutoplayButtonState();
 				}
 			});
+		});
+
+		gameEventManager.on(GameEventType.BET_FAILED_ERROR, () => {
+			if (
+				this.autoplayController?.isActive() ||
+				this.gameData?.isAutoPlaying ||
+				gameStateManager.isAutoPlaying
+			) {
+				this.stopAutoplay();
+			}
 		});
 
 		// Listen for autoplay start
@@ -3728,13 +3738,6 @@ export class SlotController {
 		// Clear any stale pending balance update before starting a new spin
 		this.balanceController?.clearPendingBalanceUpdate();
 
-		const balanceBeforeSpin = (!this.isFreeRoundAutoplay && !inInitFreeRoundContext && !isReplaySpin)
-			? this.getBalanceAmount()
-			: Number.NaN;
-		if (!this.isFreeRoundAutoplay && !inInitFreeRoundContext && !isReplaySpin) {
-			this.decrementBalanceByBet();
-		}
-
 		try {
 			let spinData: SpinData;
 			const spinStartTime = Date.now();
@@ -3784,6 +3787,12 @@ export class SlotController {
 						spinData = this.createDummySpinDataWithInitialSymbols(currentBet);
 					}
 				}
+
+				// Decrement balance only after successful doSpin (shuten_doji / warfreaks pattern).
+				if (!this.isFreeRoundAutoplay && !inInitFreeRoundContext && !isReplaySpin) {
+					this.decrementBalanceByBet();
+				}
+
                 // Queue a pending balance update for base-game spins (apply after reels stop).
 				// Replay mode is non-financial — never credit wins to the displayed balance.
 				if (!gameStateManager.isBonus && !isReplaySpin) {
@@ -3812,15 +3821,6 @@ export class SlotController {
 				try { this.symbols?.clearPreSpinDropState?.(); } catch {}
 				gameStateManager.isProcessingSpin = false;
 				try { this.hideSpinner(); } catch {}
-				// Refund optimistic bet decrement (network/bet-failed paths never reach the win-credit branch).
-				try {
-					if (Number.isFinite(balanceBeforeSpin)) {
-						this.balanceController?.clearPendingBalanceUpdate();
-						this.updateBalanceAmount(Number(balanceBeforeSpin));
-					}
-				} catch (refundErr) {
-					console.warn('[SlotController] Balance refund after spin failure threw:', refundErr);
-				}
 				try {
 					showBetFailurePopupFromError(error);
 				} catch (popupErr) {

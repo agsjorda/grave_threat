@@ -65,29 +65,6 @@ export class CurrencyManager {
 		return CurrencyManager.currencyCode;
 	}
 
-	public static getCurrencySymbol(): string {
-		return CurrencyManager.currencySymbol;
-	}
-
-	/**
-	 * Returns the glyph to display where "$" used to be.
-	 * For pastry_cub this is always the currency code (if present),
-	 * never the currency symbol.
-	 */
-	public static getCurrencyGlyph(): string {
-		if (CurrencyManager.currencyCode.length > 0) return CurrencyManager.currencyCode;
-		return "";
-	}
-
-	/**
-	 * Returns a prefix suitable for inline amounts.
-	 * We always use the currency code and include a trailing space for readability.
-	 */
-	public static getInlinePrefix(): string {
-		if (CurrencyManager.currencyCode.length > 0) return `${CurrencyManager.currencyCode} `;
-		return "";
-	}
-
 	public static formatAmount(amount: number, decimals = 2): string {
 		const safe = Number.isFinite(amount) ? amount : 0;
 		const currencyCode = CurrencyManager.getCurrencyCode();

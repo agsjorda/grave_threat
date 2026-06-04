@@ -238,38 +238,6 @@ export class GameAPI {
     sessionStorage.getItem("mockFirstManualScatterSpin") === "true";
   private mockedFirstManualScatterSpin: boolean = false;
 
-  private static readonly SAMPLE_FLAG_KEYS = {
-    useFakeData: "useFakeData",
-    useMaxWin: "useMaxWin",
-  } as const;
-
-  private static readonly SAMPLE_FLAGS_ENABLED: Record<
-    (typeof GameAPI.SAMPLE_FLAG_KEYS)[keyof typeof GameAPI.SAMPLE_FLAG_KEYS],
-    boolean
-  > = Object.fromEntries(
-    Object.values(GameAPI.SAMPLE_FLAG_KEYS).map((key) => [
-      key,
-      new URLSearchParams(window.location.search).get(key) === "true" ||
-        sessionStorage.getItem(key) === "true",
-    ]),
-  ) as Record<
-    (typeof GameAPI.SAMPLE_FLAG_KEYS)[keyof typeof GameAPI.SAMPLE_FLAG_KEYS],
-    boolean
-  >;
-
-  // Sample data mode: loads data from src/game/spinDataSample/*.json
-  // Enable via ?sampleData=<file_base_name> or sessionStorage.setItem('sampleData','<file_base_name>')
-  // Backwards-compatible aliases: useMaxWin/useFakeData
-  private static readonly SAMPLE_DATA_KEY: string | null = (() => {
-    const params = new URLSearchParams(window.location.search);
-    const paramKey = params.get("sampleData");
-    const storageKey = sessionStorage.getItem("sampleData");
-    const explicitKey = paramKey || storageKey;
-    if (explicitKey) return explicitKey;
-    if (GameAPI.SAMPLE_FLAGS_ENABLED.useMaxWin) return "max_win_data";
-    if (GameAPI.SAMPLE_FLAGS_ENABLED.useFakeData) return "fake_spin_data";
-    return null;
-  })();
   private sampleNormalSpinIndex: number = 0;
   private sampleBonusSpinIndex: number = 0;
   private sampleDataCache: Record<string, any | null> = {};
@@ -315,7 +283,27 @@ export class GameAPI {
   }
 
   private getSampleDataKey(): string | null {
-    return GameAPI.SAMPLE_DATA_KEY;
+    const params = new URLSearchParams(window.location.search);
+    const paramKey = params.get("sampleData");
+    const storageKey = sessionStorage.getItem("sampleData");
+    const explicitKey = paramKey || storageKey;
+    if (explicitKey) {
+      return explicitKey.replace(/\.json$/i, "");
+    }
+
+    // Local max-win fixture only (not used for ?demo=true — that uses the analytics API).
+    if (params.get("maxWin") === "true") {
+      return "max_win_data";
+    }
+
+    if (
+      params.get("useFakeData") === "true" ||
+      sessionStorage.getItem("useFakeData") === "true"
+    ) {
+      return "fake_spin_data";
+    }
+
+    return null;
   }
 
   private getSampleDataUrl(): string | null {
@@ -720,12 +708,30 @@ export class GameAPI {
    * Only generates a new token if token URL parameter is not present
    */
   public async initializeGame(): Promise<string> {
-    const isDemo = this.getDemoState();
-    sessionStorage.setItem("demo", isDemo ? "true" : "false");
+    const params = new URLSearchParams(window.location.search);
+    const demoFromUrl = params.get("demo") === "true";
+    const maxWinFromUrl = params.get("maxWin") === "true";
 
+    // Local sample spins (?maxWin=true / ?sampleData=…): demo balance, spins from spinDataSample/*.json
     if (this.isSampleDataEnabled()) {
+      sessionStorage.setItem("demo", "true");
       return "";
     }
+
+    // ?demo=true alone: backend analytics spins — clear stale local-fixture flags from a prior visit
+    if (demoFromUrl && !maxWinFromUrl) {
+      sessionStorage.setItem("demo", "true");
+      try {
+        sessionStorage.removeItem("maxWin");
+        sessionStorage.removeItem("useMaxWin");
+        sessionStorage.removeItem("fixture");
+      } catch { /* ignore */ }
+      return "";
+    }
+
+    const isDemo = demoFromUrl;
+    sessionStorage.setItem("demo", isDemo ? "true" : "false");
+
     if (isDemo) {
       return "";
     }
@@ -1466,7 +1472,7 @@ export class GameAPI {
       }
     }
 
-    // Demo mode: no token required, use analytics endpoint and simplified payload.
+    // Demo mode (?demo=true): analytics API — never sample JSON (use ?maxWin=true for spinDataSample).
     const isDemo =
       this.getDemoState() ||
       sessionStorage.getItem("demo") === "true";
@@ -2006,12 +2012,17 @@ export class GameAPI {
   }
 
   /**
-   * Get the demo state from URL parameters
-   * @returns The value of the 'demo' URL parameter, or false if not found
+   * Demo balance / UI (no real wallet). True for ?demo=true or local sample mode (?maxWin=true, ?sampleData=…).
+   * Spin source: ?demo=true → analytics API; ?maxWin=true → spinDataSample/max_win_data.json only.
    */
   public getDemoState(): boolean | false {
-    const demoValue = getUrlParameter("demo") === "true";
-    return demoValue;
+    if (this.isSampleDataEnabled()) {
+      return true;
+    }
+    return (
+      getUrlParameter("demo") === "true" ||
+      sessionStorage.getItem("demo") === "true"
+    );
   }
 
   /**

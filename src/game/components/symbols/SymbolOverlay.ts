@@ -231,14 +231,13 @@ export class SymbolOverlay {
     scale: number = 1
   ): Phaser.GameObjects.Text {
     const fontSize = Math.max(40, Math.round(displayHeight * 0.5));
-    const currencyPrefix = isDemo ? '' : CurrencyManager.getInlinePrefix();
-    
     // Format the amount
     let textValue: string;
     try {
-      textValue = `${currencyPrefix}${formatCurrencyNumber(amount)}`;
+      textValue = isDemo ? formatCurrencyNumber(amount) : CurrencyManager.formatAmount(amount);
     } catch {
-      textValue = `${currencyPrefix}${amount}`;
+      const fallbackPrefix = isDemo ? "" : CurrencyManager.getCurrencyCode();
+      textValue = fallbackPrefix ? `${fallbackPrefix} ${amount}` : `${amount}`;
     }
     
     // Create the text object

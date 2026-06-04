@@ -5,7 +5,6 @@
 
 import { Scene, GameObjects } from 'phaser';
 import { UI_CONFIG } from '../config/GameConfig';
-import { CurrencyManager } from '../game/components/CurrencyManager';
 
 /**
  * Configuration for creating a control button
@@ -49,42 +48,6 @@ export interface TextLabelConfig {
   originX?: number;
   /** Origin Y (default: 0.5) */
   originY?: number;
-}
-
-/**
- * Configuration for creating a currency display
- */
-export interface CurrencyDisplayConfig {
-  /** X position */
-  x: number;
-  /** Y position */
-  y: number;
-  /** Initial amount */
-  amount: number;
-  /** Show currency symbol (default: true in real mode) */
-  showCurrency?: boolean;
-  /** Currency symbol (defaults to CurrencyManager glyph when omitted) */
-  currencySymbol?: string;
-  /** Font size (default: '14px') */
-  fontSize?: string;
-  /** Decimal places (default: 2) */
-  decimals?: number;
-  /** Depth layer */
-  depth?: number;
-}
-
-/**
- * Result of creating a currency display
- */
-export interface CurrencyDisplayResult {
-  /** The amount text object */
-  amountText: GameObjects.Text;
-  /** The currency symbol text object */
-  currencyText: GameObjects.Text;
-  /** Container holding both texts */
-  container: GameObjects.Container;
-  /** Update the displayed amount */
-  updateAmount: (amount: number, isDemo?: boolean) => void;
 }
 
 /**
@@ -156,80 +119,6 @@ export function createTextLabel(
   })
     .setOrigin(originX, originY)
     .setDepth(depth);
-}
-
-/**
- * Create a currency display with amount and currency symbol
- */
-export function createCurrencyDisplay(
-  scene: Scene,
-  config: CurrencyDisplayConfig
-): CurrencyDisplayResult {
-  const {
-    x,
-    y,
-    amount,
-    showCurrency = true,
-    currencySymbol = CurrencyManager.getCurrencyGlyph(),
-    fontSize = '14px',
-    decimals = 2,
-    depth = UI_CONFIG.DEPTH.CONTROLLER,
-  } = config;
-
-  const container = scene.add.container(x, y);
-  container.setDepth(depth);
-
-  // Currency symbol text
-  const currencyText = scene.add.text(0, 0, showCurrency ? currencySymbol : '', {
-    fontSize,
-    color: '#ffffff',
-    fontFamily: 'poppins-regular',
-  }).setOrigin(0.5, 0.5);
-
-  // Amount text (local format: toLocaleString with decimals)
-  const amountText = scene.add.text(0, 0, formatAmount(amount, decimals), {
-    fontSize,
-    color: '#ffffff',
-    fontFamily: 'poppins-regular',
-  }).setOrigin(0.5, 0.5);
-
-  container.add([currencyText, amountText]);
-
-  // Position currency symbol relative to amount
-  const updatePositions = (isDemo: boolean = false) => {
-    if (isDemo) {
-      currencyText.setVisible(false);
-      amountText.setX(0);
-    } else {
-      currencyText.setVisible(true);
-      currencyText.setX(-amountText.width / 2 - currencyText.width / 2 - 3);
-      amountText.setX(3);
-    }
-  };
-
-  updatePositions(!showCurrency);
-
-  const updateAmount = (newAmount: number, isDemo: boolean = false) => {
-    amountText.setText(formatAmount(newAmount, decimals));
-    updatePositions(isDemo);
-  };
-
-  return {
-    amountText,
-    currencyText,
-    container,
-    updateAmount,
-  };
-}
-
-/**
- * Format a numeric amount for display (local toLocaleString)
- */
-export function formatAmount(amount: number, decimals: number = 2): string {
-  return amount.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
 }
 
 /**

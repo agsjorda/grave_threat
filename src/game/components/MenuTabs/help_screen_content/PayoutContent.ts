@@ -86,8 +86,8 @@ function buildSymbolPayoutGridCells(
         const adjustedPayout = applyBetToPayout(payoutValues[row] ?? 0, getBetAmount);
         const formattedPayout = formatPayout(adjustedPayout);
         const isDemo = getIsDemo?.() ?? false;
-        const prefix = isDemo ? '' : CurrencyManager.getInlinePrefix().trimEnd();
-        const payoutText = prefix ? `${prefix}\u00A0${formattedPayout}` : formattedPayout;
+        const currencyCode = isDemo ? '' : CurrencyManager.getCurrencyCode();
+        const payoutText = currencyCode ? `${currencyCode}\u00A0${formattedPayout}` : formattedPayout;
 
         gridCells.push({
             Text: {

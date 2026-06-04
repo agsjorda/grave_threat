@@ -213,35 +213,6 @@ export class BalanceController {
     this.balanceLabelText.setText(currencyCode ? `BALANCE (${currencyCode})` : 'BALANCE');
   }
 
-  private layoutCurrencyPair(
-    centerX: number,
-    y: number,
-    currencyText: Phaser.GameObjects.Text,
-    amountText: Phaser.GameObjects.Text,
-    isDemo: boolean,
-    spacing: number
-  ): void {
-    const glyph = CurrencyManager.getCurrencyGlyph();
-    const showCurrency = !isDemo && glyph.length > 0;
-
-    if (!showCurrency) {
-      try { currencyText.setVisible(false); } catch {}
-      amountText.setPosition(centerX, y);
-      return;
-    }
-
-    currencyText.setVisible(true);
-    currencyText.setText(glyph);
-
-    const glyphWidth = currencyText.width || 0;
-    const amountWidth = amountText.width || 0;
-    const totalWidth = glyphWidth + spacing + amountWidth;
-    const startX = centerX - (totalWidth / 2);
-
-    currencyText.setPosition(startX + glyphWidth / 2, y);
-    amountText.setPosition(startX + glyphWidth + spacing + (amountWidth / 2), y);
-  }
-
   public setPendingBalanceUpdate(update: { balance: number; bet: number; winnings?: number } | null): void {
     this.pendingBalanceUpdate = update;
   }

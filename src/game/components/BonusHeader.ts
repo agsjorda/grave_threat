@@ -3,7 +3,7 @@ import { NetworkManager } from "../../managers/NetworkManager";
 import { ScreenModeManager } from "../../managers/ScreenModeManager";
 import { gameEventManager, GameEventType } from '../../event/EventManager';
 import { gameStateManager } from '../../managers/GameStateManager';
-import { CurrencyManager } from './CurrencyManager';
+import { formatCurrencyNumber } from '../../utils/NumberPrecisionFormatter';
 import { BONUS_TUMBLE_TOTAL_WIN_DELAY_MS, HEADER_CONFIG, SHOW_HEADER_BORDER, BONUS_HEADER_WIN_BAR_TEXT_OFFSET_Y } from '../../config/GameConfig';
 import { getTotalWinFromPaylines, getTumbleTotal } from './Spin';
 import { getFreespinFromSlot, getFreespinFromSpinData } from '../../backend/SpinData';
@@ -181,9 +181,8 @@ export class BonusHeader {
 
 		// Line 2: amount value
 		// Check if demo mode is active - if so, use blank currency symbol
-		const isDemoInitial = (this.scene as any)?.gameAPI?.getDemoState();
-		const prefixInitial = isDemoInitial ? '' : CurrencyManager.getInlinePrefix();
-		this.amountText = scene.add.text(x, y + 18, `${prefixInitial}0.00`, {
+		const initialText = this.formatCurrency(0);
+		this.amountText = scene.add.text(x, y + 18, initialText, {
 			fontSize: '24px',
 			color: '#00ff00',
 			fontFamily: 'Poppins-Bold',
@@ -698,22 +697,7 @@ export class BonusHeader {
 	 * Format currency value for display
 	 */
 	private formatCurrency(amount: number): string {
-		const isDemo = (this.scene as any)?.gameAPI?.getDemoState();
-		
-		// Format with commas for thousands and 2 decimal places
-		const formatted = new Intl.NumberFormat('en-US', {
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		}).format(amount);
-		
-		if (isDemo) {
-			return formatted;
-		}
-		
-		// Get currency prefix with proper spacing
-		const prefix = CurrencyManager.getCurrencyCode();
-		const space = prefix && !prefix.endsWith(' ') ? ' ' : '';
-		return `${prefix}${space}${formatted}`;
+		return formatCurrencyNumber(amount);
 	}
 
 	/**

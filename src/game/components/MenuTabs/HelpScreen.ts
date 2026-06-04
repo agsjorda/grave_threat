@@ -9,6 +9,7 @@ import { gameSettingsContent } from './help_screen_content/GameSettingsContent';
 import { howToPlayContent } from './help_screen_content/HowToPlayContent';
 import { localizationManager, LocalizationManager } from '../../../managers/LocalizationManager';
 import { CurrencyManager } from '../CurrencyManager';
+import { formatCurrencyNumber } from '../../../utils/NumberPrecisionFormatter';
 import { QUALIFYING_CLUSTER_COUNT } from '../Spin';
 
 type TextStyle = Phaser.Types.GameObjects.Text.TextStyle;
@@ -202,11 +203,8 @@ export class HelpScreen {
         const processedValue = value.replace(currencyMarkerRegex, (match, amountStr) => {
             const amount = parseFloat(amountStr);
             if (!isNaN(amount)) {
-                const currencyPrefix = CurrencyManager.getInlinePrefix().trimEnd();
-                const formatted = amount.toLocaleString('en-US', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                });
+                const currencyPrefix = CurrencyManager.getCurrencyCode();
+                const formatted = formatCurrencyNumber(amount);
                 return currencyPrefix ? `${currencyPrefix}\u00A0${formatted}` : formatted;
             }
             return match; // Return original if parsing fails
