@@ -30,8 +30,9 @@ export interface BuyFeatureCallbacks {
   getGameData: () => GameData | null;
   getScene: () => Scene | null;
   getGameAPI: () => GameAPI | null;
+  getBaseBetAmount: () => number;
   getBalanceAmount: () => number;
-  updateBalanceAmount: (balance: number) => void;
+  startBalanceTween: (balance: number, durationMs?: number) => void;
   updateBetAmount: (bet: number) => void;
   setFeatureButtonAmountOverride: (amount: number | null) => void;
   enableSpinButton: () => void;
@@ -49,7 +50,7 @@ export interface BuyFeatureCallbacks {
   enableBetBackgroundInteraction: (reason: string) => void;
   disableBetBackgroundInteraction: (reason: string) => void;
   showOutOfBalancePopup: () => void;
-  updateSpinButtonState: () => void;
+  restoreControlsAfterBuyFeatureFailure: (reason: string) => void;
   lockControlsForBuyFeatureFlow?: (reason: string) => void;
   unlockControlsAfterBuyFeatureFlow?: (reason: string) => void;
 }
@@ -57,6 +58,8 @@ export interface BuyFeatureCallbacks {
 export class BuyFeatureController {
   private buyFeature: BuyFeature | null = null;
   private buyFeatureSpinLock: boolean = false;
+  /** Prevents overlapping handleBuyFeature / doSpin calls from double-confirm. */
+  private buyFeatureApiCallActive: boolean = false;
   private callbacks: BuyFeatureCallbacks;
 
   constructor(callbacks: BuyFeatureCallbacks) {
@@ -119,6 +122,13 @@ export class BuyFeatureController {
     this.callbacks.enableBetBackgroundInteraction(reason);
   }
 
+  /** Release buy-feature locks and restore HUD after a failed or aborted purchase (kobi_ass parity). */
+  private releaseBuyFeatureFailureLock(reason: string): void {
+    this.buyFeatureSpinLock = false;
+    gameStateManager.isBuyFeatureSpin = false;
+    this.callbacks.restoreControlsAfterBuyFeatureFailure(reason);
+  }
+
   public showDrawer(options?: { onClose?: () => void; onConfirm?: () => void }): void {
     if (!this.buyFeature) {
       console.warn('[SlotController] Buy feature component not initialized');
@@ -140,17 +150,22 @@ export class BuyFeatureController {
   }
 
   private async handleBuyFeature(): Promise<void> {
+    if (this.buyFeatureApiCallActive) {
+      console.warn('[BuyFeatureController] Buy feature API call already active - ignoring duplicate request');
+      return;
+    }
 
     const gameAPI = this.callbacks.getGameAPI();
     if (!this.buyFeature || !gameAPI) {
       console.error('[SlotController] Buy feature or GameAPI not available');
-      this.buyFeatureSpinLock = false;
-      this.unlockControls('buy feature unavailable');
+      this.releaseBuyFeatureFailureLock('buy feature unavailable');
       return;
     }
 
+    this.buyFeatureApiCallActive = true;
+    const originalBaseBet = this.callbacks.getBaseBetAmount();
+
     try {
-      let shouldKeepBuyFeatureFlag = false;
       const buyFeatureBet = this.buyFeature.getCurrentBetAmount();
       const selectedBuyFeatureType = this.buyFeature.getSelectedBuyFeatureType();
       const buyFeat = selectedBuyFeatureType === 2 ? 2 : 1;
@@ -158,31 +173,15 @@ export class BuyFeatureController {
       // Price is 100x the effective total bet (v.2 uses 5x bet).
       const calculatedPrice = effectiveBet * 100;
 
-      // Keep the game's base bet aligned to the Buy Feature base bet selection.
-      // For v.2, effective bet is 5x for pricing/spin logic, but persisting that as
-      // base bet would inflate option cards after free spins (e.g. 40/200 -> 200/1000).
-      this.callbacks.updateBetAmount(buyFeatureBet);
-      // Keep Buy Feature button amount aligned with the confirmed option card amount
-      // (v.2 should display 5x card price on the feature button after confirm).
-      this.callbacks.setFeatureButtonAmountOverride(calculatedPrice);
-
-
       const currentBalance = this.callbacks.getBalanceAmount();
       if (currentBalance < calculatedPrice) {
         console.error(`[SlotController] Insufficient balance: $${currentBalance.toFixed(2)} < $${calculatedPrice.toFixed(2)}`);
-        this.buyFeatureSpinLock = false;
-        this.unlockControls('buy feature insufficient balance');
+        this.releaseBuyFeatureFailureLock('buy feature insufficient balance');
         this.callbacks.showOutOfBalancePopup();
         return;
       }
 
-      const newBalance = currentBalance - calculatedPrice;
-      if (gameAPI?.getDemoState()) {
-        gameAPI.updateDemoBalance(newBalance);
-      }
-      this.callbacks.updateBalanceAmount(newBalance);
-
-      // Avoid pre-spin symbol clearing; only run this on explicit skip to prevent flicker.
+      // Deduct buy-feature price only after a successful spin response (below).
 
       gameStateManager.isBuyFeatureSpin = true;
       gameStateManager.buyFeatureStartMultiplier = buyFeat === 2 ? 2 : 0;
@@ -195,8 +194,33 @@ export class BuyFeatureController {
         buyFeat,
       );
 
+      if (!spinData) {
+        console.warn('[BuyFeatureController] No buy feature spin data received; unlocking controller');
+        this.releaseBuyFeatureFailureLock('buy feature no spin data');
+        return;
+      }
+
+      const balanceBeforeCharge = this.callbacks.getBalanceAmount();
+      if (Number.isFinite(balanceBeforeCharge)) {
+        const newBalance = Math.max(0, balanceBeforeCharge - calculatedPrice);
+        if (gameAPI.getDemoState()) {
+          gameAPI.updateDemoBalance(newBalance);
+        }
+        this.callbacks.startBalanceTween(newBalance, 200);
+        console.log(
+          `[BuyFeatureController] Buy feature balance deducted after spin OK: $${balanceBeforeCharge.toFixed(2)} -> $${newBalance.toFixed(2)}`
+        );
+      } else {
+        console.warn('[BuyFeatureController] Skipping buy feature balance deduction: balance not readable');
+      }
+
+      // Only update bet / feature button after successful API response.
+      // For v.2, persist base bet (not 5x effective) so option cards do not inflate after free spins.
+      this.callbacks.updateBetAmount(buyFeatureBet);
+      this.callbacks.setFeatureButtonAmountOverride(calculatedPrice);
+
       const hasFreeSpinItems = !!(spinData?.slot?.freespin?.items || spinData?.slot?.freeSpin?.items);
-      shouldKeepBuyFeatureFlag = hasFreeSpinItems || SpinDataUtils.hasFreeSpins(spinData);
+      const shouldKeepBuyFeatureFlag = hasFreeSpinItems || SpinDataUtils.hasFreeSpins(spinData);
       if (!shouldKeepBuyFeatureFlag) {
         gameStateManager.isBuyFeatureSpin = false;
       }
@@ -232,19 +256,20 @@ export class BuyFeatureController {
         console.warn('[SlotController] Turbo normalization for buy feature scatter failed:', e);
       }
 
-      if (spinData) {
-        gameEventManager.emit(GameEventType.SPIN_DATA_RESPONSE, { spinData });
-      }
+      gameEventManager.emit(GameEventType.SPIN_DATA_RESPONSE, { spinData });
+      // Keep buyFeatureSpinLock until reels + scatter/bonus transition settle.
     } catch (error) {
       console.error('[SlotController] Error processing buy feature purchase:', error);
-      gameStateManager.isBuyFeatureSpin = false;
-      this.buyFeatureSpinLock = false;
-      this.unlockControls('buy feature error');
+      this.callbacks.updateBetAmount(originalBaseBet);
+      this.callbacks.setFeatureButtonAmountOverride(null);
+      this.releaseBuyFeatureFailureLock('buy feature error');
       try {
         showBetFailurePopupFromError(error);
       } catch (popupErr) {
         console.error('[BuyFeatureController] showBetFailurePopupFromError threw:', popupErr);
       }
+    } finally {
+      this.buyFeatureApiCallActive = false;
     }
   }
 }

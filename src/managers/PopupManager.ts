@@ -247,7 +247,10 @@ export function checkAndHandlePopup(response: BackendErrorResponse | null | unde
  * production builds, which fails when the user is offline — the exact case this popup is meant
  * to surface. Static imports bundle the popup with this module so it's always available.
  */
-export function showBetFailurePopupFromError(error: unknown): void {
+export function showBetFailurePopupFromError(
+	error: unknown,
+	options?: { onClose?: () => void },
+): void {
 	const scene = getGameScene();
 	if (!scene) return;
 
@@ -278,6 +281,7 @@ export function showBetFailurePopupFromError(error: unknown): void {
 			popup.hide(() => {
 				clearCurrentPopup();
 				if (cb) cb();
+				try { options?.onClose?.(); } catch {}
 			})
 		);
 	});

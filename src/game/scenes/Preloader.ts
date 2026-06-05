@@ -207,7 +207,6 @@ export class Preloader extends Scene
 				const slotInitData = await this.gameAPI.initializeSlotSession();
 				unresolvedSpinManager.setFromInitializationData(slotInitData);
 				CurrencyManager.initializeFromInitData(slotInitData);
-				this.revealPreloaderMaxWinText();
 			} else {
 				unresolvedSpinManager.setFromInitializationData(null);
 			}
@@ -226,6 +225,8 @@ export class Preloader extends Scene
 				localizationManager.setTranslations(JSON.stringify(LOCALIZATION_DEFAULTS));
 			}
 			this.refreshLocalizedPreloaderText();
+			// shuten_doji parity: reveal after locale + maxWin source (init or localization API / config fallback).
+			this.revealPreloaderMaxWinText();
 
 			const initialBalance = Number(await this.gameAPI.initializeBalance());
 			// `-1` is the replay-mode sentinel — propagate it so the Game scene does not
@@ -241,6 +242,8 @@ export class Preloader extends Scene
         } catch (error) {
             console.error('[Preloader] Failed to initialize GameAPI or slot session:', error);
 			localizationManager.setTranslations(JSON.stringify(LOCALIZATION_DEFAULTS));
+			this.refreshLocalizedPreloaderText();
+			this.revealPreloaderMaxWinText();
         }
 
 		// Create fullscreen toggle now that assets are loaded (using shared manager)
@@ -559,7 +562,7 @@ export class Preloader extends Scene
 			fontSize: `${MAX_WIN.FONT_SIZE_PX}px`,
 			color: '#FFFFFF',
 			align: 'center',
-		}).setOrigin(0.5, 0.5).setScrollFactor(0).setAlpha(0).setDepth(10);
+		}).setOrigin(0.5, 0.5).setScrollFactor(0).setAlpha(0).setDepth(1000);
 		this.tweens.add({
 			targets: this.maxWinText,
 			scale: { from: MAX_WIN.BREATHING_SCALE_FROM, to: MAX_WIN.BREATHING_SCALE_TO },

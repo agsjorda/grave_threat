@@ -309,8 +309,9 @@ export class SlotController {
 			getGameData: () => this.getGameData(),
 			getScene: () => this.scene,
 			getGameAPI: () => this.gameAPI,
+			getBaseBetAmount: () => this.getBaseBetAmount(),
 			getBalanceAmount: () => this.getBalanceAmount(),
-			updateBalanceAmount: (balance: number) => this.updateBalanceAmount(balance),
+			startBalanceTween: (balance: number, durationMs?: number) => this.startBalanceTween(balance, durationMs),
 			updateBetAmount: (bet: number) => this.updateBetAmount(bet),
 			setFeatureButtonAmountOverride: (amount: number | null) => this.setFeatureButtonAmountOverride(amount),
 			enableSpinButton: () => this.enableSpinButton(),
@@ -328,7 +329,7 @@ export class SlotController {
 			enableBetBackgroundInteraction: (reason: string) => this.enableBetBackgroundInteraction(reason),
 			disableBetBackgroundInteraction: (reason: string) => this.disableBetBackgroundInteraction(reason),
 			showOutOfBalancePopup: () => this.showOutOfBalancePopup(),
-			updateSpinButtonState: () => this.updateSpinButtonState(),
+			restoreControlsAfterBuyFeatureFailure: (reason: string) => this.restoreControlsAfterBuyFeatureFailure(reason),
 			lockControlsForBuyFeatureFlow: (reason: string) => this.lockControlsForBuyFeatureFlow(reason),
 			unlockControlsAfterBuyFeatureFlow: (reason: string) => this.unlockControlsAfterBuyFeatureFlow(reason),
 		});
@@ -545,6 +546,51 @@ export class SlotController {
 		this.updateFeatureButtonState();
 		this.updateAllAuxiliaryButtonStates();
 		this.hudController.enableBetBackgroundInteraction(reason || 'buy feature unlock');
+	}
+
+	/**
+	 * Restore HUD after a failed/aborted buy-feature purchase (kobi_ass parity).
+	 * Clears the drawer modal lock so Spin / Autoplay / Buy Feature can re-enable.
+	 */
+	public restoreControlsAfterBuyFeatureFailure(reason: string): void {
+		try { this.setExternalControlLock(false); } catch {}
+		try { gameStateManager.isProcessingSpin = false; } catch {}
+		this.updateSpinButtonState();
+		this.enableAutoplayButton();
+		this.enableFeatureButton();
+		this.enableBetButtons();
+		this.enableAmplifyButton();
+		this.enableTurboButton();
+		this.enableBetBackgroundInteraction(reason || 'buy feature failure restore');
+	}
+
+	/** Restore HUD after a failed/aborted spin (hustle_horse offline/bet-failed parity). */
+	private restoreControlsAfterSpinFailure(): void {
+		try { gameStateManager.isReelSpinning = false; } catch {}
+		try {
+			const gd = this.getGameData();
+			if (gd) gd.isReelSpinning = false;
+		} catch {}
+		gameStateManager.isProcessingSpin = false;
+		this.isSpinLocked = false;
+		this.releaseManualSpinClickLock();
+		this.resetManualSpinSkipButtonState();
+		try { this.symbols?.clearPreSpinDropState?.(); } catch {}
+
+		if (this.isBuyFeatureControlsLocked()) {
+			this.updateSpinButtonState();
+			this.spinButtonController?.enable();
+			return;
+		}
+
+		this.updateSpinButtonState();
+		this.enableAutoplayButton();
+		this.enableTurboButton();
+		this.enableBetButtons();
+		this.enableAmplifyButton();
+		this.enableFeatureButton();
+		this.enableBetBackgroundInteraction('spin failure restore');
+		this.spinButtonController?.enable();
 	}
 
 	/**
@@ -1916,6 +1962,10 @@ export class SlotController {
 		this.balanceController?.updateBalanceAmount(balanceAmount);
 		// Balance changed -> re-evaluate whether spin is affordable/enabled.
 		this.updateSpinButtonState();
+	}
+
+	startBalanceTween(targetBalance: number, durationMs: number = 220): void {
+		this.balanceController?.startBalanceTween(targetBalance, durationMs);
 	}
 
 	/**
@@ -3818,15 +3868,16 @@ export class SlotController {
 			} catch (error) {
 				console.error('[SlotController] ❌ Spin failed:', error);
 				// Don't emit the spin event if the API call failed
-				try { this.symbols?.clearPreSpinDropState?.(); } catch {}
-				gameStateManager.isProcessingSpin = false;
+				this.restoreControlsAfterSpinFailure();
 				try { this.hideSpinner(); } catch {}
 				try {
-					showBetFailurePopupFromError(error);
+					showBetFailurePopupFromError(error, {
+						onClose: () => this.restoreControlsAfterSpinFailure(),
+					});
 				} catch (popupErr) {
 					console.error('[SlotController] showBetFailurePopupFromError threw:', popupErr);
 				}
-				this.abortManualSpinStart();
+				shouldClearProcessingOnExit = false;
 			}
 		} finally {
 			this.isSpinLocked = false;
