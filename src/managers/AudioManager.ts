@@ -61,9 +61,68 @@ export class AudioManager {
 	private savedAmbientVolume: number | null = null;
 	private duckFadeTimer: any = null;
 	private restoreFadeTimer: any = null;
+	private eventsSubscribed: boolean = false;
 
 	constructor(scene: Phaser.Scene) {
 		this.scene = scene;
+	}
+
+	/** Drop scene-bound sound objects so they can be recreated on the active scene. */
+	private releaseSoundInstances(): void {
+		if (this.duckFadeTimer) {
+			clearInterval(this.duckFadeTimer);
+			this.duckFadeTimer = null;
+		}
+		if (this.restoreFadeTimer) {
+			clearInterval(this.restoreFadeTimer);
+			this.restoreFadeTimer = null;
+		}
+		this.isDucked = false;
+		this.savedMusicVolume = null;
+		this.savedAmbientVolume = null;
+		try { this.stopAllMusic(); } catch {}
+		if (this.eventsSubscribed) {
+			try {
+				gameEventManager.off(GameEventType.REELS_START, this.boundOnReelsStart);
+				gameEventManager.off(GameEventType.TUMBLE_SEQUENCE_DONE, this.boundOnTumbleSequenceDone);
+			} catch {}
+			this.eventsSubscribed = false;
+		}
+		this.musicInstances.clear();
+		this.sfxInstances.clear();
+		this.ambientInstance = null;
+		this.currentWinSfx = null;
+		this.currentMusic = null;
+	}
+
+	/** Rebind the manager to a new scene (same Phaser SoundManager underneath). */
+	public setScene(scene: Phaser.Scene): void {
+		if (this.scene !== scene) {
+			this.releaseSoundInstances();
+			this.scene = scene;
+		}
+	}
+
+	/** Unlock/resume audio and restart BGM if it stopped (e.g. after tab switch). */
+	public ensurePlayback(): void {
+		if (this.isMuted) return;
+		try { (this.scene.sound as any)?.unlock?.(); } catch {}
+		try {
+			const ctx: any = (this.scene.sound as any)?.context;
+			if (ctx && typeof ctx.resume === 'function' && ctx.state === 'suspended') {
+				ctx.resume();
+			}
+		} catch {}
+		const activeType = this.currentMusic ?? MusicType.MAIN;
+		const active = activeType ? this.musicInstances.get(activeType) : null;
+		if (!active?.isPlaying) {
+			if (this.musicInstances.size === 0) {
+				try { this.createMusicInstances(); } catch {}
+			}
+			try { this.playBackgroundMusic(activeType); } catch {}
+		} else {
+			try { this.startAmbientAudio(); } catch {}
+		}
 	}
 
 	/**
@@ -97,7 +156,13 @@ export class AudioManager {
 	 * Create music and sound effect instances after loading
 	 */
 	createMusicInstances(): void {
-		
+		// Idempotent: do not create duplicate BaseSound instances (prevents double BGM).
+		try {
+			if (this.musicInstances.get(MusicType.MAIN) && this.musicInstances.get(MusicType.BONUS) && this.musicInstances.get(MusicType.FREE_SPIN)) {
+				return;
+			}
+		} catch {}
+
 		try {
 			// Create main background music
 			const mainMusic = this.scene.sound.add('mainbg', {
@@ -266,11 +331,14 @@ export class AudioManager {
 
 
 			// Reel roll: play while reels/tumble are moving, stop when sequence is done
-			try {
-				gameEventManager.on(GameEventType.REELS_START, this.boundOnReelsStart);
-				gameEventManager.on(GameEventType.TUMBLE_SEQUENCE_DONE, this.boundOnTumbleSequenceDone);
-			} catch (e) {
-				console.warn('[AudioManager] Failed to subscribe to reel roll events:', e);
+			if (!this.eventsSubscribed) {
+				try {
+					gameEventManager.on(GameEventType.REELS_START, this.boundOnReelsStart);
+					gameEventManager.on(GameEventType.TUMBLE_SEQUENCE_DONE, this.boundOnTumbleSequenceDone);
+					this.eventsSubscribed = true;
+				} catch (e) {
+					console.warn('[AudioManager] Failed to subscribe to reel roll events:', e);
+				}
 			}
 		} catch (error) {
 			console.error('[AudioManager] Error creating audio instances:', error);
@@ -407,10 +475,26 @@ export class AudioManager {
 			return;
 		}
 
+		// If the requested track is already playing, don't restart it (prevents audible cut).
+		try {
+			if (this.currentMusic === musicType) {
+				const current = this.musicInstances.get(musicType);
+				if (current?.isPlaying) {
+					this.startAmbientAudio();
+					return;
+				}
+			}
+		} catch {}
+
 		// Stop current music if playing
 		this.stopCurrentMusic();
 
-		const music = this.musicInstances.get(musicType);
+		// If instances weren't created yet (race with scene startup), create them and retry once.
+		let music = this.musicInstances.get(musicType);
+		if (!music) {
+			try { this.createMusicInstances(); } catch {}
+			music = this.musicInstances.get(musicType);
+		}
 		if (music) {
 			try {
 				music.play();
@@ -763,19 +847,23 @@ export class AudioManager {
 		if (this.isMuted) return;
 
 		const sfx = this.sfxInstances.get(sfxType);
-		if (!sfx) return;
+		if (!sfx) {
+			try { this.createMusicInstances(); } catch {}
+		}
+		const resolved = this.sfxInstances.get(sfxType);
+		if (!resolved) return;
 
 		try {
 			if (typeof rate === 'number' && rate > 0) {
 				try {
-					if ('setRate' in sfx && typeof (sfx as any).setRate === 'function') {
-						(sfx as any).setRate(rate);
-					} else if ('rate' in (sfx as any)) {
-						(sfx as any).rate = rate;
+					if ('setRate' in resolved && typeof (resolved as any).setRate === 'function') {
+						(resolved as any).setRate(rate);
+					} else if ('rate' in (resolved as any)) {
+						(resolved as any).rate = rate;
 					}
 				} catch { /* ignore */ }
 			}
-			sfx.play();
+			resolved.play();
 			if (
 				sfxType === SoundEffectType.WIN_BIG ||
 				sfxType === SoundEffectType.WIN_MEGA ||
@@ -783,7 +871,7 @@ export class AudioManager {
 				sfxType === SoundEffectType.WIN_EPIC ||
 				sfxType === SoundEffectType.MAX_WIN
 			) {
-				this.currentWinSfx = sfx;
+				this.currentWinSfx = resolved;
 			}
 		} catch (error) {
 			console.error(`[AudioManager] Error playing ${sfxType} sound effect:`, error);

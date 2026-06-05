@@ -15,6 +15,7 @@ import { CurrencyManager } from '../components/CurrencyManager';
 import { LOCALIZATION_DEFAULTS, PRELOADER_MAX_WIN } from '../../backend/LocalizationData';
 import { localizationManager } from '../../managers/LocalizationManager';
 import { unresolvedSpinManager } from '../../managers/UnresolvedSpinManager';
+import { AudioManager } from '../../managers/AudioManager';
 
 export class Preloader extends Scene
 {
@@ -28,6 +29,7 @@ export class Preloader extends Scene
 	private preloaderVerticalOffsetModifier: number = PRELOADER_CONFIG.VERTICAL_OFFSET_MODIFIER;
 	private bootProgressHandler?: (progress: number) => void;
 	private initialBalance: number | null = null;
+	private audioManager?: AudioManager;
 
 	private buttonSpin?: Phaser.GameObjects.Image;
 	private buttonBg?: Phaser.GameObjects.Image;
@@ -268,6 +270,20 @@ export class Preloader extends Scene
 
 		// Start game on click – play the bat transition then start Game
         this.buttonSpin?.once('pointerdown', () => {
+			// Attempt to unlock audio on the same gesture that starts the transition.
+			try { (this.sound as any)?.unlock?.(); } catch {}
+			try {
+				const ctx: any = (this.sound as any)?.context;
+				if (ctx && typeof ctx.resume === 'function' && ctx.state === 'suspended') {
+					ctx.resume();
+				}
+			} catch {}
+
+			if (!this.audioManager) {
+				this.audioManager = new AudioManager(this);
+				(window as any).audioManager = this.audioManager;
+			}
+
 			this.playBatTransitionThenStartGame();
         });
 
@@ -309,7 +325,8 @@ export class Preloader extends Scene
 			screenModeManager: this.screenModeManager,
 			gameAPI: this.gameAPI,
 			initialBalance: this.initialBalance,
-			initialFadeInDurationMs: options?.initialFadeInDurationMs
+			initialFadeInDurationMs: options?.initialFadeInDurationMs,
+			audioManager: this.audioManager,
 		});
 	}
 

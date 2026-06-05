@@ -148,6 +148,15 @@ export class Game extends Scene {
 			typeof data?.initialFadeInDurationMs === 'number' && data.initialFadeInDurationMs >= 0
 				? data.initialFadeInDurationMs
 				: GAME_SCENE_FADE_IN_DURATION_MS;
+
+		// Reuse the AudioManager created in Preloader (so music can start during the transition).
+		// Rebind it to this scene so future SFX/music calls use the active scene.
+		try {
+			if (data.audioManager) {
+				this.audioManager = data.audioManager as AudioManager;
+				this.audioManager.setScene(this);
+			}
+		} catch {}
 	}
 
 	public getCurrentBetAmount(): number {
@@ -461,7 +470,12 @@ export class Game extends Scene {
 	}
 
 	private createAudio(): void {
-		this.audioManager = new AudioManager(this);
+		// If Preloader handed us an audioManager, keep it to avoid restarting music.
+		if (!this.audioManager) {
+			this.audioManager = new AudioManager(this);
+		} else {
+			try { this.audioManager.setScene(this); } catch {}
+		}
 		this.time.delayedCall(0, () => {
 			const tryInitAudio = () => {
 				try {
@@ -491,6 +505,28 @@ export class Game extends Scene {
 			}
 		});
 		(window as any).audioManager = this.audioManager;
+
+		// Ensure background music starts as soon as the Game scene is visible.
+		// On some browsers, audio is blocked until the first user gesture; unlock/resume then retry.
+		const ensureUnlockedAndPlay = () => {
+			try {
+				(this.sound as any)?.unlock?.();
+			} catch {}
+			try {
+				const ctx: any = (this.sound as any)?.context;
+				if (ctx && typeof ctx.resume === 'function' && ctx.state === 'suspended') {
+					ctx.resume();
+				}
+			} catch {}
+			try {
+				this.audioManager.ensurePlayback();
+			} catch {}
+		};
+
+		try {
+			ensureUnlockedAndPlay();
+			this.input.once('pointerdown', ensureUnlockedAndPlay);
+		} catch {}
 	}
 
 	private createDialogsAndScatter(): void {

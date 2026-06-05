@@ -6,6 +6,14 @@ import { getGlobalAudioManager } from "../utils/AudioHelpers";
 import { SLOT_COLUMNS, SLOT_ROWS } from "../config/GameConfig";
 import { normalizeAreaToGameConfig } from "../utils/GridTransform";
 import { simulateTumbleCascade } from "../game/components/Spin";
+import { checkAndHandlePopup } from "../managers/PopupManager";
+
+type BackendErrorResponse = {
+  status?: number;
+  errorCode?: string;
+  message?: string;
+  message_text?: string;
+};
 
 type ImportMetaWithGlob = ImportMeta & {
   glob: (
@@ -800,6 +808,12 @@ export class GameAPI {
       sessionStorage.getItem("token") || "";
 
     if (!token) {
+      if (!this.hasRefreshToken()) {
+        this.showTokenExpiredPopup();
+        throw new Error(
+          "No game token available. Please initialize the game first.",
+        );
+      }
       const newToken = await this.tryRefreshAndGetNewToken();
       if (newToken) {
         token = newToken;
@@ -813,33 +827,51 @@ export class GameAPI {
 
     const apiUrl = `${getApiBaseUrl()}/api/v1/slots/initialize`;
 
-    const doRequest = (authToken: string) =>
-      fetch(apiUrl, {
+    try {
+      console.log("[GameAPI] Calling slots initialize endpoint...", apiUrl);
+
+      let currentToken = token;
+      let response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
+          Authorization: `Bearer ${currentToken}`,
         },
       });
 
-    let response = await doRequest(token);
-    if (response.status === 401 || response.status === 400) {
-      const newToken = await this.tryRefreshAndGetNewToken();
-      if (newToken) {
-        response = await doRequest(newToken);
-      }
-    }
-
-    try {
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 401 || response.status === 400) {
-          this.showTokenExpiredPopup();
-          sessionStorage.removeItem("token");
+      if (!response.ok && response.status === 401) {
+        const parsed = await this.readBackendErrorResponse(response);
+        if (parsed.errorCode === "DJ401TE") {
+          const newToken = await this.tryRefreshAndGetNewToken();
+          if (newToken) {
+            currentToken = newToken;
+            response = await fetch(apiUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${currentToken}`,
+              },
+            });
+          }
+        } else {
+          checkAndHandlePopup(parsed);
         }
-        throw new Error(
+      }
+
+      if (!response.ok) {
+        const parsed = await this.readBackendErrorResponse(response);
+        checkAndHandlePopup(parsed);
+        const errorText =
+          parsed.message_text ||
+          parsed.message ||
+          (await response.clone().text().catch(() => ""));
+        const error = new Error(
           `HTTP error! status: ${response.status}, message: ${errorText}`,
         );
+        if (response.status === 401) {
+          sessionStorage.removeItem("token");
+        }
+        throw error;
       }
 
       const raw = await response.json();
@@ -874,10 +906,6 @@ export class GameAPI {
         "[GameAPI] Error calling slots initialize endpoint:",
         error,
       );
-      if (this.isTokenExpiredError(error)) {
-        this.showTokenExpiredPopup();
-        sessionStorage.removeItem("token");
-      }
       throw error;
     }
   }
@@ -1206,9 +1234,12 @@ export class GameAPI {
     }
 
     try {
-      let token =
-        sessionStorage.getItem("token") || "";
+      let token = sessionStorage.getItem("token") || "";
       if (!token) {
+        if (!this.hasRefreshToken()) {
+          this.showTokenExpiredPopup();
+          throw new Error("No authentication token available");
+        }
         const newToken = await this.tryRefreshAndGetNewToken();
         if (newToken) {
           token = newToken;
@@ -1218,117 +1249,54 @@ export class GameAPI {
         }
       }
 
-      const doRequest = (authToken: string) =>
-        fetch(`${getApiBaseUrl()}/api/v1/slots/balance`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authToken}`,
-          },
-        });
+      const apiUrl = `${getApiBaseUrl()}/api/v1/slots/balance`;
+      let currentToken = token;
+      let response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${currentToken}`,
+        },
+      });
 
-      let response = await doRequest(token);
-      if (response.status === 401 || response.status === 400) {
-        const newToken = await this.tryRefreshAndGetNewToken();
-        if (newToken) {
-          response = await doRequest(newToken);
+      if (!response.ok && response.status === 401) {
+        const parsed = await this.readBackendErrorResponse(response);
+        if (parsed.errorCode === "DJ401TE") {
+          const newToken = await this.tryRefreshAndGetNewToken();
+          if (newToken) {
+            currentToken = newToken;
+            response = await fetch(apiUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${currentToken}`,
+              },
+            });
+          }
+        } else {
+          checkAndHandlePopup(parsed);
         }
       }
 
       if (!response.ok) {
-        const error = new Error(`HTTP error! status: ${response.status}`);
-        if (response.status === 400 || response.status === 401) {
-          this.showTokenExpiredPopup();
+        const parsed = await this.readBackendErrorResponse(response);
+        checkAndHandlePopup(parsed);
+        if (response.status === 401) {
           sessionStorage.removeItem("token");
         }
-        throw error;
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
       return data;
     } catch (error) {
       console.error("Error in getBalance:", error);
-      if (this.isTokenExpiredError(error)) {
-        this.showTokenExpiredPopup();
-      }
       throw error;
     }
   }
 
-  /**
-   * Show token expired popup to the user
-   */
   private showTokenExpiredPopup(): void {
-    try {
-      // Find the game scene using phaserGame (as set in main.ts line 238)
-      const gameScene = (window as any).phaserGame?.scene?.getScene("Game");
-      if (gameScene) {
-        import("../managers/PopupManager")
-          .then(({ showPopup, PopupType, clearCurrentPopup }) => {
-            showPopup(PopupType.TOKEN_EXPIRED, (registerHide) => {
-              // Import dynamically to avoid circular dependency
-              import("../game/components/TokenExpiredPopup")
-                .then((module) => {
-                  const TokenExpiredPopup = module.TokenExpiredPopup;
-                  const popup = new TokenExpiredPopup(gameScene as any);
-                  popup.show();
-                  registerHide((cb) =>
-                    popup.hide(() => {
-                      clearCurrentPopup();
-                      if (cb) cb();
-                    })
-                  );
-                })
-                .catch(() => {});
-            });
-          })
-          .catch(() => {});
-      } else {
-        console.error("Game scene not found. Cannot show token expired popup.");
-      }
-    } catch (e) {}
-  }
-
-  /**
-   * Check if an error is related to token expiration
-   */
-  private isTokenExpiredError(error: any): boolean {
-    const errorMessage = error?.message?.toLowerCase() || "";
-    return (
-      errorMessage.includes("token") ||
-      errorMessage.includes("expired") ||
-      errorMessage.includes("unauthorized") ||
-      errorMessage.includes("auth") ||
-      errorMessage.includes("jwt") ||
-      errorMessage.includes("session") ||
-      errorMessage.includes("401") ||
-      errorMessage.includes("403")
-    );
-  }
-
-  /**
-   * Determine if an HTTP failure should be treated as an auth/session expiry issue.
-   * Some endpoints may return 400 for auth problems, so we only classify 400 as auth
-   * when the backend message explicitly indicates token/session/authentication failure.
-   * HARDENING NOTE: This helper was added for "session expired" false-positive protection.
-   * To roll back to legacy behavior, remove this helper and treat all 400 as auth failures.
-   */
-  private isAuthHttpFailure(status: number, errorText: string = ""): boolean {
-    if (status === 401 || status === 403) {
-      return true;
-    }
-    if (status !== 400) {
-      return false;
-    }
-    const msg = (errorText || "").toLowerCase();
-    return (
-      msg.includes("token") ||
-      msg.includes("expired") ||
-      msg.includes("unauthorized") ||
-      msg.includes("auth") ||
-      msg.includes("jwt") ||
-      msg.includes("session")
-    );
+    checkAndHandlePopup({ errorCode: "DJ401UA" });
   }
 
   /**
@@ -1336,17 +1304,7 @@ export class GameAPI {
    * Shows the token-expired popup and clears auth tokens from storage.
    */
   public handleSessionTimeout(): void {
-    try {
-      this.showTokenExpiredPopup();
-    } catch (e) {
-      console.error("[GameAPI] Failed to show session timeout popup:", e);
-    }
-    try {
-      sessionStorage.removeItem("token");
-    } catch {}
-    try {
-      sessionStorage.removeItem(GameAPI.REFRESH_TOKEN_KEY);
-    } catch {}
+    checkAndHandlePopup({ errorCode: "DJ401UA" });
     try {
       sessionStorage.removeItem("token");
     } catch {}
@@ -1366,6 +1324,12 @@ export class GameAPI {
     }
   }
 
+  private hasRefreshToken(): boolean {
+    const refreshToken =
+      sessionStorage.getItem(GameAPI.REFRESH_TOKEN_KEY) || "";
+    return refreshToken.length > 0;
+  }
+
   /**
    * Obtain a new access token using the stored refresh token.
    * Persists the new token and returns it. Throws on failure.
@@ -1375,7 +1339,7 @@ export class GameAPI {
       sessionStorage.getItem(GameAPI.REFRESH_TOKEN_KEY) ||
       "";
     if (!refreshToken) {
-      throw new Error("No refresh token available");
+      throw new Error("No refresh token available.");
     }
     const apiUrl = `${getApiBaseUrl()}/api/v1/refresh_token`;
     const response = await fetch(apiUrl, {
@@ -1384,13 +1348,21 @@ export class GameAPI {
       body: JSON.stringify({ refreshToken } as RefreshTokenRequest),
     });
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Refresh failed: ${response.status}, ${errorText}`);
+      const parsed = await this.readBackendErrorResponse(response);
+      checkAndHandlePopup(parsed) ||
+        checkAndHandlePopup({ status: response.status, errorCode: "DJ401UA" });
+      const errorText =
+        parsed.message_text ||
+        parsed.message ||
+        (await response.clone().text().catch(() => ""));
+      throw new Error(
+        `Refresh token failed: ${response.status}, ${errorText}`,
+      );
     }
     const raw = (await response.json()) as RefreshTokenResponse;
     const newToken = raw?.data?.token ?? raw?.token ?? "";
     if (!newToken) {
-      throw new Error("Refresh response missing token");
+      throw new Error("Refresh token response missing token");
     }
     sessionStorage.setItem("token", newToken);
     return newToken;
@@ -1528,9 +1500,14 @@ export class GameAPI {
       }
     }
 
-    let token =
-      sessionStorage.getItem("token") || "";
+    let token = sessionStorage.getItem("token") || "";
     if (!token) {
+      if (!this.hasRefreshToken()) {
+        this.showTokenExpiredPopup();
+        throw new Error(
+          "No game token available. Please initialize the game first.",
+        );
+      }
       const newToken = await this.tryRefreshAndGetNewToken();
       if (newToken) {
         token = newToken;
@@ -1574,31 +1551,28 @@ export class GameAPI {
           body: JSON.stringify(requestBody),
         });
 
-      let response = await doRequest(token);
-      // SESSION-EXPIRED HARDENING:
-      // Retry refresh only for auth-like failures (401/403 or auth-indicated 400),
-      // not for every 400 validation/business error.
-      let shouldRetryWithRefresh = response.status === 401;
-      if (!shouldRetryWithRefresh && response.status === 400) {
-        const probeText = await response
-          .clone()
-          .text()
-          .catch(() => "");
-        shouldRetryWithRefresh = this.isAuthHttpFailure(
-          response.status,
-          probeText,
-        );
-      }
-      if (shouldRetryWithRefresh) {
-        const newToken = await this.tryRefreshAndGetNewToken();
-        if (newToken) {
-          token = newToken;
-          response = await doRequest(token);
+      let currentToken = token;
+      let response = await doRequest(currentToken);
+
+      if (!response.ok && response.status === 401) {
+        const parsed = await this.readBackendErrorResponse(response);
+        if (parsed.errorCode === "DJ401TE") {
+          const newToken = await this.tryRefreshAndGetNewToken();
+          if (newToken) {
+            currentToken = newToken;
+            response = await doRequest(currentToken);
+          }
+        } else {
+          checkAndHandlePopup(parsed);
         }
       }
 
       if (!response.ok) {
-        const errorText = await response.text();
+        const parsed = await this.readBackendErrorResponse(response);
+        const errorText =
+          parsed.message_text ||
+          parsed.message ||
+          (await response.clone().text().catch(() => ""));
 
         // Special handling for 422 "No valid freespins available" during free spin rounds
         // This means the free spins have ended, so we should treat it as a graceful completion
@@ -1636,12 +1610,8 @@ export class GameAPI {
         const error = new Error(
           `HTTP error! status: ${response.status}, message: ${errorText}`,
         );
-
-        // SESSION-EXPIRED HARDENING:
-        // Show token expired popup only for auth-like failures.
-        // Legacy behavior showed popup for all 400 responses.
-        if (this.isAuthHttpFailure(response.status, errorText)) {
-          this.showTokenExpiredPopup();
+        checkAndHandlePopup(parsed);
+        if (response.status === 401) {
           sessionStorage.removeItem("token");
         }
 
@@ -1732,12 +1702,6 @@ export class GameAPI {
       return this.currentSpinData as SpinData;
     } catch (error) {
       console.error("Error in doSpin:", error);
-
-      // Handle network errors or other issues
-      if (this.isTokenExpiredError(error)) {
-        this.showTokenExpiredPopup();
-      }
-
       throw error;
     }
   }
@@ -1963,9 +1927,12 @@ export class GameAPI {
       };
     }
 
-    let token =
-      sessionStorage.getItem("token") || "";
+    let token = sessionStorage.getItem("token") || "";
     if (!token) {
+      if (!this.hasRefreshToken()) {
+        this.showTokenExpiredPopup();
+        throw new Error("No authentication token available");
+      }
       const newToken = await this.tryRefreshAndGetNewToken();
       if (newToken) {
         token = newToken;
@@ -1976,32 +1943,53 @@ export class GameAPI {
     }
 
     const apiUrl = `${getApiBaseUrl()}/api/v1/games/me/histories`;
-    const doRequest = (authToken: string) =>
-      fetch(`${apiUrl}?limit=${limit}&page=${page}&_ts=${Date.now()}`, {
-        method: "GET",
-        cache: "no-store",
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
+    const historyUrl = `${apiUrl}?limit=${limit}&page=${page}&_ts=${Date.now()}`;
+    const historyHeaders = {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    };
 
-    let response = await doRequest(token);
-    if (response.status === 401 || response.status === 400) {
-      const newToken = await this.tryRefreshAndGetNewToken();
-      if (newToken) {
-        response = await doRequest(newToken);
+    let currentToken = token;
+    let response = await fetch(historyUrl, {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        ...historyHeaders,
+        Authorization: `Bearer ${currentToken}`,
+      },
+    });
+
+    if (!response.ok && response.status === 401) {
+      const parsed = await this.readBackendErrorResponse(response);
+      if (parsed.errorCode === "DJ401TE") {
+        const newToken = await this.tryRefreshAndGetNewToken();
+        if (newToken) {
+          currentToken = newToken;
+          response = await fetch(historyUrl, {
+            method: "GET",
+            cache: "no-store",
+            headers: {
+              ...historyHeaders,
+              Authorization: `Bearer ${currentToken}`,
+            },
+          });
+        }
+      } else {
+        checkAndHandlePopup(parsed);
       }
     }
 
     if (!response.ok) {
-      if (response.status === 401 || response.status === 400) {
-        this.showTokenExpiredPopup();
+      const parsed = await this.readBackendErrorResponse(response);
+      checkAndHandlePopup(parsed);
+      if (response.status === 401) {
         sessionStorage.removeItem("token");
       }
-      const errorText = await response.text();
+      const errorText =
+        parsed.message_text ||
+        parsed.message ||
+        (await response.clone().text().catch(() => ""));
       throw new Error(
         `HTTP error! status: ${response.status}, message: ${errorText}`,
       );
@@ -2080,10 +2068,7 @@ export class GameAPI {
         try {
           errPayload = await response.json();
         } catch {}
-        try {
-          const { checkAndHandlePopup } = await import("../managers/PopupManager");
-          if (errPayload) checkAndHandlePopup(errPayload);
-        } catch {}
+        if (errPayload) checkAndHandlePopup(errPayload);
         console.warn(
           `[GameAPI] Replay fetch failed: status=${response.status} errorCode=${errPayload?.errorCode ?? ""}`,
         );
@@ -2134,6 +2119,29 @@ export class GameAPI {
    */
   public updateDemoBalance(newBalance: number): void {
     GameAPI.DEMO_BALANCE = newBalance;
+  }
+
+  private async readBackendErrorResponse(
+    response: Response,
+  ): Promise<BackendErrorResponse> {
+    const status = response.status;
+    try {
+      const json: any = await response.clone().json();
+      const data =
+        json && typeof json === "object" && "data" in json
+          ? (json as any).data
+          : json;
+      const errorCode =
+        typeof data?.errorCode === "string" ? data.errorCode : undefined;
+      const message_text =
+        typeof data?.message_text === "string" ? data.message_text : undefined;
+      const message =
+        typeof data?.message === "string" ? data.message : undefined;
+      return { status, errorCode, message_text, message };
+    } catch {
+      const text = await response.clone().text().catch(() => "");
+      return { status, message: text };
+    }
   }
 }
 

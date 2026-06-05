@@ -150,6 +150,10 @@ const StartGame = (parent: string) => {
 			// unless the user explicitly muted audio via the in-game controls.
 			if (shouldUnmute()) {
 				applyMuteToAllScenes(false);
+				try {
+					const am: any = getGlobalAudioManager();
+					am?.ensurePlayback?.();
+				} catch {}
 			}
 		};
 		const shouldPauseFromPageState = (): boolean => {
